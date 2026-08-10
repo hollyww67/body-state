@@ -1,0 +1,255 @@
+"use client";
+
+import Link from "next/link";
+import Image from "next/image";
+import { useEffect, useState, useRef } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { Menu, X, ShoppingBag, ChevronDown, Sparkles } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import ThemeToggle from "./ThemeToggle";
+
+const primaryLinks = [
+  { href: "/bfm", label: "Биофасциальные модуляции" },
+  { href: "/brt", label: "Биорезонансная программа" },
+  { href: "/psychology", label: "Психология" },
+  { href: "/shop", label: "Крема" },
+];
+
+const secondaryLinks = [
+  { href: "/program", label: "Комплексная программа" },
+  { href: "/about", label: "О специалисте" },
+  { href: "/blog", label: "Блог" },
+];
+
+export default function Navbar() {
+  const pathname = usePathname();
+  const [scrolled, setScrolled] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [servicesOpen, setServicesOpen] = useState(false);
+  const [cartCount, setCartCount] = useState(0);
+  const dropdownContainerRef = useRef<HTMLDivElement>(null);
+  const navRef = useRef<HTMLDivElement>(null);
+  const closeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Закрытие при смене маршрута
+  useEffect(() => { setMobileOpen(false); setServicesOpen(false); }, [pathname]);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 24);
+    const updateCart = () => {
+      try {
+        const items = JSON.parse(localStorage.getItem("cart") || "[]");
+        setCartCount(items.reduce((sum: number, item: any) => sum + item.quantity, 0));
+      } catch { setCartCount(0); }
+    };
+    onScroll(); updateCart();
+    window.addEventListener("scroll", onScroll);
+    window.addEventListener("cartUpdated", updateCart);
+    return () => { window.removeEventListener("scroll", onScroll); window.removeEventListener("cartUpdated", updateCart); };
+  }, []);
+
+  useEffect(() => { document.body.style.overflow = mobileOpen ? "hidden" : ""; return () => { document.body.style.overflow = ""; }; }, [mobileOpen]);
+
+  // Click outside
+  useEffect(() => {
+    const onClickOutside = (e: MouseEvent) => {
+      if (dropdownContainerRef.current && !dropdownContainerRef.current.contains(e.target as Node)) {
+        setServicesOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, []);
+
+  // Escape
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => { if (e.key === "Escape") { setMobileOpen(false); setServicesOpen(false); } };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
+  const isActive = (href: string) => {
+    if (href === "/") return pathname === "/";
+    return pathname === href || pathname?.startsWith(href + "/");
+  };
+
+  const handleMouseEnter = () => {
+    if (closeTimeoutRef.current) { clearTimeout(closeTimeoutRef.current); closeTimeoutRef.current = null; }
+    setServicesOpen(true);
+  };
+  const handleMouseLeave = () => {
+    closeTimeoutRef.current = setTimeout(() => setServicesOpen(false), 150);
+  };
+
+  return (
+    <header className="fixed top-0 left-0 z-40 w-full px-3 sm:px-5 pt-3 sm:pt-5">
+      <div className="mx-auto max-w-[1320px]" ref={navRef}>
+        <motion.div
+          animate={{ paddingTop: scrolled ? 10 : 16, paddingBottom: scrolled ? 10 : 16 }}
+          transition={{ duration: 0.25 }}
+          className="relative rounded-[28px] border border-white/10 backdrop-blur-xl transition-all duration-500 shadow-[0_8px_30px_rgba(0,0,0,0.06)]"
+          style={{ backgroundColor: scrolled ? 'var(--glass-feature-bg)' : 'var(--glass-bg)' }}
+        >
+          <div className="absolute inset-0 bg-gradient-to-r from-white/10 via-transparent to-white/5 pointer-events-none rounded-[28px]" />
+          <div className="relative flex items-center justify-between px-4 sm:px-7">
+            <Link href="/" className="group flex items-center gap-3 min-w-0" aria-label="На главную">
+              <motion.div animate={{ scale: scrolled ? 0.92 : 1 }} transition={{ duration: 0.25 }} className="relative">
+                <Image src="/logo.png" alt="Через тело к состоянию" width={48} height={48} priority className="rounded-2xl shadow-lg" unoptimized />
+              </motion.div>
+              <div className="hidden lg:block">
+                <p className="text-base font-semibold tracking-tight" style={{ color: 'var(--foreground)' }}>Через тело к состоянию</p>
+                <p className="text-xs mt-0.5" style={{ color: 'var(--foreground-secondary)' }}>Целостное восстановление и забота</p>
+              </div>
+            </Link>
+
+            <nav className="hidden xl:flex items-center gap-2">
+              <div className="relative" ref={dropdownContainerRef} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
+                <button onClick={() => setServicesOpen(!servicesOpen)}
+                  className="group flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-medium hover:bg-white/60 transition-colors duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2"
+                  style={{ color: 'var(--foreground)' }}
+                  aria-expanded={servicesOpen} aria-haspopup="menu" aria-label="Открыть меню направлений">
+                  Направления
+                  <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${servicesOpen ? "rotate-180" : ""}`} />
+                </button>
+                <AnimatePresence>
+                  {servicesOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -6, scale: 0.96 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -6, scale: 0.96 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute left-1/2 top-[calc(100%+12px)] w-[300px] -translate-x-1/2 rounded-[24px] border border-white/10 backdrop-blur-lg p-2.5 shadow-[0_20px_60px_rgba(0,0,0,0.12)] z-50"
+                      style={{ background: 'var(--glass-feature-bg)' }}
+                    >
+                      <div className="space-y-0.5">
+                        {primaryLinks.map((link) => (
+                          <Link key={link.href} href={link.href} onClick={() => setServicesOpen(false)}
+                            className="group flex items-center justify-between rounded-2xl px-4 py-3 transition-colors duration-200 hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2"
+                            style={{ color: isActive(link.href) ? 'var(--primary)' : 'var(--foreground)' }}>
+                            <span className="text-sm font-medium">{link.label}</span>
+                            <Sparkles className="w-4 h-4 opacity-60 group-hover:opacity-100 transition-opacity" />
+                          </Link>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+              {secondaryLinks.map((link) => (
+                <NavLink key={link.href} href={link.href} label={link.label} active={isActive(link.href)} />
+              ))}
+            </nav>
+
+            <div className="hidden xl:flex items-center gap-2">
+              <ThemeToggle />
+              <Link href="/shop/cart" aria-label="Корзина"
+                className="group relative flex items-center justify-center rounded-full w-11 h-11 hover:bg-white/60 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2"
+                style={{ color: 'var(--foreground-secondary)' }}>
+                <ShoppingBag className="w-5 h-5 transition-transform duration-300 group-hover:scale-110" />
+                <AnimatePresence>
+                  {cartCount > 0 && (
+                    <motion.span key={cartCount} initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.6, opacity: 0 }}
+                      transition={{ type: "spring", stiffness: 500, damping: 24 }}
+                      className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1 rounded-full text-white text-[11px] font-semibold flex items-center justify-center shadow-lg"
+                      style={{ background: 'var(--primary)' }}>{cartCount}</motion.span>
+                  )}
+                </AnimatePresence>
+              </Link>
+              <Link href="/contact"
+                className="group relative overflow-hidden rounded-full px-6 py-3 text-sm font-semibold text-white shadow-[0_8px_30px_rgba(0,0,0,0.16)] transition-all duration-300 hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2"
+                style={{ background: "linear-gradient(135deg,var(--primary),color-mix(in srgb,var(--primary) 82%, white))" }}>
+                <span className="relative z-10 flex items-center gap-2">Записаться <Sparkles className="w-4 h-4" /></span>
+              </Link>
+            </div>
+
+            <div className="flex items-center gap-2 xl:hidden">
+              <ThemeToggle />
+              <Link href="/shop/cart" aria-label="Корзина" className="relative flex items-center justify-center w-11 h-11 rounded-full hover:bg-white/50 transition-colors"
+                style={{ color: 'var(--foreground)' }}>
+                <ShoppingBag className="w-5 h-5" />
+                {cartCount > 0 && <span className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1 rounded-full text-white text-[11px] font-semibold flex items-center justify-center" style={{ background: 'var(--primary)' }}>{cartCount}</span>}
+              </Link>
+              <button onClick={() => setMobileOpen(!mobileOpen)} aria-label="Открыть меню" aria-expanded={mobileOpen}
+                className="flex items-center justify-center w-11 h-11 rounded-full hover:bg-white/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2"
+                style={{ color: 'var(--foreground)' }}>
+                {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              </button>
+            </div>
+          </div>
+        </motion.div>
+      </div>
+
+      <AnimatePresence>
+        {mobileOpen && (
+          <>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
+              className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50" onClick={() => setMobileOpen(false)} />
+            <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }} transition={{ duration: 0.25 }}
+              role="dialog" aria-modal="true"
+              className="fixed inset-x-3 top-[88px] bottom-3 z-[60] overflow-y-auto rounded-[36px] border border-white/10 backdrop-blur-xl shadow-[0_24px_80px_rgba(0,0,0,0.18)]"
+              style={{ background: 'var(--glass-feature-bg)' }}>
+              <div className="p-6 flex flex-col min-h-full">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.24em] mb-4" style={{ color: 'var(--foreground-secondary)' }}>Направления</p>
+                  <div className="space-y-2">
+                    {primaryLinks.map((link, index) => (
+                      <motion.div key={link.href} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.04 }}>
+                        <MobileLink href={link.href} label={link.label} active={isActive(link.href)} onClick={() => setMobileOpen(false)} />
+                      </motion.div>
+                    ))}
+                  </div>
+                </div>
+                <div className="mt-10">
+                  <p className="text-xs font-semibold uppercase tracking-[0.24em] mb-4" style={{ color: 'var(--foreground-secondary)' }}>Дополнительно</p>
+                  <div className="space-y-2">
+                    {secondaryLinks.map((link, index) => (
+                      <motion.div key={link.href} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 + index * 0.04 }}>
+                        <MobileLink href={link.href} label={link.label} active={isActive(link.href)} onClick={() => setMobileOpen(false)} />
+                      </motion.div>
+                    ))}
+                  </div>
+                </div>
+                <div className="mt-auto pt-10">
+                  <Link href="/contact" onClick={() => setMobileOpen(false)}
+                    className="flex items-center justify-center gap-2 rounded-full px-6 py-4 text-white font-semibold shadow-[0_12px_32px_rgba(0,0,0,0.18)]"
+                    style={{ background: "linear-gradient(135deg,var(--primary),color-mix(in srgb,var(--primary) 82%, white))" }}>
+                    Записаться <Sparkles className="w-4 h-4" />
+                  </Link>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </header>
+  );
+}
+
+function NavLink({ href, label, active }: { href: string; label: string; active?: boolean }) {
+  return (
+    <Link href={href}
+      className="relative rounded-full px-4 py-2.5 text-sm font-medium transition-colors duration-200 hover:bg-white/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2"
+      style={{ color: active ? 'var(--foreground)' : 'var(--foreground-secondary)' }}>
+      {label}
+      {active && (
+        <motion.div layoutId="navbar-active" className="absolute left-1/2 -translate-x-1/2 bottom-1 h-[2px] w-6 rounded-full" style={{ background: 'var(--primary)' }} />
+      )}
+    </Link>
+  );
+}
+
+function MobileLink({ href, label, active, onClick }: { href: string; label: string; active?: boolean; onClick?: () => void }) {
+  return (
+    <Link href={href} onClick={onClick}
+      className={`flex items-center justify-between rounded-[24px] px-5 py-4 transition-all duration-300 ${
+        active ? "text-white shadow-lg" : "hover:bg-black/[0.05]"
+      }`}
+      style={{
+        backgroundColor: active ? 'var(--primary)' : undefined,
+        color: active ? 'white' : 'var(--foreground)',
+      }}>
+      <span className="text-base font-medium">{label}</span>
+      <div className="w-2 h-2 rounded-full transition-all duration-300" style={{ background: active ? 'white' : 'var(--primary)' }} />
+    </Link>
+  );
+}

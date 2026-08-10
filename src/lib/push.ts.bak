@@ -1,0 +1,53 @@
+import admin from 'firebase-admin';
+import { supabaseAdmin } from './supabase';
+
+function initFirebase() {
+  if (!admin.apps.length) {
+    const projectId = process.env.FCM_PROJECT_ID;
+    const clientEmail = process.env.FCM_CLIENT_EMAIL;
+    const privateKey = process.env.FCM_PRIVATE_KEY?.replace(/\\n/g, '\n');
+
+    if (!projectId || !clientEmail || !privateKey) {
+      console.warn('FCM not configured — push notifications disabled');
+      return null;
+    }
+
+    admin.initializeApp({
+      credential: admin.credential.cert({ projectId, clientEmail, privateKey }),
+    });
+  }
+  return admin;
+}
+
+export async function sendPushToAdmin(type: 'new_booking' | 'new_order', details: string) {
+  const firebase = initFirebase();
+  if (!firebase) return;
+
+  const { data: tokens } = await supabaseAdmin
+    .from('push_tokens')
+    .select('token');
+
+  if (!tokens?.length) return;
+
+  const messages = tokens.map(({ token }: { token: string }) => ({
+    token,
+    notification: {
+      title: type === 'new_booking' ? '🆕 Новая запись' : '📦 Новый заказ',
+      body: details,
+    },
+    data: { type },
+    android: {
+      priority: 'high' as const,
+      notification: { channelId: 'bookings', sound: 'default' },
+    },
+    apns: {
+      payload: { aps: { sound: 'default', badge: 1 } },
+    },
+  }));
+
+  try {
+    await firebase.messaging().sendEach(messages);
+  } catch (e) {
+    console.error('Push send error:', e);
+  }
+}

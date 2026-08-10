@@ -1,0 +1,22 @@
+"use client";
+import { useEffect, useState } from "react";
+import { Plus, Trash2, Check, X } from "lucide-react";
+export default function AdminFaqPage() {
+  const [faqs, setFaqs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [question, setQuestion] = useState(""); const [keywords, setKeywords] = useState("");
+  const [answer, setAnswer] = useState(""); const [category, setCategory] = useState("Общее");
+  const fetchFaqs = () => { setLoading(true); fetch("/api/admin/faq").then((r) => r.json()).then((data) => { setFaqs(data.faqs || []); setLoading(false); }).catch(() => setLoading(false)); };
+  useEffect(() => { fetchFaqs(); }, []);
+  const addFaq = async (e: React.FormEvent) => { e.preventDefault(); await fetch("/api/admin/faq", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question, keywords: keywords.split(",").map((k) => k.trim()).filter(Boolean), answer, category }) }); setShowForm(false); setQuestion(""); setKeywords(""); setAnswer(""); fetchFaqs(); };
+  const toggleFaq = async (id: string, is_active: boolean) => { await fetch("/api/admin/faq", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, is_active }) }); fetchFaqs(); };
+  const deleteFaq = async (id: string) => { await fetch(`/api/admin/faq?id=${id}`, { method: "DELETE" }); fetchFaqs(); };
+  return (
+    <div className="max-w-4xl mx-auto">
+      <div className="flex items-center justify-between mb-8"><h2 className="text-2xl font-semibold text-[#111827]">FAQ для чат-бота</h2><button onClick={() => setShowForm(!showForm)} className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#0F766E] text-white text-sm font-medium hover:bg-[#0d6b63] transition-colors"><Plus className="w-4 h-4" /> Добавить</button></div>
+      {showForm && (<form onSubmit={addFaq} className="bg-white rounded-2xl p-6 border border-gray-100 mb-6 space-y-4"><input required placeholder="Вопрос" value={question} onChange={(e) => setQuestion(e.target.value)} className="w-full h-12 rounded-2xl border border-gray-200 px-4 focus:outline-none focus:ring-2 focus:ring-teal-500/30" /><input required placeholder="Ключевые слова" value={keywords} onChange={(e) => setKeywords(e.target.value)} className="w-full h-12 rounded-2xl border border-gray-200 px-4 focus:outline-none focus:ring-2 focus:ring-teal-500/30" /><textarea required placeholder="Ответ" value={answer} onChange={(e) => setAnswer(e.target.value)} rows={3} className="w-full rounded-2xl border border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-teal-500/30 resize-none" /><div className="flex gap-3"><input placeholder="Категория" value={category} onChange={(e) => setCategory(e.target.value)} className="flex-1 h-12 rounded-2xl border border-gray-200 px-4 focus:outline-none focus:ring-2 focus:ring-teal-500/30" /><button type="submit" className="px-6 py-3 rounded-full bg-[#0F766E] text-white font-medium hover:bg-[#0d6b63] transition-colors">Сохранить</button></div></form>)}
+      {loading ? <p className="text-[#6B7280]">Загрузка...</p> : faqs.length===0 ? <p className="text-[#6B7280]">Нет записей</p> : (<div className="space-y-3">{faqs.map((faq) => (<div key={faq.id} className="bg-white rounded-2xl border border-gray-100 p-5"><div className="flex items-start justify-between gap-4"><div className="flex-1"><div className="flex items-center gap-2 mb-1"><span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-[#6B7280]">{faq.category}</span><span className={`text-xs px-2 py-0.5 rounded-full ${faq.is_active?"bg-green-100 text-green-700":"bg-red-100 text-red-700"}`}>{faq.is_active?"Активен":"Выключен"}</span></div><p className="font-semibold text-[#111827]">{faq.question}</p><p className="text-sm text-[#6B7280] mt-1">{faq.answer}</p></div><div className="flex gap-2 flex-shrink-0"><button onClick={() => toggleFaq(faq.id, !faq.is_active)} className={`p-2 rounded-xl ${faq.is_active?"bg-red-50 text-red-500":"bg-green-50 text-green-600"} hover:opacity-80 transition-opacity`}>{faq.is_active ? <X className="w-4 h-4" /> : <Check className="w-4 h-4" />}</button><button onClick={() => deleteFaq(faq.id)} className="p-2 rounded-xl bg-red-50 text-red-500 hover:opacity-80 transition-opacity"><Trash2 className="w-4 h-4" /></button></div></div></div>))}</div>)}
+    </div>
+  );
+}
