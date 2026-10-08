@@ -15,7 +15,7 @@ declare global {
 
 const CONSENT_KEY = "body-state-analytics-consent-v1";
 const SETTINGS_EVENT = "body-state:analytics-settings";
-const METRIKA_ID = (process.env.NEXT_PUBLIC_YANDEX_METRIKA_ID ?? "").trim();
+const METRIKA_ID = (process.env.NEXT_PUBLIC_YANDEX_METRIKA_ID ?? "113557210").trim();
 const UMAMI_ID = (process.env.NEXT_PUBLIC_UMAMI_ID ?? "").trim();
 const UMAMI_SRC = process.env.NEXT_PUBLIC_UMAMI_SRC || "https://cloud.umami.is/script.js";
 
