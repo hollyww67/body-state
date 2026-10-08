@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import BookingCalendar from "./BookingCalendar";
+import { trackMetricaGoal } from "./AnalyticsConsent";
 
 export default function BfmBookingForm() {
   const [step, setStep] = useState<"calendar" | "form">("calendar");
@@ -33,6 +34,7 @@ export default function BfmBookingForm() {
 
     const data = await res.json();
     if (!res.ok) { setError(data.error || "Ошибка при записи"); setSubmitting(false); return; }
+    trackMetricaGoal("booking_bfm_success");
     setDone(true);
   };
 
