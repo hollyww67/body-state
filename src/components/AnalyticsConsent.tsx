@@ -176,3 +176,14 @@ export function AnalyticsSettingsButton() {
     </button>
   );
 }
+
+/** Only emits an anonymous conversion goal after analytics consent. */
+export function trackMetricaGoal(goal: string) {
+  if (typeof window === "undefined" || !/^\d+$/.test(METRIKA_ID)) return;
+  try {
+    if (window.localStorage.getItem(CONSENT_KEY) !== "granted") return;
+  } catch {
+    return;
+  }
+  window.ym?.(Number(METRIKA_ID), "reachGoal", goal);
+}
