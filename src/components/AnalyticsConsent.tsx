@@ -46,7 +46,7 @@ function installMetrica() {
 
   const script = document.createElement("script");
   script.async = true;
-  script.src = "https://mc.yandex.ru/metrika/tag.js";
+  script.src = `https://mc.yandex.ru/metrika/tag.js?id=${METRIKA_ID}`;
   script.dataset.bodyStateMetrica = "true";
   document.head.appendChild(script);
 }
