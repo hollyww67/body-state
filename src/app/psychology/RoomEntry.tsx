@@ -15,14 +15,13 @@ export default function RoomEntry() {
     if (!roomId.trim()) return;
     setChecking(true);
     setError("");
-    const res = await fetch(`/api/room/check?id=${roomId.trim()}`);
-    const data = await res.json();
-    if (data.valid) {
-      router.push(`/psychology/room?id=${roomId.trim()}`);
-    } else {
-      setError("Комната с таким ID не найдена.");
-      setChecking(false);
-    }
+    try {
+      const res = await fetch(`/api/room/check?id=${encodeURIComponent(roomId.trim())}`);
+      const data = await res.json();
+      if (!res.ok || !data.valid) throw new Error(data.error || 'Комната недоступна');
+      router.push(`/psychology/room?id=${encodeURIComponent(roomId.trim())}`);
+    } catch (e) { setError(e instanceof Error ? e.message : 'Не удалось проверить комнату'); }
+    finally { setChecking(false); }
   };
 
   return (
@@ -31,7 +30,7 @@ export default function RoomEntry() {
         <Video className="w-5 h-5" style={{ color: 'var(--primary)' }} />
         <h2 className="text-lg font-semibold" style={{ color: 'var(--foreground)' }}>Уже записаны на онлайн-сессию?</h2>
       </div>
-      <p className="text-sm mb-4" style={{ color: 'var(--foreground-secondary)' }}>Введите ID комнаты из уведомления.</p>
+      <p className="text-sm mb-4" style={{ color: 'var(--foreground-secondary)' }}>Войдите в личный кабинет: ваши видеокомнаты доступны там. Если специалист передал ID комнаты, его можно ввести ниже.</p>
       <form onSubmit={joinRoom} className="flex gap-3">
         <input required type="text" placeholder="ID комнаты" value={roomId} onChange={(e) => { setRoomId(e.target.value); setError(""); }} className="flex-1 h-12 rounded-2xl border px-4 focus:outline-none focus:ring-2" style={{ background: 'var(--input-bg)', borderColor: 'var(--input-border)', color: 'var(--foreground)' }} />
         <button type="submit" disabled={checking} className="liquid-btn group relative inline-flex items-center justify-center rounded-full text-white px-6 py-3 font-medium gap-2 disabled:opacity-50">

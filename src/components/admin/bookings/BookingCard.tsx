@@ -1,6 +1,6 @@
 import { format, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
-import { Check, X, Video, Trash2 } from "lucide-react";
+import { X, Video, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { Booking } from "@/lib/api/bookings";
 import { TYPE_LABELS } from "@/lib/api/bookings";
@@ -53,16 +53,10 @@ export default function BookingCard({ booking, updatingId, onStatusChange, onDel
             </button>
           )}
           {booking.status === "pending" && (
-            <>
-              <button onClick={() => onStatusChange(booking.id, "confirmed")} disabled={isUpdating}
-                className="p-2 rounded-xl bg-green-50 text-green-600 hover:bg-green-100 transition-colors disabled:opacity-50" aria-label="Подтвердить">
-                <Check className="w-4 h-4" />
-              </button>
               <button onClick={() => onStatusChange(booking.id, "cancelled")} disabled={isUpdating}
                 className="p-2 rounded-xl bg-red-50 text-red-500 hover:bg-red-100 transition-colors disabled:opacity-50" aria-label="Отменить">
                 <X className="w-4 h-4" />
               </button>
-            </>
           )}
           {booking.status === "confirmed" && (
             <button onClick={() => onStatusChange(booking.id, "completed")} disabled={isUpdating}

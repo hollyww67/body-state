@@ -28,16 +28,19 @@ export default function ThemeToggle() {
     setTheme(next);
     localStorage.setItem("theme", next);
     document.documentElement.setAttribute("data-theme", next);
+    document.documentElement.style.colorScheme = next === "violet" ? "dark" : "light";
   };
 
   return (
     <button
       onClick={toggle}
-      className="w-9 h-9 rounded-full flex items-center justify-center transition-all hover:scale-110"
-      style={{ background: 'var(--primary-muted)', color: 'var(--primary)' }}
+      type="button"
+      className="theme-toggle grid h-10 w-10 place-items-center rounded-2xl border transition-all hover:-translate-y-0.5"
+      style={{ background: 'var(--glass-bg)', color: 'var(--foreground)', borderColor: 'var(--glass-border)' }}
       title={theme === "teal" ? "Тёмная тема" : "Светлая тема"}
+      aria-label={theme === "teal" ? "Включить тёмную violet-тему" : "Включить светлую тему"}
     >
-      {theme === "teal" ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+      {theme === "teal" ? <Moon className="w-[18px] h-[18px]" /> : <Sun className="w-[18px] h-[18px]" />}
     </button>
   );
 }

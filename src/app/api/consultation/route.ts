@@ -1,18 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { db } from '@/lib/db';
+import { CONSENT_VERSION, hasPersonalDataConsent } from '@/lib/legal';
+import { cleanMultiline, cleanText, enforceRateLimit, normalizePhone, readJsonObject } from '@/lib/request';
+import { getAccountSession } from '@/lib/account-auth';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
-async function sendTelegramNotification(name: string, phone: string, notes?: string) {
+async function sendTelegramNotification(id: string | number) {
   const botToken = process.env.TELEGRAM_BOT_TOKEN;
   const chatId = process.env.TELEGRAM_CHAT_ID;
   
   if (!botToken || !chatId) return;
   
-  const text = `📋 *Новая заявка на консультацию*\n\n👤 Имя: ${name}\n📞 Телефон: ${phone}\n💬 Направление: ${notes || '—'}`;
+  const text = `📋 *Новая заявка на консультацию*\n\nНомер: ${String(id).slice(0, 8)}\nДетали доступны в защищённой админке.`;
   
   try {
     await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
@@ -27,12 +26,17 @@ async function sendTelegramNotification(name: string, phone: string, notes?: str
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    const limited = await enforceRateLimit(request, 'consultation', 5, 60 * 60);
+    if (limited) return limited;
+    const body = await readJsonObject(request);
     
     // Поддержка обоих форматов: {name, phone, message} и {client_name, client_phone, notes}
-    const name = body.name || body.client_name;
-    const phone = body.phone || body.client_phone;
-    const message = body.message || body.notes || '';
+    const name = cleanText(body.name || body.client_name, 120);
+    const phone = normalizePhone(body.phone || body.client_phone);
+    const message = cleanMultiline(body.message || body.notes, 1500);
+    const serviceType = cleanText(body.service_type, 40) || 'consultation';
+    const session = await getAccountSession(request);
+    if (!hasPersonalDataConsent(body.consent)) return NextResponse.json({ error: 'Необходимо согласие на обработку персональных данных' }, { status: 400 });
     
     if (!name || !phone) {
       return NextResponse.json(
@@ -41,8 +45,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Сохраняем в Supabase
-    const { data, error } = await supabase
+    // Сохраняем в PostgreSQL
+    const { data, error } = await db
       .from('consultation_enrollments')
       .insert([{
         name: name,
@@ -51,12 +55,16 @@ export async function POST(request: NextRequest) {
         source: 'contact_page',
         status: 'new',
         created_at: new Date().toISOString(),
+        consent_version: CONSENT_VERSION,
+        consent_at: new Date().toISOString(),
+        service_type: serviceType,
+        account_user_id: session?.userId || null,
       }])
       .select()
       .single();
 
-    if (error) {
-      console.error('Supabase error:', error);
+    if (error || !data) {
+      console.error('PostgreSQL error:', error);
       return NextResponse.json(
         { error: 'Ошибка сохранения' },
         { status: 500 }
@@ -64,14 +72,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Отправляем в Telegram
-    await sendTelegramNotification(name, phone, message);
+    await sendTelegramNotification(data.id);
 
-    return NextResponse.json({ success: true, data }, { status: 201 });
+    return NextResponse.json({ success: true, id: data.id }, { status: 201 });
   } catch (error) {
     console.error('API error:', error);
     return NextResponse.json(
-      { error: 'Внутренняя ошибка' },
-      { status: 500 }
+      { error: error instanceof Error && error.message === 'REQUEST_TOO_LARGE' ? 'Запрос слишком большой' : 'Некорректный запрос' },
+      { status: error instanceof Error && error.message === 'REQUEST_TOO_LARGE' ? 413 : 400 }
     );
   }
 }

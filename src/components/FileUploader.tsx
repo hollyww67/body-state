@@ -1,7 +1,8 @@
 'use client';
 
+import SiteImage from '@/components/SiteImage';
 import { useState, useRef } from 'react';
-import { Upload, X, Image, Video, Loader2 } from 'lucide-react';
+import { X, Image as ImageIcon, Video, Loader2 } from 'lucide-react';
 
 interface FileUploaderProps {
     onUpload: (url: string) => void;
@@ -125,7 +126,7 @@ export default function FileUploader({
                     {isVideo ? (
                         <video src={preview} className="w-full aspect-video object-cover" controls />
                     ) : (
-                        <img src={preview} alt="Preview" className="w-full aspect-video object-cover" />
+                        <SiteImage src={preview} alt="Preview" className="w-full aspect-video object-cover" />
                     )}
                     <button
                         type="button"
@@ -161,7 +162,7 @@ export default function FileUploader({
                     {isVideo ? (
                         <Video className="w-12 h-12 mx-auto mb-3 opacity-50" style={{ color: 'var(--foreground-secondary)' }} />
                     ) : (
-                        <Image className="w-12 h-12 mx-auto mb-3 opacity-50" style={{ color: 'var(--foreground-secondary)' }} />
+                        <ImageIcon aria-hidden="true" className="w-12 h-12 mx-auto mb-3 opacity-50" style={{ color: 'var(--foreground-secondary)' }} />
                     )}
                     <p className="font-medium" style={{ color: 'var(--foreground)' }}>
                         {label}

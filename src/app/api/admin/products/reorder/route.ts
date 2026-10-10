@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase";
+import { db } from "@/lib/db";
 
 export async function POST(request: NextRequest) {
   const { ids } = await request.json();
@@ -8,7 +8,7 @@ export async function POST(request: NextRequest) {
   }
 
   for (let i = 0; i < ids.length; i++) {
-    await supabaseAdmin.from("products").update({ sort_order: i + 1 }).eq("id", ids[i]);
+    await db.from("products").update({ sort_order: i + 1 }).eq("id", ids[i]);
   }
 
   return NextResponse.json({ ok: true });

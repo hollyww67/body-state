@@ -1,22 +1,24 @@
+import SiteImage from '@/components/SiteImage';
 import type { Metadata } from "next";
+import { sanitizeRichHtml } from "@/lib/sanitize-html";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import { ArrowLeft } from "lucide-react";
-import { supabaseAdmin } from "@/lib/supabase";
+import { db } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
-  const { data: post } = await supabaseAdmin.from("blog_posts").select("title, excerpt").eq("slug", slug).eq("published", true).single();
+  const { data: post } = await db.from("blog_posts").select("title, excerpt").eq("slug", slug).eq("published", true).single();
   if (!post) return { title: "Статья не найдена" };
   return { title: post.title, description: post.excerpt };
 }
 
 export default async function BlogPostPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const { data: post } = await supabaseAdmin.from("blog_posts").select("*").eq("slug", slug).eq("published", true).single();
+  const { data: post } = await db.from("blog_posts").select("*").eq("slug", slug).eq("published", true).single();
   if (!post) notFound();
 
   return (
@@ -33,8 +35,8 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
           <h1 className="text-3xl md:text-4xl font-semibold leading-[1.15] mb-6" style={{ color: 'var(--foreground)' }}>
             {post.title}
           </h1>
-          {post.image && <img src={post.image} alt={post.title} className="w-full rounded-2xl mb-8" />}
-          <div className="prose prose-lg max-w-none leading-relaxed" style={{ color: 'var(--foreground-secondary)' }} dangerouslySetInnerHTML={{ __html: post.content }} />
+          {post.image && <SiteImage src={post.image} alt={post.title} className="w-full rounded-2xl mb-8" />}
+          <div className="prose prose-lg max-w-none leading-relaxed" style={{ color: 'var(--foreground-secondary)' }} dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(post.content) }} />
         </div>
       </article>
     </main>

@@ -1,30 +1,43 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import bcrypt from "bcryptjs";
-import { checkRateLimit } from "@/lib/rate-limit";
+import { checkRateLimit, resetRateLimit } from "@/lib/rate-limit";
+import { adminSessionCookieOptions, createAdminSessionToken } from "@/lib/admin-auth";
+import { getAdminPasswordHash } from "@/lib/admin-credentials";
+import { cleanText, getClientIp, readJsonObject } from "@/lib/request";
 
 export async function POST(request: NextRequest) {
-  const ip = request.headers.get("x-forwarded-for") || "unknown";
-  if (!checkRateLimit(ip)) {
-    return NextResponse.json({ error: "Слишком много попыток. Попробуйте через 15 минут." }, { status: 429 });
+  const rateKey = `login:${getClientIp(request)}`;
+  if (!(await checkRateLimit(rateKey, 5, 15 * 60))) {
+    return NextResponse.json({ error: "Слишком много попыток. Попробуйте через 15 минут." }, { status: 429, headers: { "Retry-After": "900" } });
   }
 
-  const { username, password } = await request.json();
-  const validUsername = process.env.ADMIN_USERNAME || "AA111";
-  const passwordHash = process.env.ADMIN_PASSWORD_HASH || "";
+  let body: Record<string, unknown>;
+  try {
+    body = await readJsonObject(request, 8_192);
+  } catch {
+    return NextResponse.json({ error: "Некорректный формат запроса" }, { status: 400 });
+  }
 
-  if (username !== validUsername || !bcrypt.compareSync(password, passwordHash)) {
+  const username = cleanText(body.username, 120);
+  const password = typeof body.password === "string" ? body.password.slice(0, 512) : "";
+  if (!username || !password) return NextResponse.json({ error: "Логин и пароль обязательны" }, { status: 400 });
+
+  const validUsername = process.env.ADMIN_USERNAME;
+  const passwordHash = await getAdminPasswordHash();
+  if (!validUsername || !passwordHash) {
+    console.error("[admin/login] ADMIN_USERNAME or ADMIN_PASSWORD_HASH not set");
+    return NextResponse.json({ error: "Админ-вход не настроен" }, { status: 503 });
+  }
+
+  const passwordMatches = await bcrypt.compare(password, passwordHash);
+  if (username !== validUsername || !passwordMatches) {
     return NextResponse.json({ error: "Неверный логин или пароль" }, { status: 401 });
   }
 
+  const token = await createAdminSessionToken();
+  await resetRateLimit(rateKey);
   const cookieStore = await cookies();
-  cookieStore.set("admin_session", "true", {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 7,
-  });
-
+  cookieStore.set(adminSessionCookieOptions(token));
   return NextResponse.json({ ok: true });
 }

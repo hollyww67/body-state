@@ -30,7 +30,7 @@ export default function QRSettings({ color, setColor, withLogo, setWithLogo }: P
     const savedLogo = localStorage.getItem("qr-logo");
     if (savedColor) setColor(savedColor);
     if (savedLogo) setWithLogo(savedLogo === "true");
-  }, []);
+  }, [setColor, setWithLogo]);
 
   return (
     <div className="flex flex-wrap items-center gap-4">

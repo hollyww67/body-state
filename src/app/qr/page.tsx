@@ -9,9 +9,9 @@ import QRSettings from "@/components/qr/QRSettings";
 const DEFAULT_URLS = [
   { label: "Главная", url: "https://body-state.ru" },
   { label: "Магазин", url: "https://body-state.ru/shop" },
-  { label: "БФМ", url: "https://body-state.ru/bfm" },
+  { label: "Физическая реабилитация", url: "https://body-state.ru/bfm" },
   { label: "БРТ", url: "https://body-state.ru/brt" },
-  { label: "Психология", url: "https://body-state.ru/psychology" },
+  { label: "Психологическая реабилитация", url: "https://body-state.ru/psychology" },
 ];
 
 export default function QrPage() {

@@ -1,7 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Star, Send } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { Send } from "lucide-react";
+import PersonalDataConsent from "@/components/legal/PersonalDataConsent";
+import ReviewCard from "@/components/reviews/ReviewCard";
+import { ReviewRatingPicker } from "@/components/reviews/ReviewRating";
 
 interface Review {
   id: string;
@@ -20,16 +23,18 @@ export default function ReviewSection({ productId }: { productId: string }) {
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState("");
+  const [consent, setConsent] = useState(false);
+  const [publicationConsent, setPublicationConsent] = useState(false);
 
-  const fetchReviews = () => {
+  const fetchReviews = useCallback(() => {
     setLoading(true);
     fetch(`/api/reviews?product_id=${productId}`)
       .then((r) => r.json())
       .then((data) => { setReviews(data.reviews || []); setLoading(false); })
       .catch(() => setLoading(false));
-  };
+  }, [productId]);
 
-  useEffect(() => { fetchReviews(); }, [productId]);
+  useEffect(() => { fetchReviews(); }, [fetchReviews]);
 
   const submitReview = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,17 +44,19 @@ export default function ReviewSection({ productId }: { productId: string }) {
     const res = await fetch("/api/reviews", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ product_id: productId, author_name: name, rating, text }),
+      body: JSON.stringify({ product_id: productId, author_name: name, rating, text, consent, publication_consent: publicationConsent }),
     });
 
     if (!res.ok) {
-      setError("Ошибка при отправке");
+      const result = await res.json().catch(() => ({}));
+      setError(result.error || "Не удалось отправить отзыв");
       setSubmitting(false);
       return;
     }
 
     setDone(true);
     setName(""); setRating(5); setText("");
+    setConsent(false); setPublicationConsent(false);
     fetchReviews();
     setTimeout(() => setDone(false), 3000);
     setSubmitting(false);
@@ -66,26 +73,17 @@ export default function ReviewSection({ productId }: { productId: string }) {
 
         <div>
           <label className="text-sm font-medium mb-2 block" style={{ color: 'var(--foreground)' }}>Оценка</label>
-          <div className="flex gap-1">
-            {[1, 2, 3, 4, 5].map((star) => (
-              <button
-                key={star}
-                type="button"
-                onClick={() => setRating(star)}
-                className="p-1 transition-all"
-              >
-                <Star className={`w-6 h-6 ${star <= rating ? "fill-[#E7CFA4] text-[#E7CFA4]" : "text-gray-300"}`} />
-              </button>
-            ))}
-          </div>
+          <ReviewRatingPicker value={rating} onChange={setRating} />
         </div>
 
         <textarea required placeholder="Ваш отзыв" value={text} onChange={(e) => setText(e.target.value)} rows={3} className="w-full rounded-2xl border px-4 py-3 focus:outline-none focus:ring-2 resize-none" style={{ background: 'var(--input-bg)', borderColor: 'var(--input-border)', color: 'var(--foreground)' }} />
 
         {error && <p className="text-red-500 text-sm">{error}</p>}
-        {done && <p className="text-green-600 text-sm">Отзыв добавлен! Спасибо!</p>}
+        {done && <p className="text-green-600 text-sm">Спасибо! Отзыв отправлен на модерацию.</p>}
 
-        <button type="submit" disabled={submitting} className="flex items-center gap-2 px-6 py-3 rounded-full text-white text-sm font-medium transition-all hover:-translate-y-0.5 disabled:opacity-50" style={{ background: 'var(--primary)' }}>
+        <PersonalDataConsent id={`product-review-consent-${productId}`} checked={consent} onChange={setConsent} />
+        <PersonalDataConsent id={`product-review-publication-${productId}`} checked={publicationConsent} onChange={setPublicationConsent} publication />
+        <button type="submit" disabled={submitting || !consent || !publicationConsent} className="flex items-center gap-2 px-6 py-3 rounded-full text-white text-sm font-medium transition-all hover:-translate-y-0.5 disabled:opacity-50" style={{ background: 'var(--primary)' }}>
           <Send className="w-4 h-4" /> {submitting ? "Отправляем..." : "Отправить отзыв"}
         </button>
       </form>
@@ -97,20 +95,7 @@ export default function ReviewSection({ productId }: { productId: string }) {
         <p style={{ color: 'var(--foreground-secondary)' }}>Отзывов пока нет. Будьте первым!</p>
       ) : (
         <div className="space-y-3">
-          {reviews.map((r) => (
-            <div key={r.id} className="glass-feature rounded-2xl p-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className="font-semibold text-sm" style={{ color: 'var(--foreground)' }}>{r.author_name}</span>
-                <span className="text-xs" style={{ color: 'var(--foreground-secondary)' }}>{new Date(r.created_at).toLocaleDateString("ru")}</span>
-              </div>
-              <div className="flex gap-0.5 mb-2">
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <Star key={star} className={`w-3.5 h-3.5 ${star <= r.rating ? "fill-[#E7CFA4] text-[#E7CFA4]" : "text-gray-300"}`} />
-                ))}
-              </div>
-              <p className="text-sm" style={{ color: 'var(--foreground-secondary)' }}>{r.text}</p>
-            </div>
-          ))}
+          {reviews.map((review) => <ReviewCard key={review.id} review={review} />)}
         </div>
       )}
     </div>

@@ -1,7 +1,15 @@
 node_modules/
+**/node_modules/
 .next/
 .env
 .env.local
 .env.production
 *.log
+backups/
 .DS_Store
+*.tar
+*.tar.gz
+*.tgz
+audit/
+qa-audit/
+release-audit/

@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { HeartPulse, Clock, Users, Palette, Sparkles } from 'lucide-react';
+import { ArrowRight, HeartPulse, Users, Palette, Sparkles } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import Link from 'next/link';
+import { usePageCopy } from '@/lib/hooks/use-page-copy';
 
 interface Program {
     id: number;
@@ -17,6 +18,7 @@ interface Program {
 }
 
 export default function PsychologyPage() {
+    const copy = usePageCopy('psychology');
     const [programs, setPrograms] = useState<Program[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -43,24 +45,25 @@ export default function PsychologyPage() {
     };
 
     return (
-        <main className="min-h-screen" style={{ background: 'var(--bg)' }}>
+        <main className="page-shell">
             <Navbar />
             
-            <section className="pt-32 pb-12 px-4">
-                <div className="max-w-6xl mx-auto text-center">
-                    <h1 className="text-4xl lg:text-5xl font-bold mb-4" style={{ color: 'var(--foreground)' }}>
-                        Психология
+            <section className="page-hero">
+                <div className="page-hero-inner">
+                    <div className="page-kicker mb-7 rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em]" style={{ color: 'var(--primary)' }}><Sparkles className="h-4 w-4" />{copy.eyebrow}</div>
+                    <h1 className="page-title text-5xl md:text-6xl font-semibold leading-[1.02] mb-7" style={{ color: 'var(--foreground)' }}>
+                        {copy.title}
                     </h1>
-                    <p className="text-lg max-w-2xl mx-auto" style={{ color: 'var(--foreground-secondary)' }}>
-                        Профессиональная психологическая поддержка. Выберите программу, которая подходит именно вам.
+                    <p className="page-lead text-lg leading-8" style={{ color: 'var(--foreground-secondary)' }}>
+                        {copy.lead}
                     </p>
                 </div>
             </section>
 
-            <section className="px-4 pb-16">
+            <section className="px-4 pb-20 lg:pb-28">
                 <div className="max-w-6xl mx-auto">
                     {loading ? (
-                        <div className="text-center py-20">Загрузка...</div>
+                        <div className="content-panel rounded-[32px] py-20 text-center" style={{ color: 'var(--foreground-secondary)' }}>{copy.loading}</div>
                     ) : (
                         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {programs.map((program, index) => {
@@ -77,10 +80,8 @@ export default function PsychologyPage() {
                                             initial={{ opacity: 0, y: 20 }}
                                             animate={{ opacity: 1, y: 0 }}
                                             transition={{ delay: index * 0.1 }}
-                                            className="border rounded-xl p-6 hover:shadow-lg transition-all hover:-translate-y-1 cursor-pointer h-full flex flex-col"
+                                            className="service-card liquid-card rounded-[28px] p-6 cursor-pointer h-full flex flex-col"
                                             style={{ 
-                                                background: 'var(--card-bg)', 
-                                                borderColor: 'var(--border)',
                                                 minHeight: '320px'
                                             }}
                                         >
@@ -133,8 +134,8 @@ export default function PsychologyPage() {
                                                 <span className="text-xl font-bold" style={{ color: 'var(--primary)' }}>
                                                     {program.price}
                                                 </span>
-                                                <span className="text-sm font-medium" style={{ color: 'var(--primary)' }}>
-                                                    Подробнее →
+                                                <span className="flex items-center gap-1 text-sm font-medium" style={{ color: 'var(--primary)' }}>
+                                                    Подробнее <ArrowRight className="h-4 w-4" />
                                                 </span>
                                             </div>
                                         </motion.div>

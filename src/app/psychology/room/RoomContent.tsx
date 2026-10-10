@@ -1,431 +1,256 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
-import { Mic, MicOff, Video, VideoOff, PhoneOff, MessageCircle, Send, MonitorUp, Hand } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
+import { Mic, MicOff, Video, VideoOff, MonitorUp, PhoneOff } from 'lucide-react';
+
+type Access = { role: 'doctor'|'client'; name: string; expiresAt: string };
+type Session = { session: string; role: 'doctor'|'client'; iceServers: RTCIceServer[] };
+type Signal = { id: string; from: string; type: 'offer'|'answer'|'ice'; data: RTCSessionDescriptionInit & RTCIceCandidateInit };
+
+async function api(url: string, init?: RequestInit) {
+  const res = await fetch(url, { ...init, cache: 'no-store', signal: AbortSignal.timeout(10000) });
+  const data = await res.json();
+  if (!res.ok) throw Object.assign(new Error(data.error || 'Ошибка подключения'), { status: res.status });
+  return data;
+}
 
 export default function RoomContent() {
-  const [roomId, setRoomId] = useState("default");
-  const [role, setRole] = useState<"caller" | "answerer" | null>(null);
-  const [ready, setReady] = useState(false);
-  const [starting, setStarting] = useState(false);
-  const [permissionDenied, setPermissionDenied] = useState(false);
-  const [muted, setMuted] = useState(false);
-  const [videoOff, setVideoOff] = useState(false);
-  const [connected, setConnected] = useState(false);
-  const [reconnecting, setReconnecting] = useState(false);
-  const [speaking, setSpeaking] = useState(false);
-  const [chatOpen, setChatOpen] = useState(false);
-  const [chatMessages, setChatMessages] = useState<{ id: string; from: string; text: string; time: string }[]>([]);
-  const [chatInput, setChatInput] = useState("");
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [statusText, setStatusText] = useState("");
+  const [id,setId]=useState('');
+  const [access,setAccess]=useState<Access|null>(null);
+  const [error,setError]=useState('');
+  const [busy,setBusy]=useState(false);
+  const [preview,setPreview]=useState(false);
+  const [session,setSession]=useState<Session|null>(null);
+  const [status,setStatus]=useState('Проверяем доступ…');
+  const [muted,setMuted]=useState(false);
+  const [cameraOff,setCameraOff]=useState(false);
+  const [hasCamera,setHasCamera]=useState(false);
+  const [sharing,setSharing]=useState(false);
+  const [playBlocked,setPlayBlocked]=useState(false);
+  const local=useRef<HTMLVideoElement>(null);
+  const remote=useRef<HTMLVideoElement>(null);
+  const media=useRef<MediaStream|null>(null);
+  const screen=useRef<MediaStream|null>(null);
+  const pc=useRef<RTCPeerConnection|null>(null);
+  const active=useRef<{id:string;session:string}|null>(null);
+  const operation=useRef(0);
 
-  const localVideoRef = useRef<HTMLVideoElement>(null);
-  const remoteVideoRef = useRef<HTMLVideoElement>(null);
-  const pcRef = useRef<RTCPeerConnection | null>(null);
-  const dcRef = useRef<RTCDataChannel | null>(null);
-  const localStreamRef = useRef<MediaStream | null>(null);
-  const screenStreamRef = useRef<MediaStream | null>(null);
-  const originalVideoTrackRef = useRef<MediaStreamTrack | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
-  const animationFrameRef = useRef<number | null>(null);
-  const pendingCandidates = useRef<RTCIceCandidateInit[]>([]);
-  const mountedRef = useRef(true);
-  const answerTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const iceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const chatRef = useRef<HTMLDivElement>(null);
-  const chatOpenRef = useRef(false);
+  const release=useCallback(()=>{
+    operation.current++;
+    const current=active.current; active.current=null;
+    if(current) void fetch('/api/room/signal?id='+encodeURIComponent(current.id)+'&session='+current.session,{method:'DELETE',keepalive:true}).catch(()=>{});
+    pc.current?.close(); pc.current=null;
+    media.current?.getTracks().forEach(t=>t.stop());media.current=null;
+    screen.current?.getTracks().forEach(t=>t.stop());screen.current=null;
+    if(local.current)local.current.srcObject=null;
+    if(remote.current)remote.current.srcObject=null;
+  },[]);
 
-  const ICE_SERVERS = [
-    { urls: "stun:stun.l.google.com:19302" },
-    {
-      urls: ["turn:85.198.71.172:3478", "turn:85.198.71.172:3478?transport=tcp"],
-      username: "webrtc",
-      credential: "webrtc123",
-    },
-  ];
+  useEffect(()=>{
+    const roomId=new URLSearchParams(window.location.search).get('id')||'';
+    setId(roomId);
+    let cancelled=false;
+    api('/api/room/check?id='+encodeURIComponent(roomId)).then(data=>{
+      if(cancelled)return;setAccess(data);setStatus('Проверьте камеру и микрофон перед входом.');
+    }).catch(e=>{if(!cancelled){setError(e.message);setStatus('Вход недоступен');}});
+    const leave=()=>release();
+    window.addEventListener('pagehide',leave);
+    return()=>{cancelled=true;window.removeEventListener('pagehide',leave);release();};
+  },[release]);
 
-  const log = (msg: string) => {
-    console.log(msg);
-    setStatusText((prev) => (prev + "\n" + msg).slice(-2000));
-  };
+  const leave=useCallback(()=>{
+    release();setSession(null);setPreview(false);setBusy(false);setSharing(false);setMuted(false);setCameraOff(false);setPlayBlocked(false);
+    setStatus('Вы вышли из комнаты. Камера и микрофон выключены.');
+  },[release]);
 
-  useEffect(() => { chatOpenRef.current = chatOpen; }, [chatOpen]);
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const id = params.get("id") || "default";
-    const roleParam = params.get("role");
-    const validId = /^[a-zA-Z0-9_-]{1,64}$/.test(id) ? id : "default";
-    const finalRole = roleParam === "doctor" ? "caller" : "answerer";
-    log(`ROOM: ${validId}, ROLE: ${finalRole}`);
-    setRoomId(validId);
-    setRole(finalRole);
-  }, []);
-
-  useEffect(() => {
-    if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight;
-  }, [chatMessages]);
-
-  const cleanup = () => {
-    if (answerTimeoutRef.current) { clearTimeout(answerTimeoutRef.current); answerTimeoutRef.current = null; }
-    if (iceTimeoutRef.current) { clearTimeout(iceTimeoutRef.current); iceTimeoutRef.current = null; }
-    if (animationFrameRef.current) { cancelAnimationFrame(animationFrameRef.current); animationFrameRef.current = null; }
-  };
-
-  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; stopMedia(); cleanup(); }; }, []);
-
-  const stopMedia = () => {
-    localStreamRef.current?.getTracks().forEach((t) => t.stop());
-    localStreamRef.current = null;
-    screenStreamRef.current?.getTracks().forEach((t) => t.stop());
-    screenStreamRef.current = null;
-    originalVideoTrackRef.current = null;
-    dcRef.current?.close();
-    dcRef.current = null;
-    pcRef.current?.close();
-    pcRef.current = null;
-    if (audioContextRef.current) { audioContextRef.current.close(); audioContextRef.current = null; }
-    analyserRef.current = null;
-  };
-
-  const attachStream = async (video: HTMLVideoElement, stream: MediaStream, muted: boolean = false) => {
-    video.srcObject = stream;
-    video.muted = muted;
-    video.playsInline = true;
-    video.autoplay = true;
-    await new Promise((r) => { video.onloadedmetadata = () => r(true); });
-    try { await video.play(); } catch (err) { log("PLAY ERR: " + err); }
-  };
-
-  const setupAudioAnalysis = (stream: MediaStream) => {
-    if (!audioContextRef.current) audioContextRef.current = new AudioContext();
-    const audioCtx = audioContextRef.current!;
-    const analyser = audioCtx.createAnalyser();
-    analyser.fftSize = 256;
-    audioCtx.createMediaStreamSource(stream).connect(analyser);
-    analyserRef.current = analyser;
-
-    const checkSpeaking = () => {
-      if (!analyserRef.current || !mountedRef.current) return;
-      const data = new Uint8Array(analyserRef.current.frequencyBinCount);
-      analyserRef.current.getByteFrequencyData(data);
-      setSpeaking(data.reduce((a, b) => a + b, 0) / data.length > 30);
-      animationFrameRef.current = requestAnimationFrame(checkSpeaking);
-    };
-    checkSpeaking();
-  };
-
-  const setupDataChannel = useCallback((dc: RTCDataChannel) => {
-    dcRef.current = dc;
-    dc.onmessage = (e) => {
-      try {
-        const msg = JSON.parse(e.data);
-        if (msg.id && msg.from && msg.text) {
-          setChatMessages((prev) => prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]);
-          if (!chatOpenRef.current) setUnreadCount((c) => c + 1);
-        }
-      } catch {}
-    };
-  }, []);
-
-  const createPeerConnection = useCallback((stream: MediaStream, isCaller: boolean) => {
-    log("PC created, caller=" + isCaller);
-    const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS, iceCandidatePoolSize: 10 });
-    pcRef.current = pc;
-
-    stream.getTracks().forEach((track) => pc.addTrack(track, stream));
-    if (stream.getVideoTracks().length > 0) originalVideoTrackRef.current = stream.getVideoTracks()[0];
-
-    if (isCaller) {
-      setupDataChannel(pc.createDataChannel("chat"));
-    } else {
-      pc.ondatachannel = (e) => setupDataChannel(e.channel);
-    }
-
-    pc.onicecandidate = (e) => {
-      if (!e.candidate) { log("ICE gathering done"); return; }
-      log("SEND ICE: " + (e.candidate.type || e.candidate.candidate?.split(" ")[7] || "?"));
-      fetch(`/api/room/signal?id=${roomId}`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "ice", from: isCaller ? "caller" : "answerer", candidate: e.candidate }),
-      }).catch((err) => log("SEND ERR: " + err));
-    };
-
-    pc.ontrack = async (e) => {
-      log("REMOTE TRACK, streams=" + e.streams.length);
-      if (remoteVideoRef.current && mountedRef.current) {
-        await attachStream(remoteVideoRef.current, e.streams[0], false);
-      }
-    };
-
-    pc.oniceconnectionstatechange = () => {
-      log("ICE: " + pc.iceConnectionState);
-      const state = pc.iceConnectionState;
-      if (state === "disconnected" || state === "failed") setReconnecting(true);
-      else if (state === "connected" || state === "completed") {
-        setReconnecting(false);
-        setConnected(true);
-      }
-    };
-
-    pc.onconnectionstatechange = () => {
-      log("PC: " + pc.connectionState);
-      const state = pc.connectionState;
-      if (state === "connected") setConnected(true);
-      else if (state === "disconnected" || state === "failed" || state === "closed") {
-        if (mountedRef.current) setConnected(false);
-      }
-    };
-
-    return pc;
-  }, [roomId, setupDataChannel]);
-
-  const flushPendingCandidates = useCallback(async () => {
-    if (!pcRef.current) return;
-    while (pendingCandidates.current.length > 0) {
-      const c = pendingCandidates.current.shift()!;
-      try { await pcRef.current.addIceCandidate(new RTCIceCandidate(c)); } catch (e) { log("Flush err: " + e); }
-    }
-  }, []);
-
-  const startIcePolling = useCallback((isCaller: boolean) => {
-    const pollIce = async () => {
-      if (!mountedRef.current || !pcRef.current) return;
-      try {
-        const iceRole = isCaller ? "ice-caller" : "ice-answerer";
-        const res = await fetch(`/api/room/signal?id=${roomId}&role=${iceRole}`);
-        const data = await res.json();
-        if (data?.candidate) {
-          const type = data.candidate.type || data.candidate.candidate?.split(" ")[7] || "?";
-          log("RECV ICE: " + type);
-          if (pcRef.current?.remoteDescription) {
-            try { await pcRef.current.addIceCandidate(new RTCIceCandidate(data.candidate)); } catch (e) { log("Add ICE err: " + e); }
-          } else {
-            pendingCandidates.current.push(data.candidate);
-          }
-        }
-      } catch (e) { log("ICE poll err: " + e); }
-      iceTimeoutRef.current = setTimeout(pollIce, 250);
-    };
-    pollIce();
-  }, [roomId]);
-
-  const hangUp = useCallback(() => {
-    stopMedia();
-    cleanup();
-    setConnected(false);
-    setReady(false);
-    setReconnecting(false);
-    log("HANGUP");
-  }, []);
-
-  const doStartCall = useCallback(async () => {
-    if (role !== "caller") return;
-    setStarting(true);
-    stopMedia();
-    cleanup();
-    pendingCandidates.current = [];
-    setStatusText("");
-
+  async function prepare(audioOnly=false) {
+    if(busy)return;
+    setBusy(true);setError('');
+    const version=++operation.current;
     try {
-      log("getUserMedia...");
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 640, height: 480 },
-        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      if(!navigator.mediaDevices?.getUserMedia)throw new Error('Нужен современный браузер и защищённое HTTPS-соединение.');
+      const stream=await navigator.mediaDevices.getUserMedia({
+        audio:{echoCancellation:true,noiseSuppression:true},
+        video:audioOnly?false:{width:{ideal:640},height:{ideal:480},frameRate:{ideal:24,max:30}}
       });
-      log("Stream OK, video=" + stream.getVideoTracks().length);
-      localStreamRef.current = stream;
-      if (localVideoRef.current) await attachStream(localVideoRef.current, stream, true);
-      setupAudioAnalysis(stream);
-
-      const pc = createPeerConnection(stream, true);
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-
-      const res = await fetch(`/api/room/signal?id=${roomId}`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "offer", sdp: pc.localDescription }),
-      });
-      log("OFFER sent: " + res.status);
-
-      startIcePolling(true);
-
-      const pollAnswer = async () => {
-        if (!mountedRef.current || !pcRef.current) return;
-        try {
-          const res = await fetch(`/api/room/signal?id=${roomId}&role=answer`);
-          const data = await res.json();
-          if (data?.sdp && pcRef.current?.signalingState !== "stable") {
-            log("ANSWER received");
-            await pcRef.current.setRemoteDescription(new RTCSessionDescription(data.sdp));
-            await flushPendingCandidates();
-            return;
-          }
-        } catch (e) { log("Answer poll err: " + e); }
-        answerTimeoutRef.current = setTimeout(pollAnswer, 250);
-      };
-      pollAnswer();
-
-      setPermissionDenied(false);
-      setReady(true);
-    } catch (e: any) {
-      log("START ERR: " + (e?.message || e?.name || String(e)));
-      if (e.name === "NotAllowedError" || e.name === "PermissionDeniedError") setPermissionDenied(true);
-    } finally {
-      setStarting(false);
-    }
-  }, [role, roomId, createPeerConnection, startIcePolling, flushPendingCandidates]);
-
-  const startAnswererFlow = useCallback(async () => {
-    stopMedia();
-    cleanup();
-    pendingCandidates.current = [];
-    setStatusText("");
-
-    log("Answerer waiting...");
-    const pollOffer = async () => {
-      if (!mountedRef.current) return;
-      try {
-        const res = await fetch(`/api/room/signal?id=${roomId}&role=offer`);
-        const data = await res.json();
-        if (data?.sdp && !pcRef.current) {
-          log("OFFER received");
-          try {
-            const stream = await navigator.mediaDevices.getUserMedia({
-              video: { width: 640, height: 480 },
-              audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-            });
-            localStreamRef.current = stream;
-            if (localVideoRef.current) await attachStream(localVideoRef.current, stream, true);
-            setupAudioAnalysis(stream);
-
-            const pc = createPeerConnection(stream, false);
-            await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
-            await flushPendingCandidates();
-
-            const answer = await pc.createAnswer();
-            await pc.setLocalDescription(answer);
-
-            await fetch(`/api/room/signal?id=${roomId}`, {
-              method: "POST", headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ type: "answer", sdp: pc.localDescription }),
-            });
-            log("ANSWER sent");
-
-            startIcePolling(false);
-            setReady(true);
-            return;
-          } catch (e: any) {
-            log("Flow ERR: " + (e?.message || String(e)));
-            if (e.name === "NotAllowedError" || e.name === "PermissionDeniedError") {
-              setPermissionDenied(true);
-              return;
-            }
-          }
-        }
-      } catch (e) { log("Offer poll err: " + e); }
-      answerTimeoutRef.current = setTimeout(pollOffer, 250);
-    };
-    pollOffer();
-  }, [roomId, createPeerConnection, startIcePolling, flushPendingCandidates]);
-
-  useEffect(() => {
-    if (role === "answerer") startAnswererFlow();
-  }, [role, startAnswererFlow]);
-
-  const toggleMute = () => {
-    if (localStreamRef.current) {
-      localStreamRef.current.getAudioTracks().forEach((t) => (t.enabled = muted));
-      setMuted(!muted);
-    }
-  };
-
-  const toggleVideo = () => {
-    if (localStreamRef.current) {
-      localStreamRef.current.getVideoTracks().forEach((t) => (t.enabled = videoOff));
-      setVideoOff(!videoOff);
-    }
-  };
-
-  const shareScreen = async () => {
-    try {
-      const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-      screenStreamRef.current = screenStream;
-      if (localVideoRef.current) localVideoRef.current.srcObject = screenStream;
-      if (pcRef.current) {
-        const sender = pcRef.current.getSenders().find((s) => s.track?.kind === "video");
-        if (sender) await sender.replaceTrack(screenStream.getVideoTracks()[0]);
-      }
-      screenStream.getVideoTracks()[0].onended = () => {
-        if (localVideoRef.current && localStreamRef.current) localVideoRef.current.srcObject = localStreamRef.current;
-        if (pcRef.current && originalVideoTrackRef.current) {
-          const sender = pcRef.current.getSenders().find((s) => s.track?.kind === "video");
-          if (sender) sender.replaceTrack(originalVideoTrackRef.current);
-        }
-      };
-    } catch {}
-  };
-
-  const sendChat = () => {
-    const text = chatInput.trim();
-    if (!text || !dcRef.current || dcRef.current.readyState !== "open") return;
-    const msg = { id: crypto.randomUUID(), from: "me", text, time: new Date().toLocaleTimeString() };
-    setChatMessages((prev) => [...prev, msg]);
-    dcRef.current.send(JSON.stringify(msg));
-    setChatInput("");
-  };
-
-  if (role === null) {
-    return <div className="min-h-screen flex items-center justify-center" style={{ background: '#0a0a0a' }}><p className="text-white">Загрузка...</p></div>;
+      if(version!==operation.current){stream.getTracks().forEach(t=>t.stop());return;}
+      media.current?.getTracks().forEach(t=>t.stop());media.current=stream;
+      if(local.current){local.current.srcObject=stream;void local.current.play().catch(()=>{});}
+      setPreview(true);setHasCamera(!audioOnly);setCameraOff(audioOnly);setMuted(false);setStatus('Устройства готовы. Нажмите «Войти в консультацию».');
+    }catch(e){
+      const name=e instanceof Error?e.name:'';
+      setError(name==='NotAllowedError'?'Разрешите камеру и микрофон в настройках браузера. После этого повторите проверку.':name==='NotFoundError'?'Камера или микрофон не найдены. Попробуйте вход только со звуком.':e instanceof Error?e.message:'Не удалось включить устройства');
+    }finally{if(version===operation.current)setBusy(false);}
   }
 
-  return (
-    <div className="min-h-screen flex flex-col" style={{ background: '#0a0a0a' }}>
-      <div className="flex items-center justify-between px-4 py-3 bg-black/50 text-white text-sm">
-        <div className="flex items-center gap-3">
-          <span className="font-medium">{roomId} ({role})</span>
-          {connected && <span className="w-2 h-2 rounded-full bg-green-500" />}
-          {reconnecting && <span className="text-yellow-400 text-xs">Reconnecting...</span>}
-        </div>
-        <div className="flex items-center gap-2">
-          {!ready && role === "caller" && (
-            <button type="button" onClick={doStartCall} disabled={starting}
-              className="px-4 py-1.5 rounded-full text-white text-xs font-medium"
-              style={{ background: "var(--primary)" }}>
-              {starting ? "Connecting..." : "Start Call"}
-            </button>
-          )}
-          <button onClick={() => { setChatOpen(!chatOpen); setUnreadCount(0); }} className="p-2 rounded-full hover:bg-white/10 transition-colors relative">
-            <MessageCircle className="w-4 h-4" />
-            {unreadCount > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center">{unreadCount}</span>}
-          </button>
-        </div>
-      </div>
+  async function join() {
+    if(busy||!media.current)return;
+    setBusy(true);setError('');
+    const version=operation.current;
+    try {
+      const data:Session=await api('/api/room/signal?id='+encodeURIComponent(id),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'join'})});
+      if(version!==operation.current){
+        void fetch('/api/room/signal?id='+encodeURIComponent(id)+'&session='+data.session,{method:'DELETE',keepalive:true});
+        return;
+      }
+      active.current={id,session:data.session};setSession(data);
+    }catch(e){setError((e as Error).message);}finally{if(version===operation.current)setBusy(false);}
+  }
 
-      <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-2 p-2">
-        <div className="relative rounded-2xl overflow-hidden bg-gray-800" style={{ minHeight: 200 }}>
-          <video ref={localVideoRef} autoPlay muted playsInline className="absolute inset-0 w-full h-full object-cover" />
-          <div className="absolute bottom-3 left-3 px-3 py-1 rounded-full bg-black/60 text-white text-xs z-10">You</div>
-          {muted && <MicOff className="absolute top-3 right-3 w-4 h-4 text-red-400 z-10" />}
-        </div>
-        <div className="relative rounded-2xl overflow-hidden bg-gray-800" style={{ minHeight: 200 }}>
-          <video ref={remoteVideoRef} autoPlay playsInline className="absolute inset-0 w-full h-full object-cover" />
-          <div className="absolute bottom-3 left-3 px-3 py-1 rounded-full bg-black/60 text-white text-xs z-10">Specialist</div>
-        </div>
-      </div>
+  useEffect(()=>{
+    if(!session||!media.current)return;
+    let cancelled=false;
+    let timer:ReturnType<typeof setTimeout>;
+    let peer:string|null=null;
+    let candidates:RTCIceCandidateInit[]=[];
+    const seen=new Set<string>();
+    let lastSuccess=Date.now();
+    const base='/api/room/signal?id='+encodeURIComponent(id);
+    const send=async(type:string,data:unknown,target:string)=>{
+      if(cancelled)return;
+      await api(base,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session:session.session,peer:target,type,data})});
+    };
+    function connection(target:string) {
+      pc.current?.close();candidates=[];setPlayBlocked(false);
+      if(remote.current)remote.current.srcObject=null;
+      const current=new RTCPeerConnection({iceServers:session!.iceServers,iceTransportPolicy:'relay'});
+      pc.current=current;
+      media.current!.getTracks().forEach(t=>current.addTrack(t,media.current!));
+      // A specialist joining without a camera must still be able to see the client.
+      if(session!.role==='doctor'&&!media.current!.getVideoTracks().length)current.addTransceiver('video',{direction:'recvonly'});
+      if(screen.current){
+        const sender=current.getSenders().find(s=>s.track?.kind==='video');
+        if(sender)void sender.replaceTrack(screen.current.getVideoTracks()[0]);
+      }
+      current.onicecandidate=e=>{
+        if(e.candidate&&!cancelled&&pc.current===current)void send('ice',e.candidate.toJSON(),target).catch(()=>{
+          if(!cancelled&&pc.current===current)setError('Не удалось передать данные соединения. Если связь не установится, выйдите и войдите снова.');
+        });
+      };
+      current.ontrack=e=>{
+        if(!remote.current||cancelled||pc.current!==current)return;
+        remote.current.srcObject=e.streams[0]||new MediaStream([e.track]);
+        void remote.current.play().catch(()=>setPlayBlocked(true));
+      };
+      current.onconnectionstatechange=()=>{
+        if(cancelled||pc.current!==current)return;
+        if(current.connectionState==='connected'){setStatus('Вы на связи');setError('');}
+        if(current.connectionState==='disconnected')setStatus('Связь прервана. Ожидаем восстановления сети…');
+        if(current.connectionState==='failed'){setStatus('Соединение потеряно');setError('Не удалось восстановить связь. Нажмите «Выйти», затем войдите снова.');}
+      };
+      return current;
+    }
+    async function poll() {
+      if(cancelled)return;
+      try {
+        const data:{peer:string|null;messages:Signal[]}=await api(base+'&session='+session!.session);
+        if(cancelled)return;
+        lastSuccess=Date.now();
+        if(peer!==data.peer){
+          peer=data.peer;
+          pc.current?.close();pc.current=null;candidates=[];
+          if(remote.current)remote.current.srcObject=null;
+          setStatus(peer?'Устанавливаем защищённое соединение…':'Ожидаем второго участника…');
+          if(peer&&session!.role==='doctor'){
+            const current=connection(peer);
+            const offer=await current.createOffer();
+            if(cancelled)return;
+            await current.setLocalDescription(offer);
+            await send('offer',current.localDescription,peer);
+          }
+        }
+        for(const message of data.messages){
+          if(cancelled)return;
+          if(seen.has(message.id)||message.from!==peer)continue;
+          if(message.type==='offer'&&session!.role==='client'){
+            // Candidates can arrive before SDP; preserve that queue.
+            const waiting=candidates;
+            const current=connection(peer!);
+            candidates=waiting;
+            await current.setRemoteDescription(message.data);
+            for(const c of candidates)await current.addIceCandidate(c);candidates=[];
+            await current.setLocalDescription(await current.createAnswer());
+            await send('answer',current.localDescription,peer!);
+          }else if(message.type==='answer'&&session!.role==='doctor'&&pc.current?.signalingState==='have-local-offer'){
+            await pc.current.setRemoteDescription(message.data);
+            for(const c of candidates)await pc.current.addIceCandidate(c);candidates=[];
+          }else if(message.type==='ice'){
+            if(pc.current?.remoteDescription)await pc.current.addIceCandidate(message.data);
+            else candidates.push(message.data);
+          }
+          seen.add(message.id);
+        }
+        if(seen.size>1024){const keep=[...seen].slice(-512);seen.clear();keep.forEach(x=>seen.add(x));}
+      }catch(e){
+        if(cancelled)return;
+        const err=e as Error&{status?:number};
+        if([401,403,404,409,410].includes(err.status||0)||Date.now()-lastSuccess>25000){
+          leave();setError(err.message);return;
+        }
+        setStatus('Проверяем соединение с сервером…');
+      }
+      if(!cancelled)timer=setTimeout(()=>void poll(),1000);
+    }
+    setStatus('Ожидаем второго участника…');void poll();
+    return()=>{cancelled=true;clearTimeout(timer);pc.current?.close();pc.current=null;};
+  },[id,session,leave]);
 
-      <div className="px-4 py-2 bg-black/30 text-green-400 text-xs font-mono max-h-32 overflow-y-auto whitespace-pre-wrap">
-        {statusText || "Waiting..."}
-      </div>
+  async function share() {
+    if(sharing){screen.current?.getTracks().forEach(t=>t.stop());await restoreCamera();return;}
+    if(!pc.current||!media.current?.getVideoTracks().length){setError('Для демонстрации включите камеру до входа и дождитесь соединения.');return;}
+    const current=pc.current;
+    try{
+      const stream=await navigator.mediaDevices.getDisplayMedia({video:true,audio:false});
+      if(pc.current!==current||!active.current){stream.getTracks().forEach(t=>t.stop());return;}
+      screen.current=stream;
+      await current.getSenders().find(s=>s.track?.kind==='video')?.replaceTrack(stream.getVideoTracks()[0]);
+      if(local.current)local.current.srcObject=stream;
+      stream.getVideoTracks()[0].onended=()=>void restoreCamera();
+      setSharing(true);
+    }catch{setError('Демонстрация экрана не началась. Возможно, браузер её не поддерживает или доступ не разрешён.');}
+  }
+  async function restoreCamera(){
+    screen.current?.getTracks().forEach(t=>t.stop());screen.current=null;
+    const track=media.current?.getVideoTracks()[0];
+    try{if(track)await pc.current?.getSenders().find(s=>s.track?.kind==='video')?.replaceTrack(track);}catch{setError('Не удалось вернуть камеру. Переподключитесь.');}
+    if(local.current)local.current.srcObject=media.current;
+    setSharing(false);
+  }
 
-      <div className="flex items-center justify-center gap-3 px-4 py-4 bg-black/50">
-        <button onClick={toggleMute} className={`p-3 rounded-full transition-all ${muted ? "bg-red-500 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}>{muted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}</button>
-        <button onClick={toggleVideo} className={`p-3 rounded-full transition-all ${videoOff ? "bg-red-500 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}>{videoOff ? <VideoOff className="w-5 h-5" /> : <Video className="w-5 h-5" />}</button>
-        <button onClick={shareScreen} className="p-3 rounded-full bg-gray-700 text-gray-300 hover:bg-gray-600 transition-all"><MonitorUp className="w-5 h-5" /></button>
-        <button onClick={hangUp} className="p-3 rounded-full bg-red-500 text-white hover:bg-red-600 transition-all ml-4"><PhoneOff className="w-5 h-5" /></button>
+  return <main className="min-h-dvh bg-[#151020] px-4 py-5 text-white sm:p-8">
+    <div className="mx-auto max-w-6xl">
+      <header className="mb-5 flex flex-wrap items-center justify-between gap-4">
+        <div><p className="text-sm text-violet-300">BODY STATE · Онлайн</p><h1 className="mt-1 text-xl font-semibold">{access?.name||'Онлайн-консультация'}</h1></div>
+        <Link onClick={leave} href={access?.role==='doctor'?'/admin/psychology-rooms':'/account'} className="rounded-xl border border-white/25 px-4 py-3">В кабинет</Link>
+      </header>
+      <p role="status" className="mb-4 rounded-xl bg-white/10 p-4">{status}</p>
+      {error&&<p role="alert" className="mb-4 rounded-xl border border-rose-400/50 bg-rose-950 p-4 text-rose-100">{error}</p>}
+      <div className="grid gap-4 md:grid-cols-2">
+        <section className="relative aspect-video overflow-hidden rounded-2xl bg-[#292039]">
+          <video ref={local} muted autoPlay playsInline className="h-full w-full object-contain"/>
+          {!preview&&<p className="absolute inset-0 flex items-center justify-center text-violet-200">Камера выключена</p>}
+          <p className="absolute bottom-3 left-3 rounded-lg bg-black/70 px-3 py-1 text-sm">Вы{muted?' · Микрофон выключен':''}</p>
+        </section>
+        <section className="relative aspect-video overflow-hidden rounded-2xl bg-[#292039]">
+          <video ref={remote} autoPlay playsInline className="h-full w-full object-contain"/>
+          <p className="absolute bottom-3 left-3 rounded-lg bg-black/70 px-3 py-1 text-sm">{access?.role==='doctor'?'Клиент':'Специалист'}</p>
+        </section>
       </div>
+      {playBlocked&&<button className="mt-4 rounded-xl bg-violet-600 px-5 py-3" onClick={()=>void remote.current?.play().then(()=>setPlayBlocked(false)).catch(()=>setError('Браузер заблокировал звук. Проверьте разрешения.'))}>Включить звук собеседника</button>}
+      {access&&!session&&<div className="mt-5 flex flex-wrap gap-3">
+        {busy&&<button onClick={leave} className="min-h-12 rounded-xl border border-white/25 px-5 py-3">Отменить подключение</button>}
+        <button disabled={busy} onClick={()=>void prepare()} className="min-h-12 rounded-xl bg-violet-600 px-5 py-3 disabled:opacity-50">{busy?'Подождите…':preview?'Проверить устройства снова':'Проверить камеру и микрофон'}</button>
+        <button disabled={busy} onClick={()=>void prepare(true)} className="min-h-12 rounded-xl border border-white/25 px-5 py-3 disabled:opacity-50">Только звук</button>
+        {preview&&<button disabled={busy} onClick={()=>void join()} className="min-h-12 rounded-xl bg-teal-600 px-5 py-3 disabled:opacity-50">Войти в консультацию</button>}
+      </div>}
+      {preview&&<div className="mt-5 flex flex-wrap gap-3">
+        <button aria-pressed={muted} onClick={()=>{media.current?.getAudioTracks().forEach(t=>t.enabled=muted);setMuted(!muted);}} className="flex min-h-12 items-center gap-2 rounded-xl bg-white/10 px-4">{muted?<MicOff size={20}/>:<Mic size={20}/>} {muted?'Включить микрофон':'Выключить микрофон'}</button>
+        <button disabled={!hasCamera||sharing} aria-pressed={cameraOff} onClick={()=>{media.current?.getVideoTracks().forEach(t=>t.enabled=cameraOff);setCameraOff(!cameraOff);}} className="flex min-h-12 items-center gap-2 rounded-xl bg-white/10 px-4 disabled:opacity-40">{cameraOff?<VideoOff size={20}/>:<Video size={20}/>}Камера</button>
+        {session&&<button onClick={()=>void share()} className="flex min-h-12 items-center gap-2 rounded-xl bg-white/10 px-4"><MonitorUp size={20}/>{sharing?'Остановить показ':'Показать экран'}</button>}
+        <button onClick={leave} className="flex min-h-12 items-center gap-2 rounded-xl bg-rose-700 px-4"><PhoneOff size={20}/>Выйти</button>
+      </div>}
+      <p className="mt-6 max-w-3xl text-sm leading-relaxed text-violet-200">Камера и микрофон включаются только с вашего разрешения. Сайт не записывает разговор. Для конфиденциальности используйте наушники и отдельное помещение. Если связь прервётся, выйдите и подключитесь снова.</p>
     </div>
-  );
+  </main>;
 }

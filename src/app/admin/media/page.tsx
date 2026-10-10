@@ -1,10 +1,10 @@
 'use client';
 
+import SiteImage from '@/components/SiteImage';
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { 
-    Plus, Edit, Trash2, Image, Video, Eye, EyeOff,
-    Upload, X, Check, Calendar, User, Tag
+    Plus, Edit, Trash2, Image as ImageIcon, Video, EyeOff, User, Tag
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -39,7 +39,7 @@ export default function MediaAdmin() {
             const res = await fetch('/api/media');
             const data = await res.json();
             setItems(Array.isArray(data) ? data : []);
-        } catch (err) {
+        } catch {
             setError('Ошибка загрузки');
         } finally {
             setLoading(false);
@@ -56,7 +56,7 @@ export default function MediaAdmin() {
             } else {
                 alert('Ошибка удаления');
             }
-        } catch (err) {
+        } catch {
             alert('Ошибка удаления');
         }
     };
@@ -74,7 +74,7 @@ export default function MediaAdmin() {
             <div className="flex justify-between items-center mb-6">
                 <div>
                     <h1 className="text-2xl font-bold flex items-center gap-3">
-                        <Image className="w-6 h-6 text-teal-500" />
+                        <ImageIcon aria-hidden="true" className="w-6 h-6 text-teal-500" />
                         До / После
                     </h1>
                     <p className="text-sm text-gray-500 mt-1">
@@ -92,7 +92,7 @@ export default function MediaAdmin() {
 
             {items.length === 0 ? (
                 <div className="text-center py-12 text-gray-500 border rounded-2xl">
-                    <Image className="w-12 h-12 mx-auto mb-4 opacity-30" />
+                    <ImageIcon aria-hidden="true" className="w-12 h-12 mx-auto mb-4 opacity-30" />
                     <p>Нет фото и видео</p>
                     <Link href="/admin/media/new" className="text-teal-500 hover:underline mt-2 inline-block">
                         Добавить первый результат
@@ -110,7 +110,7 @@ export default function MediaAdmin() {
                             {/* Превью */}
                             <div className="relative aspect-[4/3] bg-gray-100">
                                 {item.media_type === 'photo' ? (
-                                    <img
+                                    <SiteImage
                                         src={item.after_image_url || item.before_image_url || '/placeholder.jpg'}
                                         alt={item.title}
                                         className="w-full h-full object-cover"
@@ -128,7 +128,7 @@ export default function MediaAdmin() {
                                 )}
                                 <div className="absolute top-2 left-2 bg-black/60 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1">
                                     {item.media_type === 'photo' ? (
-                                        <Image className="w-3 h-3" />
+                                        <ImageIcon aria-hidden="true" className="w-3 h-3" />
                                     ) : (
                                         <Video className="w-3 h-3" />
                                     )}

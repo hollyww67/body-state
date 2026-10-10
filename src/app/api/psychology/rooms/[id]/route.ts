@@ -1,54 +1,22 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
-// Получение комнаты по ID
-export async function GET(
-    request: NextRequest,
-    context: { params: Promise<{ id: string }> }
-) {
-    try {
-        const { id } = await context.params;
-
-        const { data, error } = await supabase
-            .from('psychology_rooms')
-            .select('*')
-            .eq('room_id', id)
-            .single();
-
-        if (error) {
-            return NextResponse.json({ error: 'Комната не найдена' }, { status: 404 });
-        }
-
-        return NextResponse.json(data);
-    } catch (error) {
-        return NextResponse.json({ error: 'Ошибка загрузки комнаты' }, { status: 500 });
-    }
+import { NextRequest } from 'next/server';
+import { pool } from '@/lib/db';
+import { requireAdmin } from '@/lib/admin-auth';
+import { videoAccess, videoJson } from '@/lib/video-rooms';
+export async function GET(request: NextRequest, context: { params: Promise<{ id: string }> }) {
+  try {
+    const { id } = await context.params;
+    const access = await videoAccess(request, id);
+    if (access.error) return access.error;
+    return videoJson({ room_name: access.room.room_name, meeting_url: '/psychology/room?id='+id, expires_at: access.room.expires_at });
+  } catch { return videoJson({ error: 'Комната временно недоступна' }, 503); }
 }
-
-// Удаление комнаты
-export async function DELETE(
-    request: NextRequest,
-    context: { params: Promise<{ id: string }> }
-) {
-    try {
-        const { id } = await context.params;
-
-        const { error } = await supabase
-            .from('psychology_rooms')
-            .delete()
-            .eq('id', id);
-
-        if (error) {
-            return NextResponse.json({ error: error.message }, { status: 500 });
-        }
-
-        return NextResponse.json({ success: true });
-    } catch (error) {
-        return NextResponse.json({ error: 'Ошибка удаления комнаты' }, { status: 500 });
-    }
+export async function DELETE(request: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const unauthorized = await requireAdmin(request);
+  if (unauthorized) return unauthorized;
+  const { id } = await context.params;
+  if (!/^\d{1,16}$/.test(id)) return videoJson({ error: 'Некорректный идентификатор' }, 400);
+  try {
+    await pool.query('UPDATE psychology_rooms SET is_active=false WHERE id=$1', [id]);
+    return videoJson({ success: true });
+  } catch { return videoJson({ error: 'Не удалось закрыть комнату' }, 500); }
 }

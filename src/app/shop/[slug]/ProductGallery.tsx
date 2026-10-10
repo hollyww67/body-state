@@ -1,5 +1,6 @@
 "use client";
 
+import SiteImage from '@/components/SiteImage';
 import { useState } from "react";
 import { ChevronLeft, ChevronRight, ShoppingBag } from "lucide-react";
 
@@ -18,7 +19,7 @@ export default function ProductGallery({ images, productName }: { images: string
     <div>
       {/* Главное изображение */}
       <div className="relative aspect-square rounded-3xl overflow-hidden mb-4" style={{ background: 'var(--bg-secondary)' }}>
-        <img
+        <SiteImage
           src={images[active]}
           alt={productName}
           className="w-full h-full object-cover transition-opacity duration-300"
@@ -54,7 +55,7 @@ export default function ProductGallery({ images, productName }: { images: string
               }`}
               style={{ borderColor: i === active ? 'var(--primary)' : 'transparent' }}
             >
-              <img src={img} alt={`${productName} ${i + 1}`} className="w-full h-full object-cover" />
+              <SiteImage src={img} alt={`${productName} ${i + 1}`} className="w-full h-full object-cover" />
             </button>
           ))}
         </div>

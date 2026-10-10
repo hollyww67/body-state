@@ -1,19 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { db } from '@/lib/db';
+import { requireAdmin } from '@/lib/admin-auth';
 
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 export async function GET(
     request: NextRequest,
     context: { params: Promise<{ id: string }> }
 ) {
+    const unauthorized = await requireAdmin(request);
+    if (unauthorized) return unauthorized;
     try {
         const { id } = await context.params;
 
-        const { data, error } = await supabase
+        const { data, error } = await db
             .from('media_gallery')
             .select('*')
             .eq('id', id)
@@ -24,7 +23,7 @@ export async function GET(
         }
 
         return NextResponse.json(data);
-    } catch (error) {
+    } catch {
         return NextResponse.json({ error: 'Ошибка загрузки' }, { status: 500 });
     }
 }
@@ -33,11 +32,13 @@ export async function PUT(
     request: NextRequest,
     context: { params: Promise<{ id: string }> }
 ) {
+    const unauthorized = await requireAdmin(request);
+    if (unauthorized) return unauthorized;
     try {
         const { id } = await context.params;
         const body = await request.json();
 
-        const { data, error } = await supabase
+        const { data, error } = await db
             .from('media_gallery')
             .update({
                 title: body.title,
@@ -63,7 +64,7 @@ export async function PUT(
         }
 
         return NextResponse.json(data);
-    } catch (error) {
+    } catch {
         return NextResponse.json({ error: 'Ошибка обновления' }, { status: 500 });
     }
 }
@@ -72,10 +73,12 @@ export async function DELETE(
     request: NextRequest,
     context: { params: Promise<{ id: string }> }
 ) {
+    const unauthorized = await requireAdmin(request);
+    if (unauthorized) return unauthorized;
     try {
         const { id } = await context.params;
 
-        const { error } = await supabase
+        const { error } = await db
             .from('media_gallery')
             .delete()
             .eq('id', id);
@@ -85,7 +88,7 @@ export async function DELETE(
         }
 
         return NextResponse.json({ success: true });
-    } catch (error) {
+    } catch {
         return NextResponse.json({ error: 'Ошибка удаления' }, { status: 500 });
     }
 }

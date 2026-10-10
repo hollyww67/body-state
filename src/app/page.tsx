@@ -1,17 +1,20 @@
 "use client";
 
+import SiteImage from '@/components/SiteImage';
 import Link from "next/link";
-import { Brain, HandHelping, ArrowRight, Leaf, Sun, Flower2, Star, Quote, Sparkles } from "lucide-react";
+import { Brain, HandHelping, ArrowRight, Leaf, Sun, Flower2, Quote, Sparkles } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Container from "@/components/ui/Container";
 import SectionHeading from "@/components/ui/SectionHeading";
 import GlassCard from "@/components/ui/GlassCard";
 import Reveal from "@/components/ui/Reveal";
 import ReviewsCarousel from "@/components/ReviewsCarousel";
+import PromotionsPopup from "@/components/PromotionsPopup";
+import { usePageCopy } from "@/lib/hooks/use-page-copy";
 
 const methods = [
-  { icon: Brain, title: "Социально-психологическая реабилитация", description: "Восстановление эмоционального ресурса и психологического благополучия.", href: "/rehabilitation", accent: "#c4b5fd" },
-  { icon: HandHelping, title: "Физическая реабилитация", description: "Мягкое восстановление подвижности, работа с фасциальной системой и мышечными зажимами.", href: "/rehabilitation", accent: "#0F766E" },
+  { icon: Brain, title: "Психологическая реабилитация", description: "Восстановление эмоционального ресурса и психологического благополучия.", href: "/psychology", accent: "#8B5CF6" },
+  { icon: HandHelping, title: "Физическая реабилитация", description: "Мягкое восстановление подвижности, работа с фасциальной системой и мышечными зажимами.", href: "/bfm#booking", accent: "#0F766E" },
 ];
 
 const benefits = [
@@ -28,9 +31,11 @@ const process = [
 ];
 
 export default function HomePage() {
+  const copy = usePageCopy("home");
   return (
     <main>
       <Navbar />
+      <PromotionsPopup />
 
       {/* HERO */}
       <section className="hero-surface relative min-h-[720px] overflow-hidden flex items-center lg:min-h-screen">
@@ -42,24 +47,24 @@ export default function HomePage() {
           <Reveal>
             <div className="hero-eyebrow inline-flex items-center gap-2 glass rounded-full px-4 py-2 mb-6 lg:mb-8 text-[11px] font-semibold uppercase tracking-[0.16em]" style={{ color: 'var(--primary)' }}>
               <Sparkles className="w-4 h-4" />
-              Реабилитолог • Хотьково
+              {copy.heroEyebrow}
             </div>
 
             <h1 className="text-5xl md:text-6xl lg:text-7xl font-semibold tracking-[-0.035em] leading-[1] mb-6 lg:mb-8 max-w-[14ch]" style={{ color: 'var(--foreground)' }}>
-              Через тело
-              <span className="hero-title-accent block" style={{ color: 'var(--primary)' }}>к состоянию</span>
+              {copy.heroTitle}
+              <span className="hero-title-accent block" style={{ color: 'var(--primary)' }}>{copy.heroAccent}</span>
             </h1>
 
             <p className="hero-description text-base md:text-lg lg:text-xl leading-relaxed max-w-xl mb-8 lg:mb-10" style={{ color: 'var(--foreground-secondary)' }}>
-              Социально-психологическая и физическая реабилитация. Помогаю восстановить ресурс организма через бережные методы работы с нервной системой и телом.
+              {copy.heroDescription}
             </p>
 
             <div className="flex flex-wrap items-center gap-5 lg:gap-6 mb-10 lg:mb-12">
-              <Link href="/contact" className="liquid-btn group relative inline-flex items-center justify-center rounded-full text-white px-8 lg:px-10 py-4 lg:py-5 text-sm lg:text-base font-medium gap-2.5">
+              <Link href="/rehabilitation#booking" className="liquid-btn group relative inline-flex items-center justify-center rounded-full text-white px-8 lg:px-10 py-4 lg:py-5 text-sm lg:text-base font-medium gap-2.5">
                 <span className="relative z-10">Записаться</span>
                 <ArrowRight className="relative z-10 w-4 h-4 transition-transform duration-300 group-hover:translate-x-0.5" />
               </Link>
-              <Link href="/rehabilitation" className="glass inline-flex items-center justify-center rounded-full px-8 lg:px-10 py-4 lg:py-5 text-sm lg:text-base font-medium hover:-translate-y-0.5 transition-all duration-500" style={{ color: 'var(--foreground)', borderColor: 'var(--glass-border)' }}>
+              <Link href="/about-rehabilitation" className="glass inline-flex items-center justify-center rounded-full px-8 lg:px-10 py-4 lg:py-5 text-sm lg:text-base font-medium hover:-translate-y-0.5 transition-all duration-500" style={{ color: 'var(--foreground)', borderColor: 'var(--glass-border)' }}>
                 О реабилитации
               </Link>
             </div>
@@ -69,7 +74,7 @@ export default function HomePage() {
               <div className="w-px" style={{ backgroundColor: 'var(--border)' }} />
               <div><div className="text-xl lg:text-2xl font-semibold" style={{ color: 'var(--foreground)' }}>2</div>направления</div>
               <div className="w-px" style={{ backgroundColor: 'var(--border)' }} />
-              <div><div className="text-xl lg:text-2xl font-semibold" style={{ color: 'var(--foreground)' }}>100%</div>бережный подход</div>
+              <div><div className="text-xl lg:text-2xl font-semibold" style={{ color: 'var(--foreground)' }}>1:1</div>индивидуальный формат</div>
             </div>
           </Reveal>
 
@@ -97,7 +102,7 @@ export default function HomePage() {
                   <div>
                     <div className="relative mx-auto mb-6 w-[180px] h-[180px]">
                       <div className="absolute inset-0 rounded-full blur-3xl opacity-40" style={{ background: 'var(--primary)' }} />
-                      <img src="/logo.png" alt="Логотип" className="relative w-full h-full object-contain rounded-full mix-blend-lighten" />
+                      <SiteImage src="/logo.png" alt="Логотип" className="relative w-full h-full object-contain rounded-full mix-blend-lighten" />
                     </div>
                   </div>
                 </div>
@@ -117,8 +122,8 @@ export default function HomePage() {
             </Reveal>
             <Reveal delay={0.52}>
               <div className="hero-float-card hero-float-card-bottom glass-feature absolute bottom-10 left-[17%] w-[250px] rounded-[26px] p-5">
-                <div className="mb-2 text-xs" style={{ color: 'var(--foreground-secondary)' }}>Результат работы</div>
-                <div className="flex items-end justify-between"><span className="text-3xl font-semibold" style={{ color: 'var(--foreground)' }}>100%</span><span className="pb-1 text-xs" style={{ color: 'var(--primary)' }}>бережный темп</span></div>
+                <div className="mb-2 text-xs" style={{ color: 'var(--foreground-secondary)' }}>Формат работы</div>
+                <div className="flex items-end justify-between"><span className="text-3xl font-semibold" style={{ color: 'var(--foreground)' }}>1:1</span><span className="pb-1 text-xs" style={{ color: 'var(--primary)' }}>в вашем темпе</span></div>
               </div>
             </Reveal>
           </div>
@@ -141,7 +146,7 @@ export default function HomePage() {
       <div className="relative -mt-12 lg:-mt-16">
         <div className="absolute inset-0 section-gradient pointer-events-none" />
         <Container className="section-spacing relative">
-          <SectionHeading eyebrow="Методы реабилитации" title="Два направления восстановления" subtitle="Индивидуальный подход: от психологической поддержки до физической реабилитации." />
+          <SectionHeading eyebrow="Методы реабилитации" title={copy.methodsTitle} subtitle={copy.methodsDescription} />
           <div className="section-grid grid grid-cols-1 sm:grid-cols-2 gap-5 lg:gap-6">
             {methods.map((m, i) => {
               const Icon = m.icon;
@@ -151,8 +156,8 @@ export default function HomePage() {
                     <div className="w-11 h-11 lg:w-12 lg:h-12 rounded-2xl flex items-center justify-center mb-5" style={{ backgroundColor: m.accent }}>
                       <Icon className="w-5 h-5 lg:w-6 lg:h-6 text-white" />
                     </div>
-                    <h3 className="text-lg lg:text-xl font-semibold mb-2" style={{ color: 'var(--foreground)' }}>{m.title}</h3>
-                    <p className="text-sm lg:text-base leading-relaxed" style={{ color: 'var(--foreground-secondary)' }}>{m.description}</p>
+                    <h3 className="text-lg lg:text-xl font-semibold mb-2" style={{ color: 'var(--foreground)' }}>{copy[`method${i + 1}Title`] || m.title}</h3>
+                    <p className="text-sm lg:text-base leading-relaxed" style={{ color: 'var(--foreground-secondary)' }}>{copy[`method${i + 1}Text`] || m.description}</p>
                     <div className="mt-5 flex items-center gap-1 text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-300" style={{ color: 'var(--primary)' }}>
                       Подробнее <ArrowRight className="w-3.5 h-3.5 lg:w-4 lg:h-4" />
                     </div>
@@ -170,9 +175,9 @@ export default function HomePage() {
           <Reveal>
             <Quote className="w-8 h-8 lg:w-10 lg:h-10 mx-auto mb-6 lg:mb-8" style={{ color: 'var(--primary)', opacity: 0.25 }} />
             <blockquote className="text-2xl md:text-3xl lg:text-4xl font-semibold tracking-tight leading-[1.15] mb-6" style={{ color: 'var(--foreground)' }}>
-              Реабилитация — это не борьба. Это возвращение к себе через бережное восстановление нервной системы и тела.
+              {copy.philosophy}
             </blockquote>
-            <p className="text-sm lg:text-base" style={{ color: 'var(--foreground-secondary)' }}>Каждый метод подобран с учётом вашего состояния и готовности к изменениям.</p>
+            <p className="text-sm lg:text-base" style={{ color: 'var(--foreground-secondary)' }}>{copy.philosophyNote}</p>
           </Reveal>
         </Container>
       </section>
@@ -180,14 +185,14 @@ export default function HomePage() {
       {/* PROCESS */}
       <div className="relative -mt-12 lg:-mt-16">
         <Container className="section-spacing">
-          <SectionHeading eyebrow="Как проходит реабилитация" title="Процесс работы" subtitle="Четыре шага к восстановлению." />
+          <SectionHeading eyebrow="Как проходит реабилитация" title={copy.processTitle} subtitle={copy.processDescription} />
           <div className="section-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {process.map((p, i) => (
               <Reveal key={p.step} delay={i * 0.08}>
                 <GlassCard>
                   <div className="text-4xl lg:text-5xl font-bold mb-3 lg:mb-4" style={{ color: 'var(--primary)', opacity: 0.12 }}>{p.step}</div>
-                  <h3 className="text-base lg:text-lg font-semibold mb-2" style={{ color: 'var(--foreground)' }}>{p.title}</h3>
-                  <p className="text-sm leading-relaxed" style={{ color: 'var(--foreground-secondary)' }}>{p.text}</p>
+                  <h3 className="text-base lg:text-lg font-semibold mb-2" style={{ color: 'var(--foreground)' }}>{copy[`process${i + 1}Title`] || p.title}</h3>
+                  <p className="text-sm leading-relaxed" style={{ color: 'var(--foreground-secondary)' }}>{copy[`process${i + 1}Text`] || p.text}</p>
                 </GlassCard>
               </Reveal>
             ))}
@@ -198,7 +203,7 @@ export default function HomePage() {
       {/* BENEFITS */}
       <div className="relative">
         <Container className="section-spacing relative">
-          <SectionHeading eyebrow="Почему это работает" title="Принципы реабилитации" />
+          <SectionHeading eyebrow="Почему это работает" title={copy.benefitsTitle} />
           <div className="section-grid grid grid-cols-1 md:grid-cols-3 gap-5 mb-16">
             {benefits.map((b, i) => {
               const Icon = b.icon;
@@ -208,8 +213,8 @@ export default function HomePage() {
                     <div className="w-11 h-11 lg:w-12 lg:h-12 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: 'var(--primary-muted)' }}>
                       <Icon className="w-5 h-5 lg:w-6 lg:h-6" style={{ color: 'var(--primary)' }} />
                     </div>
-                    <h3 className="text-base lg:text-lg font-semibold text-center mb-2" style={{ color: 'var(--foreground)' }}>{b.title}</h3>
-                    <p className="text-sm leading-relaxed text-center" style={{ color: 'var(--foreground-secondary)' }}>{b.text}</p>
+                    <h3 className="text-base lg:text-lg font-semibold text-center mb-2" style={{ color: 'var(--foreground)' }}>{copy[`benefit${i + 1}Title`] || b.title}</h3>
+                    <p className="text-sm leading-relaxed text-center" style={{ color: 'var(--foreground-secondary)' }}>{copy[`benefit${i + 1}Text`] || b.text}</p>
                   </GlassCard>
                 </Reveal>
               );
@@ -219,7 +224,7 @@ export default function HomePage() {
           <Reveal>
             <div className="text-center">
               <p className="mb-4" style={{ color: 'var(--foreground-secondary)' }}>Программа реабилитации подбирается индивидуально, исходя из вашего состояния и запроса.</p>
-              <Link href="/contact" className="liquid-btn group relative inline-flex items-center justify-center rounded-full text-white px-6 lg:px-8 py-3 lg:py-3.5 font-medium gap-2 text-sm lg:text-base">
+              <Link href="/rehabilitation#booking" className="liquid-btn group relative inline-flex items-center justify-center rounded-full text-white px-6 lg:px-8 py-3 lg:py-3.5 font-medium gap-2 text-sm lg:text-base">
                 <span className="relative z-10">Записаться на консультацию</span>
                 <ArrowRight className="relative z-10 w-4 h-4 transition-transform duration-300 group-hover:translate-x-0.5" />
               </Link>
@@ -231,7 +236,7 @@ export default function HomePage() {
       {/* ОТЗЫВЫ — ЖИВЫЕ ИЗ БАЗЫ */}
       <div className="relative -mt-12 lg:-mt-16">
         <Container className="section-spacing">
-          <SectionHeading eyebrow="Отзывы" title="Что говорят клиенты" />
+          <SectionHeading eyebrow="Отзывы" title={copy.reviewsTitle} />
           <Reveal>
             <ReviewsCarousel />
           </Reveal>
@@ -253,10 +258,10 @@ export default function HomePage() {
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.10),transparent_60%)]" />
           <div className="orb" style={{ background: 'rgba(255,255,255,0.1)', width: 400, height: 400, top: "-10%", left: "50%", transform: "translateX(-50%)", filter: "blur(100px)" }} />
           <div className="relative max-w-3xl mx-auto">
-            <h2 className="text-3xl lg:text-5xl font-semibold tracking-tight mb-4 lg:mb-6 leading-tight">Готовы начать восстановление?</h2>
-            <p className="text-sm lg:text-lg text-white/80 leading-relaxed mb-8 lg:mb-10">Первая консультация поможет определить направление реабилитации и составить индивидуальную программу.</p>
-            <Link href="/contact" className="inline-flex items-center justify-center rounded-full bg-white px-6 lg:px-8 py-3.5 lg:py-4 font-medium shadow-xl hover:opacity-90 transition-all hover:-translate-y-0.5 gap-2 text-sm lg:text-base" style={{ color: 'var(--primary)' }}>
-              Записаться на консультацию <ArrowRight className="w-4 h-4" />
+            <h2 className="text-3xl lg:text-5xl font-semibold tracking-tight mb-4 lg:mb-6 leading-tight">{copy.ctaTitle}</h2>
+            <p className="text-sm lg:text-lg text-white/80 leading-relaxed mb-8 lg:mb-10">{copy.ctaDescription}</p>
+            <Link href="/rehabilitation#booking" className="inline-flex items-center justify-center rounded-full bg-white px-6 lg:px-8 py-3.5 lg:py-4 font-medium shadow-xl hover:opacity-90 transition-all hover:-translate-y-0.5 gap-2 text-sm lg:text-base" style={{ color: 'var(--primary)' }}>
+              {copy.ctaButton} <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
         </div>

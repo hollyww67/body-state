@@ -1,200 +1,228 @@
 "use client";
 
-import { useState } from "react";
-import { usePathname } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
-  CalendarDays,
-  MessageSquare,
-  ShoppingBag,
-  Settings,
-  Package,
-  Menu,
-  ChevronLeft,
-  Calendar,
-  ChevronsLeft,
-  ChevronsRight,
-  Sparkles,
-  Clock,
-  LayoutDashboard,
-  FileText,
-  HeartPulse,
-  Video,
-  Image,
-  Star,
+  Calendar, CalendarDays, ChevronLeft, ChevronsLeft, ChevronsRight, Clock,
+  FileText, HeartPulse, Image, LayoutDashboard, Menu, MessageSquare, Package,
+  Award, BadgeRussianRuble, Gift, Link2, Search, Settings, ShoppingBag, Sparkles, Star, TicketPercent, Video, X,
 } from "lucide-react";
 
-const mainItems = [
-  { href: "/admin", label: "Дашборд", icon: LayoutDashboard },
-  { href: "/admin/calendar", label: "Календарь", icon: Calendar },
-  { href: "/admin/bookings", label: "Заявки", icon: CalendarDays },
-  { href: "/admin/slots", label: "Слоты", icon: Clock },
-];
-
-const storeItems = [
-  { href: "/admin/orders", label: "Заказы", icon: Package },
-  { href: "/admin/products", label: "Товары", icon: ShoppingBag },
-  { href: "/admin/psychology", label: "Психология", icon: HeartPulse },
-  { href: "/admin/pages", label: "Страницы", icon: FileText },
-  { href: "/admin/reviews", label: "Отзывы", icon: Star },
-  { href: "/admin/media", label: "До/После", icon: Image },
-  { href: "/admin/faq", label: "FAQ бот", icon: MessageSquare },
-  { href: "/admin/psychology-rooms", label: "Видео-комнаты", icon: Video },
-  { href: "/admin/settings", label: "Тема", icon: Settings },
+const groups = [
+  {
+    label: "Приёмы и клиенты",
+    items: [
+      { href: "/admin/dashboard", label: "Рабочий день", icon: LayoutDashboard },
+      { href: "/admin/calendar", label: "Календарь приёмов", icon: Calendar },
+      { href: "/admin/bookings", label: "Записи и клиенты", icon: CalendarDays },
+      { href: "/admin/slots", label: "Время для записи", icon: Clock },
+      { href: "/admin/psychology-rooms", label: "Онлайн-консультации", icon: Video },
+    ],
+  },
+  {
+    label: "Оплата и магазин",
+    items: [
+      { href: "/admin/orders", label: "Заказы и оплаты", icon: Package },
+      { href: "/admin/payment-links", label: "Ссылки на оплату", icon: Link2 },
+      { href: "/admin/payment-cases", label: "Проверка платежей", icon: BadgeRussianRuble },
+      { href: "/admin/products", label: "Товары", icon: ShoppingBag },
+      { href: "/admin/prices", label: "Цены", icon: BadgeRussianRuble },
+    ],
+  },
+  {
+    label: "Скидки и акции",
+    items: [
+      { href: "/admin/promotions", label: "Акции на сайте", icon: Gift },
+      { href: "/admin/promo-codes", label: "Промокоды", icon: TicketPercent },
+      { href: "/admin/loyalty", label: "Бонусы за посещения", icon: Award },
+    ],
+  },
+  {
+    label: "Содержимое сайта",
+    items: [
+      { href: "/admin/psychology", label: "Программы психологии", icon: HeartPulse },
+      { href: "/admin/pages", label: "Тексты страниц", icon: FileText },
+      { href: "/admin/reviews", label: "Отзывы и жалобы", icon: Star },
+      { href: "/admin/media", label: "Фото «До и после»", icon: Image },
+    ],
+  },
+  {
+    label: "Сервис",
+    items: [
+      { href: "/admin/notifications", label: "Журнал отправок", icon: MessageSquare },
+      { href: "/admin/faq", label: "Ответы чат-бота", icon: MessageSquare },
+      { href: "/admin/settings", label: "Настройки", icon: Settings },
+    ],
+  },
 ];
 
 export default function AdminSidebar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [query, setQuery] = useState("");
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const sidebarRef = useRef<HTMLElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
 
-  const isActive = (href: string) => {
-    if (href === "/admin") return pathname === "/admin";
-    return pathname === href || pathname?.startsWith(href + "/");
+  useEffect(() => {
+    const desktop = window.matchMedia("(min-width: 1024px)").matches;
+    try { setCollapsed(desktop && localStorage.getItem("admin-sidebar-collapsed") === "true"); } catch { /* Optional preference. */ }
+    const media = window.matchMedia("(min-width: 1024px)");
+    const resize = () => {
+      setMobileOpen(false);
+      try { setCollapsed(media.matches && localStorage.getItem("admin-sidebar-collapsed") === "true"); } catch { setCollapsed(false); }
+    };
+    media.addEventListener("change", resize);
+    return () => media.removeEventListener("change", resize);
+  }, []);
+
+  useEffect(() => {
+    setMobileOpen(false);
+    setQuery("");
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const previous = document.activeElement as HTMLElement | null;
+    const scrollY = window.scrollY;
+    const body = document.body;
+    const saved = { overflow: body.style.overflow, position: body.style.position, top: body.style.top, width: body.style.width };
+    // overflow:hidden alone does not lock the document reliably in iOS standalone mode.
+    Object.assign(body.style, { overflow: "hidden", position: "fixed", top: `-${scrollY}px`, width: "100%" });
+    const background = Array.from(document.querySelectorAll<HTMLElement>('.admin-main,.admin-mobile-bar,.admin-mobile-bottom-nav'));
+    const inertBefore = background.map(el => el.inert);
+    background.forEach(el => { el.inert = true; });
+    const viewport = window.visualViewport;
+    const sidebar = sidebarRef.current;
+    const fitViewport = () => {
+      sidebar?.style.setProperty('--menu-height', `${viewport?.height || window.innerHeight}px`);
+      sidebar?.style.setProperty('--menu-top', `${viewport?.offsetTop || 0}px`);
+    };
+    fitViewport();
+    viewport?.addEventListener('resize', fitViewport);
+    viewport?.addEventListener('scroll', fitViewport);
+    // Focusing search opens the software keyboard and can zoom the whole PWA on iOS.
+    const focusTimer = window.setTimeout(() => closeRef.current?.focus({ preventScroll: true }), 0);
+    const keydown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMobileOpen(false);
+      if (event.key !== "Tab") return;
+      const controls = Array.from(document.querySelectorAll<HTMLElement>('#admin-navigation a[href],#admin-navigation button:not(:disabled),#admin-navigation input')).filter(el => el.getClientRects().length > 0);
+      const first = controls[0], last = controls[controls.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+      if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+    };
+    document.addEventListener("keydown", keydown);
+    return () => {
+      Object.assign(body.style, saved);
+      background.forEach((el, i) => { el.inert = inertBefore[i]; });
+      viewport?.removeEventListener('resize', fitViewport);
+      viewport?.removeEventListener('scroll', fitViewport);
+      window.clearTimeout(focusTimer);
+      sidebar?.style.removeProperty('--menu-height');
+      sidebar?.style.removeProperty('--menu-top');
+      document.removeEventListener("keydown", keydown);
+      window.scrollTo({ top: scrollY, behavior: 'instant' });
+      if (previous?.isConnected) previous.focus({ preventScroll: true });
+    };
+  }, [mobileOpen]);
+
+  const toggleCollapsed = () => {
+    setCollapsed((current) => {
+      const next = !current;
+      try { localStorage.setItem("admin-sidebar-collapsed", String(next)); } catch { /* Optional preference. */ }
+      return next;
+    });
   };
+
+  const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
+
+  const mobileItems = [
+    { href: "/admin/dashboard", label: "Сегодня", icon: LayoutDashboard },
+    { href: "/admin/calendar", label: "Календарь", icon: Calendar },
+    { href: "/admin/bookings", label: "Записи", icon: CalendarDays },
+    { href: "/admin/orders", label: "Заказы", icon: ShoppingBag },
+  ];
 
   return (
     <>
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-xl border-b border-slate-200/60 px-4 py-3 flex items-center justify-between">
-        <button
-          onClick={() => setMobileOpen(true)}
-          className="p-2 -ml-2"
-        >
-          <Menu className="w-5 h-5 text-slate-700" />
+      <div className="admin-mobile-bar">
+        <button type="button" onClick={() => { setCollapsed(false); setMobileOpen(true); }} className="admin-mobile-menu" aria-label="Открыть меню" aria-expanded={mobileOpen} aria-controls="admin-navigation">
+          <Menu className="h-5 w-5" />
         </button>
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-teal-500 to-emerald-500 flex items-center justify-center shadow-lg shadow-teal-500/20">
-            <Sparkles className="w-4 h-4 text-white" />
-          </div>
-          <span className="font-semibold text-slate-900 text-sm">Админка</span>
+        <div className="admin-mobile-brand">
+          <span className="admin-brand-mark"><Sparkles className="h-4 w-4" /></span>
+          <span>Центр управления</span>
         </div>
-        <div className="w-8" />
       </div>
 
-      {mobileOpen && (
-        <div
-          onClick={() => setMobileOpen(false)}
-          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden"
-        />
-      )}
+      {mobileOpen && <button type="button" className="admin-sidebar-overlay" onClick={() => setMobileOpen(false)} aria-label="Закрыть меню" tabIndex={-1} />}
 
-      <aside
-        className={`fixed lg:sticky top-0 left-0 z-50 h-screen bg-gradient-to-b from-white to-slate-50/80 backdrop-blur-2xl border-r border-slate-200/60 shadow-[0_0_0_1px_rgba(255,255,255,0.4)] flex flex-col transition-all duration-300 ease-out ${
-          mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
-        } ${collapsed ? "w-[80px]" : "w-[280px]"}`}
-      >
-        <div
-          className={`flex items-center p-5 ${
-            collapsed ? "justify-center" : "gap-3"
-          }`}
-        >
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-teal-500 to-emerald-500 flex items-center justify-center shadow-lg shadow-teal-500/20 flex-shrink-0">
-            <Sparkles className="w-5 h-5 text-white" />
-          </div>
+      <aside ref={sidebarRef} id="admin-navigation" aria-label="Меню администратора" role={mobileOpen ? "dialog" : undefined} aria-modal={mobileOpen || undefined} className={`admin-sidebar ${collapsed ? "is-collapsed" : ""} ${mobileOpen ? "is-open" : ""}`}>
+        <div className="admin-sidebar-brand">
+          <span className="admin-brand-mark"><Sparkles className="h-5 w-5" /></span>
           {!collapsed && (
-            <div className="min-w-0">
-              <p className="font-semibold text-slate-900 text-[15px] tracking-tight">
-                Админка
-              </p>
-              <p className="text-xs text-slate-500">Через тело к состоянию</p>
+            <div className="admin-brand-copy">
+              <strong>Центр управления</strong>
+              <span>Практика и магазин</span>
             </div>
           )}
-          <button
-            onClick={() => setCollapsed(!collapsed)}
-            className="hidden lg:flex w-8 h-8 rounded-xl bg-slate-100 hover:bg-white border border-slate-200 shadow-sm items-center justify-center flex-shrink-0 ml-auto transition-all hover:shadow-md"
-          >
-            {collapsed ? (
-              <ChevronsRight className="w-4 h-4 text-slate-500" />
-            ) : (
-              <ChevronsLeft className="w-4 h-4 text-slate-500" />
-            )}
+          <button type="button" onClick={toggleCollapsed} className="admin-collapse-button" aria-label={collapsed ? "Развернуть меню" : "Свернуть меню"}>
+            {collapsed ? <ChevronsRight className="h-4 w-4" /> : <ChevronsLeft className="h-4 w-4" />}
+          </button>
+          <button ref={closeRef} type="button" onClick={() => setMobileOpen(false)} className="admin-close-button" aria-label="Закрыть меню">
+            <X className="h-5 w-5" />
           </button>
         </div>
 
-        <nav className="flex flex-col gap-1 flex-1 px-4 overflow-y-auto">
-          {!collapsed && (
-            <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest px-3 mt-2 mb-1">
-              Основное
-            </p>
-          )}
-          {mainItems.map((item) => {
-            const active = isActive(item.href);
+        {!collapsed && <label className="admin-nav-search"><Search size={16} aria-hidden="true" /><input id="admin-section-search" type="search" aria-label="Найти раздел" placeholder="Найти раздел или действие" value={query} onChange={e => setQuery(e.target.value)} /></label>}
+        <nav className="admin-nav" aria-label="Разделы админки">
+          {groups.map((group, index) => {
+            const normalize = (s: string) => s.toLowerCase().replaceAll("ё", "е");
+            const aliases: Record<string, string> = { slots: "слоты расписание перерыв месяц", bookings: "заявки телефон имя клиент перенос отмена", pages: "редактор диплом сертификат", notifications: "уведомления sms email почта", loyalty: "лояльность", settings: "пароль тема", prices: "стоимость прайс", "payment-links": "чек счет", "payment-cases": "возврат разбор", faq: "faq" };
+            const items = group.items.filter(item => normalize(`${item.label} ${group.label} ${aliases[item.href.split('/').pop()!] || ''}`).includes(normalize(query.trim())));
+            if (!items.length) return null;
+            const open = collapsed || !!query || (expanded[group.label] ?? (index === 0 || group.items.some(item => isActive(item.href))));
             return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={() => setMobileOpen(false)}
-                title={collapsed ? item.label : undefined}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-2xl text-[15px] font-medium transition-all duration-200 group ${
-                  collapsed ? "justify-center" : ""
-                } ${
-                  active
-                    ? "bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-lg shadow-teal-500/20"
-                    : "text-slate-600 hover:bg-slate-100/80 hover:translate-x-0.5"
-                }`}
-              >
-                <item.icon
-                  className={`w-5 h-5 flex-shrink-0 ${
-                    active
-                      ? "text-white"
-                      : "opacity-70 group-hover:opacity-100"
-                  }`}
-                  strokeWidth={active ? 2.5 : 2}
-                />
-                {!collapsed && <span>{item.label}</span>}
-              </Link>
-            );
-          })}
-
-          {!collapsed && (
-            <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest px-3 mt-4 mb-1">
-              Магазин и контент
-            </p>
-          )}
-          {storeItems.map((item) => {
-            const active = isActive(item.href);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={() => setMobileOpen(false)}
-                title={collapsed ? item.label : undefined}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-2xl text-[15px] font-medium transition-all duration-200 group ${
-                  collapsed ? "justify-center" : ""
-                } ${
-                  active
-                    ? "bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-lg shadow-teal-500/20"
-                    : "text-slate-600 hover:bg-slate-100/80 hover:translate-x-0.5"
-                }`}
-              >
-                <item.icon
-                  className={`w-5 h-5 flex-shrink-0 ${
-                    active
-                      ? "text-white"
-                      : "opacity-70 group-hover:opacity-100"
-                  }`}
-                  strokeWidth={active ? 2.5 : 2}
-                />
-                {!collapsed && <span>{item.label}</span>}
-              </Link>
-            );
-          })}
+            <div className="admin-nav-group" key={group.label}>
+              {!collapsed && <button type="button" className="admin-nav-heading" aria-expanded={open} aria-controls={`admin-group-${index}`} onClick={() => setExpanded(value => ({ ...value, [group.label]: !open }))}>{group.label}<span aria-hidden="true">{open ? "−" : "+"}</span></button>}
+              <div id={`admin-group-${index}`} hidden={!open}>{items.map((item) => {
+                const active = isActive(item.href);
+                const Icon = item.icon;
+                return (
+                  <Link key={item.href} href={item.href} onClick={() => { setMobileOpen(false); setQuery(''); }} className={`admin-nav-link ${active ? "is-active" : ""}`} aria-label={item.label} title={collapsed ? item.label : undefined} aria-current={active ? "page" : undefined}>
+                    <Icon className="h-[18px] w-[18px]" strokeWidth={active ? 2.3 : 1.9} />
+                    {!collapsed && <span>{item.label}</span>}
+                  </Link>
+                );
+              })}</div>
+            </div>
+          );})}
+          {query && <button type="button" className="admin-search-reset" onClick={() => setQuery("")}>Сбросить поиск</button>}
         </nav>
 
-        <div className="px-4 pb-4 pt-2 border-t border-slate-200/60">
-          <Link
-            href="/"
-            onClick={() => setMobileOpen(false)}
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-2xl text-[15px] font-medium text-slate-500 hover:bg-slate-100/80 hover:text-slate-700 transition-all duration-200 ${
-              collapsed ? "justify-center" : ""
-            }`}
-            title={collapsed ? "На сайт" : undefined}
-          >
-            <ChevronLeft className="w-5 h-5 flex-shrink-0" />
-            {!collapsed && "На сайт"}
+        <div className="admin-sidebar-footer">
+          <Link href="/" onClick={() => setMobileOpen(false)} className="admin-site-link" aria-label="Вернуться на сайт" title={collapsed ? "На сайт" : undefined}>
+            <ChevronLeft className="h-[18px] w-[18px]" />
+            {!collapsed && <span>Вернуться на сайт</span>}
           </Link>
         </div>
       </aside>
+
+      <nav className="admin-mobile-bottom-nav" aria-label="Быстрая навигация">
+        {mobileItems.map((item) => {
+          const active = isActive(item.href);
+          const Icon = item.icon;
+          return (
+            <Link key={item.href} href={item.href} className={`admin-mobile-bottom-link ${active ? "is-active" : ""}`} aria-current={active ? "page" : undefined}>
+              <Icon className="h-[19px] w-[19px]" strokeWidth={active ? 2.4 : 1.9} />
+              <span>{item.label}</span>
+            </Link>
+          );
+        })}
+        <button type="button" className="admin-mobile-bottom-link" onClick={() => { setCollapsed(false); setMobileOpen(true); }} aria-expanded={mobileOpen} aria-controls="admin-navigation"><Menu size={19} /><span>Все разделы</span></button>
+      </nav>
     </>
   );
 }

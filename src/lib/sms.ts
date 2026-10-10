@@ -1,10 +1,10 @@
 const SMSAERO_EMAIL = process.env.SMSAERO_EMAIL;
 const SMSAERO_API_KEY = process.env.SMSAERO_API_KEY;
+import { providerFailure, type ProviderResult } from '@/lib/notification-result';
 
-export async function sendSMS(phone: string, message: string, sign: string = "SMS Aero"): Promise<boolean> {
+export async function deliverSMS(phone: string, message: string, sign: string = "SMS Aero"): Promise<ProviderResult> {
   if (!SMSAERO_EMAIL || !SMSAERO_API_KEY) {
-    console.warn("SMS Aero not configured");
-    return false;
+    return {status:'not_configured',error:'channel_not_configured'};
   }
 
   try {
@@ -19,18 +19,20 @@ export async function sendSMS(phone: string, message: string, sign: string = "SM
         "Authorization": `Basic ${auth}`,
         "Accept": "application/json",
       },
+      signal: AbortSignal.timeout(10000),
     });
-
+    if(!res.ok) return providerFailure(res.status);
     const data = await res.json();
 
     if (!data.success) {
-      console.error("SMS Aero error:", data.message || data);
-      return false;
+      return {status:'failed',error:'provider_rejected'};
     }
 
-    return true;
-  } catch (e) {
-    console.error("SMS send error:", e);
-    return false;
+    return {status:'accepted',id:data.data?.id?String(data.data.id):undefined};
+  } catch {
+    return {status:'uncertain',error:'provider_outcome_unknown'};
   }
+}
+export async function sendSMS(phone:string,message:string,sign='SMS Aero'):Promise<boolean> {
+  const r=await deliverSMS(phone,message,sign);return r.status==='accepted'||r.status==='delivered';
 }
