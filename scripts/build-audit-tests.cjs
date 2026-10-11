@@ -20,6 +20,8 @@ function compile(directory) {
 compile(path.join(root, 'src'));
 fs.mkdirSync(path.join(output, 'tests'), { recursive: true });
 fs.copyFileSync(path.join(root, 'tests', 'audit-regressions.cjs'), path.join(output, 'tests', 'audit-regressions.cjs'));
+fs.copyFileSync(path.join(root, 'tests', 'scheduling-hardening-unit.cjs'), path.join(output, 'tests', 'scheduling-hardening-unit.cjs'));
+fs.copyFileSync(path.join(root, 'tests', 'scheduling-pool.cjs'), path.join(output, 'tests', 'scheduling-pool.cjs'));
 fs.mkdirSync(path.join(output, 'scripts'), { recursive: true });
 fs.copyFileSync(path.join(root, 'scripts', 'migrate.mjs'), path.join(output, 'scripts', 'migrate.mjs'));
 fs.cpSync(path.join(root, 'migrations'), path.join(output, 'migrations'), { recursive: true });

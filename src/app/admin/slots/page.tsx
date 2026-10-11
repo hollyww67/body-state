@@ -2,7 +2,8 @@
 import AdminConfirmDialog from "@/components/admin/AdminConfirmDialog";
 
 import { useEffect, useState, useMemo } from "react";
-import { format, parseISO, addDays, differenceInDays } from "date-fns";
+import { parseISO, addDays, differenceInDays } from "date-fns";
+import { formatMoscow as format, moscowDate, moscowInputToISO } from "@/lib/moscow-time";
 import { ru } from "date-fns/locale";
 import { Plus, Trash2, RefreshCw, Calendar, Eye, Layers, Coffee, Clock3 } from "lucide-react";
 import { toast } from "sonner";
@@ -51,8 +52,8 @@ export default function AdminSlotsPage() {
   const [filterType, setFilterType] = useState<string | null>(null);
 
   const [serviceType, setServiceType] = useState("bfm");
-  const [dateFrom, setDateFrom] = useState(() => format(addDays(new Date(), 1), "yyyy-MM-dd"));
-  const [dateTo, setDateTo] = useState(() => format(addDays(new Date(), 30), "yyyy-MM-dd"));
+  const [dateFrom, setDateFrom] = useState(() => format(addDays(moscowDate(), 1), "yyyy-MM-dd"));
+  const [dateTo, setDateTo] = useState(() => format(addDays(moscowDate(), 30), "yyyy-MM-dd"));
   const [timeFrom, setTimeFrom] = useState("09:30");
   const [timeTo, setTimeTo] = useState("18:30");
   const [step, setStep] = useState(90);
@@ -100,10 +101,10 @@ export default function AdminSlotsPage() {
     const slots: { date: string; time: string }[] = [];
     const [hFrom, mFrom] = timeFrom.split(":").map(Number);
     const [hTo, mTo] = timeTo.split(":").map(Number);
-    const start = new Date(dateFrom);
-    const end = dateTo ? new Date(dateTo) : new Date(dateFrom);
+    const start = moscowDate(dateFrom);
+    const end = moscowDate(dateTo || dateFrom);
     if (end < start) return [];
-    let current = new Date(start);
+    let current = moscowDate(start);
     while (current <= end) {
       if (weekdays.has(current.getDay())) for (let t = hFrom * 60 + mFrom; t <= hTo * 60 + mTo; t += step) {
         slots.push({
@@ -118,17 +119,17 @@ export default function AdminSlotsPage() {
 
   const handleCreate = async () => {
     if (!dateFrom) return;
-    const start = new Date(dateFrom);
-    const end = dateTo ? new Date(dateTo) : new Date(dateFrom);
+    const start = moscowDate(dateFrom);
+    const end = moscowDate(dateTo || dateFrom);
     const [hFrom, mFrom] = timeFrom.split(":").map(Number);
     const [hTo, mTo] = timeTo.split(":").map(Number);
     const slotsToCreate: any[] = [];
-    let current = new Date(start);
+    let current = moscowDate(start);
     while (current <= end) {
       if (weekdays.has(current.getDay())) for (let t = hFrom * 60 + mFrom; t <= hTo * 60 + mTo; t += step) {
         slotsToCreate.push({
           service_type: serviceType,
-          slot_time: new Date(`${format(current, "yyyy-MM-dd")}T${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}:00`).toISOString(),
+          slot_time: moscowInputToISO(format(current, "yyyy-MM-dd"), `${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`),
         });
       }
       current = addDays(current, 1);
@@ -145,18 +146,18 @@ export default function AdminSlotsPage() {
 
   const handleCreateAll = async () => {
     if (!dateFrom) return;
-    const start = new Date(dateFrom);
-    const end = dateTo ? new Date(dateTo) : new Date(dateFrom);
+    const start = moscowDate(dateFrom);
+    const end = moscowDate(dateTo || dateFrom);
     const [hFrom, mFrom] = timeFrom.split(":").map(Number);
     const [hTo, mTo] = timeTo.split(":").map(Number);
     const allSlots: any[] = [];
-    let current = new Date(start);
+    let current = moscowDate(start);
     while (current <= end) {
       if (weekdays.has(current.getDay())) for (const type of SERVICE_TYPES) {
         for (let t = hFrom * 60 + mFrom; t <= hTo * 60 + mTo; t += step) {
           allSlots.push({
             service_type: type.value,
-            slot_time: new Date(`${format(current, "yyyy-MM-dd")}T${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}:00`).toISOString(),
+            slot_time: moscowInputToISO(format(current, "yyyy-MM-dd"), `${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`),
           });
         }
       }
@@ -182,7 +183,7 @@ export default function AdminSlotsPage() {
       });
       const data = await res.json();
       if (res.ok) {
-        toast.success(`Удалено слотов: ${data.count || ids.length}`);
+        toast.success(`Удалено слотов: ${data.count ?? 0}`);
         fetchSlots();
       } else {
         throw new Error(data.error || "Ошибка удаления");
@@ -191,8 +192,8 @@ export default function AdminSlotsPage() {
 
   const createBreak = async () => {
     if (!breakDate || !breakFrom || !breakTo) return toast.error("Укажите дату и время перерыва");
-    const startsAt = new Date(`${breakDate}T${breakFrom}:00`);
-    const endsAt = new Date(`${breakDate}T${breakTo}:00`);
+    const startsAt = new Date(moscowInputToISO(breakDate, breakFrom));
+    const endsAt = new Date(moscowInputToISO(breakDate, breakTo));
     if (endsAt <= startsAt) return toast.error("Окончание должно быть позже начала");
     setSavingBreak(true);
     try {
@@ -222,13 +223,13 @@ export default function AdminSlotsPage() {
   const toggleAll = () => { if (selected.size === freeSlots.length) setSelected(new Set()); else setSelected(new Set(freeSlots.map((s) => s.id))); };
   const applyPreset = (p: typeof PRESETS[0]) => { setTimeFrom(p.from); setTimeTo(p.to); setStep(p.step); };
   const toggleWeekday = (value: number) => setWeekdays((current) => { const next = new Set(current); if (next.has(value)) next.delete(value); else next.add(value); return next; });
-  const setNextMonth = () => { setDateFrom(format(addDays(new Date(), 1), "yyyy-MM-dd")); setDateTo(format(addDays(new Date(), 30), "yyyy-MM-dd")); };
+  const setNextMonth = () => { setDateFrom(format(addDays(moscowDate(), 1), "yyyy-MM-dd")); setDateTo(format(addDays(moscowDate(), 30), "yyyy-MM-dd")); };
 
   const stats = { total: futureSlots.length, free: futureSlots.filter((s) => !s.is_booked).length, booked: futureSlots.filter((s) => s.is_booked && !s.is_break).length, breaks: scheduleBreaks.length };
   const daysCount = useMemo(() => {
     if (!dateFrom) return 1;
     if (!dateTo) return 1;
-    return Math.max(1, differenceInDays(new Date(dateTo), new Date(dateFrom)) + 1);
+    return Math.max(1, differenceInDays(moscowDate(dateTo), moscowDate(dateFrom)) + 1);
   }, [dateFrom, dateTo]);
 
   const grouped = useMemo(() => {
@@ -241,7 +242,7 @@ export default function AdminSlotsPage() {
     <div className="admin-slots-page max-w-6xl mx-auto">
       <div className="sticky top-0 z-20 bg-[#F6F5F2]/90 backdrop-blur-md pb-4 mb-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold text-[#111827]">Доступное время</h2>
+          <div><h2 className="text-xl font-semibold text-[#111827]">Доступное время</h2><p className="mt-1 text-xs text-[#6B7280]">Московское время</p></div>
           <div className="flex items-center gap-2">
             <div className="flex bg-gray-100 rounded-xl p-1">
               <button onClick={() => setView("list")} className={`px-3 py-1.5 rounded-lg text-xs font-medium ${view === "list" ? "bg-white shadow-sm text-[#111827]" : "text-[#6B7280]"}`}>Список</button>
