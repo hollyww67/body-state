@@ -1,13 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import Link from "next/link";
 import { formatDistanceToNowStrict, format, isThisMonth } from "date-fns";
 import { ru } from "date-fns/locale";
-import { RefreshCw, Truck, Check, Search, Package, Clock3, CreditCard, X as XIcon, Phone, MapPin, ChevronDown, Trash2, History } from "lucide-react";
+import { RefreshCw, Check, Search, Package, Clock3, CreditCard, X as XIcon, Trash2, History, Link2 } from "lucide-react";
 import { toast } from "sonner";
-import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
-import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
 
 interface OrderItem { name: string; quantity: number; price: number; }
 interface Order { id: string; client_name: string; client_phone: string; address: string; delivery: string; items: OrderItem[]; total: number; status: string; created_at: string; }
@@ -18,33 +16,32 @@ const STATUS_CONFIG: Record<string, { label: string; badge: string }> = {
   shipped: { label: "Отправлен", badge: "bg-indigo-100 text-indigo-700" },
   delivered: { label: "Доставлен", badge: "bg-slate-100 text-slate-600" },
   cancelled: { label: "Отменён", badge: "bg-red-100 text-red-600" },
+  failed: { label: "Ошибка оплаты", badge: "bg-red-100 text-red-600" },
+  refunded: { label: "Возвращён", badge: "bg-slate-100 text-slate-600" },
 };
 
 const ACTIVE_COLUMNS = ["pending", "paid", "shipped", "delivered"];
 
-function SortableOrder({ order, onOpen, onDelete }: { order: Order; onOpen: (o: Order) => void; onDelete?: (id: string) => void }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: order.id });
-  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
+function OrderCard({ order, onOpen, onDelete }: { order: Order; onOpen: (o: Order) => void; onDelete?: (id: string) => void }) {
   const isOverdue = order.status === "pending" && (Date.now() - new Date(order.created_at).getTime()) > 30 * 60 * 1000;
   const canDelete = order.status === "delivered" || order.status === "cancelled";
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners}
-      className={`bg-white rounded-2xl border p-4 cursor-grab active:cursor-grabbing transition-all duration-200 hover:shadow-md ${isDragging ? "shadow-xl z-50" : "shadow-sm"} ${isOverdue ? "border-l-2 border-l-red-400" : "border-gray-100"}`}>
+    <div className={`bg-white rounded-2xl border p-4 transition-all duration-200 hover:shadow-md shadow-sm ${isOverdue ? "border-l-2 border-l-red-400" : "border-gray-100"}`}>
       <div className="flex items-start justify-between gap-2 mb-2">
-        <div className="min-w-0 cursor-pointer" onClick={(e) => { e.stopPropagation(); onOpen(order); }}>
+        <button type="button" aria-label={`Открыть заказ ${order.client_name || order.id.slice(0, 8)}`} className="min-w-0 text-left cursor-pointer" onPointerDown={e => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); onOpen(order); }}>
           <p className="font-semibold text-sm text-[#111827] truncate hover:text-teal-600">{order.client_name}</p>
           <p className="text-xs text-[#6B7280] mt-0.5">{formatDistanceToNowStrict(new Date(order.created_at), { locale: ru, addSuffix: true })}</p>
-        </div>
+        </button>
         <div className="flex items-center gap-1 shrink-0">
           <p className="text-base font-bold text-[#111827]">{order.total} ₽</p>
           {canDelete && onDelete && (
-            <button onClick={(e) => { e.stopPropagation(); onDelete(order.id); }} className="p-1 rounded-lg text-red-400 hover:bg-red-50 hover:text-red-500 transition-colors" title="Удалить"><Trash2 className="w-3.5 h-3.5" /></button>
+            <button type="button" onClick={(e) => { e.stopPropagation(); onDelete(order.id); }} className="p-1 rounded-lg text-red-400 hover:bg-red-50 hover:text-red-500 transition-colors" title="Удалить" aria-label={`Удалить заказ ${order.id.slice(0, 8)}`}><Trash2 className="w-3.5 h-3.5" /></button>
           )}
         </div>
       </div>
       <p className="text-xs text-[#9CA3AF]">
-        {order.items.length === 1 ? order.items[0].name : `${order.items[0]?.name} +${order.items.length - 1}`}
+        {order.items.length === 0 ? "Состав заказа не указан" : order.items.length === 1 ? (order.items[0].name || "Платёж за услугу") : `${order.items[0]?.name || "Платёж"} и ещё ${order.items.length - 1}`}
       </p>
     </div>
   );
@@ -54,16 +51,22 @@ export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [drawerOrder, setDrawerOrder] = useState<Order | null>(null);
+  const openedOrder = useRef(false);
+  useEffect(() => {
+    if (openedOrder.current || !orders.length) return;
+    const id = new URLSearchParams(window.location.search).get("order");
+    const order = orders.find(item => item.id === id);
+    if (order) { setDrawerOrder(order); openedOrder.current = true; }
+  }, [orders]);
   const [search, setSearch] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   const fetchOrders = useCallback(async () => {
-    try { setRefreshing(true); const res = await fetch("/api/admin/orders"); const data = await res.json(); setOrders(data.orders || []); }
+    try { setRefreshing(true); const res = await fetch("/api/admin/orders"); const data = await res.json(); if (!res.ok) throw new Error(data.error); setOrders(data.orders || []); }
     catch { toast.error("Не удалось загрузить"); } finally { setLoading(false); setRefreshing(false); }
   }, []);
 
@@ -71,8 +74,8 @@ export default function AdminOrdersPage() {
 
   const updateStatus = useCallback(async (id: string, status: string) => {
     setOrders((prev) => prev.map((o) => o.id === id ? { ...o, status } : o));
-    try { await fetch(`/api/admin/orders?id=${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) }); }
-    catch { fetchOrders(); }
+    try { const res = await fetch(`/api/admin/orders?id=${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) }); const result = await res.json(); if (!res.ok) throw new Error(result.error || "Не удалось обновить статус"); }
+    catch (error) { void fetchOrders(); toast.error(error instanceof Error ? error.message : "Ошибка обновления"); }
   }, [fetchOrders]);
 
   const deleteOrder = useCallback(async (id: string) => {
@@ -83,13 +86,6 @@ export default function AdminOrdersPage() {
     finally { setDeleting(false); setShowDeleteConfirm(null); }
   }, [fetchOrders]);
 
-  const handleDragEnd = useCallback((event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-    const newStatus = over.id.toString();
-    if (!ACTIVE_COLUMNS.includes(newStatus)) return;
-    updateStatus(active.id.toString(), newStatus);
-  }, [updateStatus]);
 
   const filteredOrders = useMemo(() => {
     return orders.filter((o) => {
@@ -99,31 +95,34 @@ export default function AdminOrdersPage() {
   }, [orders, search]);
 
   const activeOrders = filteredOrders.filter(o => ACTIVE_COLUMNS.includes(o.status));
-  const historyOrders = filteredOrders.filter(o => o.status === "cancelled" || o.status === "delivered");
+  const historyOrders = filteredOrders.filter(o => ["cancelled", "delivered", "failed", "refunded"].includes(o.status));
+
+  const paidStatuses = ["paid", "shipped", "delivered"];
 
   const stats = {
     total: orders.length,
-    revenue: orders.filter((o) => o.status !== "cancelled").reduce((sum, o) => sum + o.total, 0),
-    revenueMonth: orders.filter((o) => o.status !== "cancelled" && isThisMonth(new Date(o.created_at))).reduce((sum, o) => sum + o.total, 0),
+    revenue: orders.filter((o) => paidStatuses.includes(o.status)).reduce((sum, o) => sum + o.total, 0),
+    revenueMonth: orders.filter((o) => paidStatuses.includes(o.status) && isThisMonth(new Date(o.created_at))).reduce((sum, o) => sum + o.total, 0),
     pending: orders.filter((o) => o.status === "pending").length,
-    paid: orders.filter((o) => o.status === "paid").length,
+    paid: orders.filter((o) => paidStatuses.includes(o.status)).length,
   };
 
   return (
-    <div className="min-h-screen bg-[#F6F7F9]">
+    <div className="admin-orders-page min-h-screen bg-[#F6F7F9]">
       <div className="sticky top-0 z-40 backdrop-blur-xl bg-white/80 border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
-            <div><h1 className="text-2xl font-semibold text-[#111827] tracking-tight">Заказы</h1><p className="text-sm text-[#6B7280] mt-1">Drag-and-drop для смены статуса</p></div>
-            <div className="flex items-center gap-3">
+            <div><h1 className="text-2xl font-semibold text-[#111827] tracking-tight">Заказы</h1><p className="text-sm text-[#6B7280] mt-1">Нажмите на имя клиента, чтобы открыть заказ и действия с ним</p></div>
+            <div className="admin-mobile-toolbar flex items-center gap-3">
               <div className="relative w-full sm:w-[320px]"><Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#9CA3AF]" /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Поиск..." className="w-full h-11 rounded-2xl border border-gray-200 bg-white pl-10 pr-4 text-sm outline-none focus:ring-4 focus:ring-teal-500/10 focus:border-teal-500 transition-all" /></div>
+              <Link href="/admin/payment-links" className="h-11 px-4 rounded-2xl bg-teal-700 text-white flex items-center gap-2 text-sm font-medium hover:bg-teal-800 transition-all whitespace-nowrap"><Link2 className="w-4 h-4" />Ссылка на оплату</Link>
               <button onClick={() => setShowHistory(!showHistory)} className={`h-11 px-4 rounded-2xl border text-sm font-medium transition-all flex items-center gap-2 ${showHistory ? "bg-gray-100 border-gray-300" : "bg-white border-gray-200 hover:border-teal-200 hover:bg-teal-50"}`}>
                 <History className="w-4 h-4" /> История ({historyOrders.length})
               </button>
               <button onClick={fetchOrders} className="h-11 px-4 rounded-2xl bg-white border border-gray-200 flex items-center gap-2 text-sm font-medium hover:border-teal-200 hover:bg-teal-50 transition-all"><RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />Обновить</button>
             </div>
           </div>
-          <div className="grid grid-cols-2 xl:grid-cols-5 gap-3 mt-5">
+          <div className="admin-mobile-stats grid grid-cols-2 xl:grid-cols-5 gap-3 mt-5">
             <StatCard title="Всего заказов" value={stats.total} icon={<Package className="w-5 h-5" />} />
             <StatCard title="Ожидают" value={stats.pending} icon={<Clock3 className="w-5 h-5" />} />
             <StatCard title="Оплачено" value={stats.paid} icon={<CreditCard className="w-5 h-5" />} />
@@ -164,26 +163,26 @@ export default function AdminOrdersPage() {
           </div>
         ) : (
           /* Канбан */
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <section aria-label="Заказы по этапам">
             <div className="grid grid-cols-1 xl:grid-cols-4 gap-4 items-start">
               {ACTIVE_COLUMNS.map((status) => {
                 const columnOrders = activeOrders.filter((o) => o.status === status);
                 return (
-                  <SortableContext key={status} id={status} items={columnOrders.map((o) => o.id)} strategy={verticalListSortingStrategy}>
+                  <div key={status}>
                     <div className="bg-white border border-gray-100 rounded-3xl p-3 shadow-sm">
                       <div className="flex items-center justify-between px-2 py-2 mb-3">
                         <div className="flex items-center gap-2"><h3 className="font-semibold text-sm text-[#111827]">{STATUS_CONFIG[status].label}</h3><span className="w-6 h-6 rounded-lg bg-gray-100 flex items-center justify-center text-xs font-semibold text-[#6B7280]">{columnOrders.length}</span></div>
                       </div>
                       <div className="space-y-2 max-h-[calc(100vh-280px)] overflow-y-auto pr-1">
-                        {columnOrders.map((order) => (<SortableOrder key={order.id} order={order} onOpen={setDrawerOrder} onDelete={(id) => setShowDeleteConfirm(id)} />))}
+                        {columnOrders.map((order) => (<OrderCard key={order.id} order={order} onOpen={setDrawerOrder} onDelete={(id) => setShowDeleteConfirm(id)} />))}
                         {columnOrders.length === 0 && (<div className="py-10 text-center"><Package className="w-5 h-5 text-[#9CA3AF] mx-auto mb-2" /><p className="text-sm text-[#6B7280]">Пусто</p></div>)}
                       </div>
                     </div>
-                  </SortableContext>
+                  </div>
                 );
               })}
             </div>
-          </DndContext>
+          </section>
         )}
       </div>
 
@@ -208,7 +207,7 @@ export default function AdminOrdersPage() {
           <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setDrawerOrder(null)} />
           <div className="absolute right-0 top-0 bottom-0 w-full max-w-md bg-white shadow-2xl overflow-y-auto">
             <div className="p-6">
-              <div className="flex items-center justify-between mb-8"><h2 className="text-xl font-semibold text-[#111827]">Заказ #{drawerOrder.id.slice(0, 8)}</h2><button onClick={() => setDrawerOrder(null)} className="p-2 rounded-xl hover:bg-gray-100"><XIcon className="w-5 h-5" /></button></div>
+              <div className="flex items-center justify-between mb-8"><h2 className="text-xl font-semibold text-[#111827]">Заказ #{drawerOrder.id.slice(0, 8)}</h2><button type="button" aria-label="Закрыть карточку заказа" onClick={() => setDrawerOrder(null)} className="p-2 rounded-xl hover:bg-gray-100"><XIcon className="w-5 h-5" /></button></div>
               <div className="flex items-center gap-3 mb-6"><div className="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center text-lg font-bold text-[#111827]">{drawerOrder.client_name[0]}</div><div><p className="font-semibold text-[#111827]">{drawerOrder.client_name}</p><p className="text-sm text-[#6B7280]">{drawerOrder.client_phone}</p></div></div>
               <div className="space-y-3 mb-6">
                 <div className="flex justify-between text-sm"><span className="text-[#6B7280]">Адрес</span><span className="font-medium text-right">{drawerOrder.address}</span></div>
@@ -217,7 +216,7 @@ export default function AdminOrdersPage() {
               </div>
               <div className="border-t pt-4 mb-6">
                 <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wider mb-3">Товары</p>
-                {drawerOrder.items.map((item, i) => (<div key={i} className="flex justify-between py-2 text-sm"><span>{item.name} × {item.quantity}</span><span className="font-medium">{item.price * item.quantity} ₽</span></div>))}
+                {drawerOrder.items.map((item, i) => (<div key={i} className="flex justify-between gap-3 py-2 text-sm"><span>{item.name || "Платёж за услугу"}{Number.isFinite(item.quantity) ? ` × ${item.quantity}` : ""}</span><span className="font-medium">{Number.isFinite(item.price * item.quantity) ? `${item.price * item.quantity} ₽` : "Сумма в итоге заказа"}</span></div>))}
                 <div className="flex justify-between pt-3 border-t mt-3 font-bold text-lg"><span>Итого</span><span>{drawerOrder.total} ₽</span></div>
               </div>
               {ACTIVE_COLUMNS.includes(drawerOrder.status) && (

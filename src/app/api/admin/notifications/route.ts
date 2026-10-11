@@ -1,0 +1,16 @@
+import {NextRequest,NextResponse} from 'next/server';
+import {requireAdmin} from '@/lib/admin-auth';
+import {pool} from '@/lib/db';
+import {readJsonObject} from '@/lib/request';
+import {requeueNotification} from '@/lib/appointment-notifications';
+import {validBookingId} from '@/lib/booking-journey';
+export async function GET(request:NextRequest){
+ const denied=await requireAdmin(request);if(denied)return denied;
+ try{const booking=request.nextUrl.searchParams.get('booking');if(booking&&!validBookingId(booking))return NextResponse.json({error:'Некорректная запись'},{status:400});
+ const r=await pool.query(`SELECT id,booking_id,service_type,event_type,channel,status,scheduled_at,attempts,next_attempt_at,last_error,provider_message_id,accepted_at,delivered_at,updated_at FROM appointment_notifications ${booking?'WHERE booking_id=$1':''} ORDER BY created_at DESC,id DESC LIMIT 200`,booking?[booking]:[]);
+ return NextResponse.json({notifications:r.rows},{headers:{'Cache-Control':'no-store'}});}catch{return NextResponse.json({error:'Не удалось загрузить журнал'},{status:500});}
+}
+export async function POST(request:NextRequest){
+ const denied=await requireAdmin(request);if(denied)return denied;
+ try{const b=await readJsonObject(request,2048);if(!validBookingId(String(b.id)))return NextResponse.json({error:'Некорректное уведомление'},{status:400});const ok=await requeueNotification(String(b.id));return ok?NextResponse.json({ok:true}):NextResponse.json({error:'Повтор недоступен: сообщение устарело, обрабатывается или могло быть принято провайдером.'},{status:409});}catch{return NextResponse.json({error:'Не удалось поставить сообщение в очередь'},{status:500});}
+}

@@ -19,6 +19,7 @@ interface TipTapEditorProps {
 
 export default function TipTapEditor({ content, onChange, placeholder = 'Введите текст...' }: TipTapEditorProps) {
     const editor = useEditor({
+        immediatelyRender: false,
         extensions: [
             StarterKit,
             Underline,
@@ -35,6 +36,7 @@ export default function TipTapEditor({ content, onChange, placeholder = 'Вве�
         },
         editorProps: {
             attributes: {
+                'aria-label': placeholder,
                 class: 'prose prose-sm max-w-none focus:outline-none min-h-[200px] p-4',
             },
         },

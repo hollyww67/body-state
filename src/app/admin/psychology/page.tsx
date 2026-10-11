@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { motion } from 'framer-motion';
+import { useRouter } from 'next/navigation';
 import { Plus, Edit, Eye, Trash2, HeartPulse, GripVertical } from 'lucide-react';
 import {
     DndContext,
@@ -114,6 +114,7 @@ function SortableProgramRow({ program, onDelete, onEdit, onView }: {
 }
 
 export default function PsychologyAdmin() {
+    const router = useRouter();
     const [programs, setPrograms] = useState<Program[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -158,7 +159,7 @@ export default function PsychologyAdmin() {
             if (!res.ok) throw new Error('Ошибка удаления');
 
             setPrograms(programs.filter(p => p.id !== id));
-        } catch (err) {
+        } catch {
             alert('Не удалось удалить программу');
         }
     };
@@ -283,7 +284,7 @@ export default function PsychologyAdmin() {
                                             key={program.id}
                                             program={program}
                                             onDelete={handleDelete}
-                                            onEdit={(id) => window.location.href = `/admin/psychology/${id}`}
+                                            onEdit={(id) => router.push(`/admin/psychology/${id}`)}
                                             onView={(slug) => window.open(`/psychology/${slug}`, '_blank')}
                                         />
                                     ))}

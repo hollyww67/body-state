@@ -1,5 +1,6 @@
 "use client";
 
+import SiteImage from '@/components/SiteImage';
 import { useEffect, useState, useRef, useCallback } from "react";
 import { Plus, Trash2, Edit3, Upload, X, Loader2, GripVertical, Package, ArrowUpDown } from "lucide-react";
 import { toast } from "sonner";
@@ -39,8 +40,8 @@ function SortableProductRow({ product, onEdit, onDelete }: { product: Product; o
       <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing p-1 -ml-1 rounded-lg hover:bg-gray-100 flex-shrink-0"><GripVertical className="w-4 h-4 text-gray-400" /></div>
       <div className="w-10 text-center flex-shrink-0"><span className="text-xs font-mono text-gray-500 bg-gray-100 rounded px-1.5 py-0.5">{formatOrder(product.sort_order || 0)}</span></div>
       <div className="flex items-center gap-3 flex-1 min-w-0">
-        {product.images?.[0] ? <img src={product.images[0]} alt="" className="w-10 h-10 rounded-xl object-cover flex-shrink-0" /> : <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0"><Package className="w-5 h-5 text-gray-300" /></div>}
-        <div className="min-w-0"><h3 className="font-semibold text-sm text-[#111827] truncate">{product.name}</h3><p className="text-xs text-[#6B7280]">{product.price} ₽ • Ост: {product.stock} • {product.category || "—"} / {product.subcategory || "—"}</p></div>
+        {product.images?.[0] ? <SiteImage src={product.images[0]} alt="" className="w-10 h-10 rounded-xl object-cover flex-shrink-0" /> : <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0"><Package className="w-5 h-5 text-gray-300" /></div>}
+        <div className="min-w-0"><div className="flex items-center gap-2"><h3 className="font-semibold text-sm text-[#111827] truncate">{product.name}</h3>{!product.is_active && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">Скрыт</span>}</div><p className="text-xs text-[#6B7280]">{product.price} ₽ • Ост: {product.stock} • {product.category || "—"} / {product.subcategory || "—"}</p></div>
       </div>
       <div className="flex items-center gap-1 flex-shrink-0">
         <button onClick={() => onEdit(product)} className="p-2 rounded-xl bg-gray-50 text-[#6B7280] hover:bg-gray-100 transition-colors"><Edit3 className="w-4 h-4" /></button>
@@ -61,6 +62,7 @@ export default function AdminProductsPage() {
   const [volume, setVolume] = useState(""); const [images, setImages] = useState<string[]>([]);
   const [category, setCategory] = useState("care"); const [subcategory, setSubcategory] = useState("");
   const [sortOrder, setSortOrder] = useState("");
+  const [isActive, setIsActive] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [reordering, setReordering] = useState(false);
@@ -80,16 +82,22 @@ export default function AdminProductsPage() {
 
   const autoSort = async () => {
     setReordering(true);
-    const ids = products.map(p => p.id);
-    await fetch("/api/admin/products/reorder", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids }) });
-    fetchProducts();
-    toast.success("Порядок обновлён: 1, 2, 3...");
-    setReordering(false);
+    try {
+      const ids = products.map(p => p.id);
+      const response = await fetch("/api/admin/products/reorder", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids }) });
+      if (!response.ok) throw new Error("Не удалось сохранить порядок");
+      fetchProducts();
+      toast.success("Порядок обновлён: 1, 2, 3...");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Не удалось сохранить порядок");
+    } finally {
+      setReordering(false);
+    }
   };
 
   const resetForm = () => {
     setName(""); setSlug(""); setDescription(""); setComposition(""); setPrice(""); setStock("0"); setVolume("");
-    setImages([]); setCategory("care"); setSubcategory(""); setSortOrder(""); setEditId(null); setShowForm(false);
+    setImages([]); setCategory("care"); setSubcategory(""); setSortOrder(""); setIsActive(true); setEditId(null); setShowForm(false);
   };
 
   const editProduct = (p: Product) => {
@@ -97,7 +105,7 @@ export default function AdminProductsPage() {
     setDescription(p.description || ""); setComposition(p.composition || "");
     setPrice(String(p.price)); setStock(String(p.stock)); setVolume(String(p.volume_ml || ""));
     setImages(p.images || []); setCategory(p.category || "care"); setSubcategory(p.subcategory || "");
-    setSortOrder(String(p.sort_order ?? "")); setShowForm(true);
+    setSortOrder(String(p.sort_order ?? "")); setIsActive(p.is_active !== false); setShowForm(true);
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -107,7 +115,11 @@ export default function AdminProductsPage() {
       const fd = new FormData(); fd.append("file", files[i]);
       const res = await fetch("/api/admin/upload", { method: "POST", body: fd });
       const data = await res.json();
-      if (data.url) setImages(prev => [...prev, data.url]);
+      if (!res.ok || !data.url) {
+        toast.error(data.error || `Не удалось загрузить ${files[i].name}`);
+        continue;
+      }
+      setImages(prev => [...prev, data.url]);
     }
     setUploading(false);
     if (fileRef.current) fileRef.current.value = "";
@@ -117,17 +129,35 @@ export default function AdminProductsPage() {
     e.preventDefault(); setSaving(true);
     const url = editId ? `/api/admin/products?id=${editId}` : "/api/admin/products";
     const method = editId ? "PATCH" : "POST";
-    await fetch(url, {
-      method, headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, slug, description, composition, price: Number(price), stock: Number(stock), volume_ml: volume ? Number(volume) : null, images, category, subcategory, sort_order: sortOrder ? Number(sortOrder) : null }),
-    });
-    resetForm(); fetchProducts(); toast.success(editId ? "Сохранено" : "Создано"); setSaving(false);
+    try {
+      const response = await fetch(url, {
+        method, headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, slug, description, composition, price: Number(price), stock: Number(stock), volume_ml: volume ? Number(volume) : null, images, category, subcategory, sort_order: sortOrder ? Number(sortOrder) : null, is_active: isActive }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || "Не удалось сохранить товар");
+      toast.success(editId ? "Сохранено" : "Создано");
+      resetForm();
+      fetchProducts();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Не удалось сохранить товар");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const deleteProduct = async (id: string) => {
-    setProducts(prev => prev.filter(p => p.id !== id));
-    await fetch(`/api/admin/products?id=${id}`, { method: "DELETE" });
-    fetchProducts(); toast.success("Удалено");
+    const product = products.find(item => item.id === id);
+    if (!window.confirm(`Удалить товар «${product?.name || "Без названия"}»?`)) return;
+    try {
+      const response = await fetch(`/api/admin/products?id=${id}`, { method: "DELETE" });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || "Не удалось удалить товар");
+      setProducts(prev => prev.filter(item => item.id !== id));
+      toast.success("Удалено");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Не удалось удалить товар");
+    }
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {
@@ -141,11 +171,15 @@ export default function AdminProductsPage() {
     reordered.splice(newIndex, 0, moved);
     const updated = reordered.map((p, i) => ({ ...p, sort_order: i + 1 }));
     setProducts(updated);
-    await fetch("/api/admin/products/reorder", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids: updated.map(p => p.id) }) });
+    const response = await fetch("/api/admin/products/reorder", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids: updated.map(p => p.id) }) });
+    if (!response.ok) {
+      toast.error("Не удалось сохранить порядок");
+      fetchProducts();
+    }
   };
 
   return (
-    <div className="max-w-5xl mx-auto">
+    <div className="admin-products-page max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div><h2 className="text-2xl font-semibold text-[#111827]">Товары</h2><p className="text-sm text-[#6B7280] mt-1">Перетаскивайте или жмите «Упорядочить»</p></div>
         <div className="flex items-center gap-2">
@@ -174,10 +208,14 @@ export default function AdminProductsPage() {
           </div>
           <textarea placeholder="Описание" value={description} onChange={e => setDescription(e.target.value)} rows={2} className="w-full rounded-2xl border px-4 py-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-teal-500/30" />
           <textarea placeholder="Состав" value={composition} onChange={e => setComposition(e.target.value)} rows={2} className="w-full rounded-2xl border px-4 py-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-teal-500/30" />
+          <label className="flex items-center gap-3 rounded-2xl border border-gray-200 px-4 py-3 text-sm text-[#374151]">
+            <input type="checkbox" checked={isActive} onChange={e => setIsActive(e.target.checked)} className="h-4 w-4 accent-[#0F766E]" />
+            Показывать товар в магазине и разрешать оплату
+          </label>
           <div>
             <label className="block text-xs text-[#6B7280] mb-2">Фото</label>
             <div className="flex flex-wrap gap-2 mb-2">
-              {images.map(url => (<div key={url} className="relative w-16 h-16 rounded-xl overflow-hidden border"><img src={url} alt="" className="w-full h-full object-cover" /><button type="button" onClick={() => setImages(prev => prev.filter(u => u !== url))} className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center"><X className="w-2.5 h-2.5" /></button></div>))}
+              {images.map(url => (<div key={url} className="relative w-16 h-16 rounded-xl overflow-hidden border"><SiteImage src={url} alt="" className="w-full h-full object-cover" /><button type="button" onClick={() => setImages(prev => prev.filter(u => u !== url))} className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center"><X className="w-2.5 h-2.5" /></button></div>))}
               <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading} className="w-16 h-16 rounded-xl border-2 border-dashed border-gray-300 flex items-center justify-center hover:border-teal-400 transition-colors disabled:opacity-50">{uploading ? <Loader2 className="w-5 h-5 text-gray-400 animate-spin" /> : <Upload className="w-5 h-5 text-gray-400" />}</button>
             </div>
             <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFileChange} />

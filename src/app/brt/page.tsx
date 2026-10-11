@@ -1,19 +1,15 @@
 import type { Metadata } from "next";
-import { createClient } from '@supabase/supabase-js';
+import { db } from '@/lib/db';
 import Navbar from "@/components/Navbar";
 import BrtBookingForm from "@/components/BrtBookingForm";
 import { Sparkles } from "lucide-react";
+import { formatServicePrice, getServicePrice } from "@/lib/service-prices";
 
 export const dynamic = 'force-dynamic';
 
 export async function generateMetadata(): Promise<Metadata> {
-    const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
-    
     try {
-        const { data } = await supabase
+        const { data } = await db
             .from('page_content')
             .select('title, meta_description')
             .eq('slug', 'brt')
@@ -32,16 +28,13 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function BrtPage() {
-    const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
-    
+    const servicePrice = await getServicePrice("brt");
+    const priceLabel = formatServicePrice(servicePrice.price, servicePrice.prefix);
     let content = null;
     let title = "Биорезонансная программа";
     
     try {
-        const { data: pageData } = await supabase
+        const { data: pageData } = await db
             .from('page_content')
             .select('content, title')
             .eq('slug', 'brt')
@@ -69,12 +62,14 @@ export default async function BrtPage() {
             { label: "Описание", value: "Метод работает на клеточном уровне, восстанавливая нарушенные биоритмы." },
             { label: "Эффект", value: "Улучшение самочувствия, повышение тонуса, нормализация сна." },
             { label: "Длительность", value: "60 минут" },
-            { label: "Стоимость", value: "От 3000 ₽" },
+            { label: "Стоимость", value: priceLabel },
         ]
     };
     
     const data = content || defaultContent;
-    const features = data.features || defaultContent.features;
+    const features = (data.features || defaultContent.features).map((item: { label: string; value: string }) =>
+        item.label.toLowerCase().includes("стоим") ? { ...item, value: priceLabel } : item
+    );
     
     return (
         <main style={{ background: 'var(--bg)' }}>
@@ -105,7 +100,7 @@ export default async function BrtPage() {
                     
                     <h2 className="text-2xl font-semibold mb-6" style={{ color: 'var(--foreground)' }}>Записаться на программу</h2>
                     <div className="glass-feature rounded-3xl p-7">
-                        <BrtBookingForm />
+                        <BrtBookingForm price={servicePrice.price} />
                     </div>
                 </div>
             </section>

@@ -1,33 +1,17 @@
-import { createClient } from '@supabase/supabase-js';
+import SiteImage from '@/components/SiteImage';
+import { db } from '@/lib/db';
 import Navbar from '@/components/Navbar';
-import { Image as ImageIcon, Video, User, Tag, Calendar, ArrowRight } from 'lucide-react';
-import Link from 'next/link';
+import { Image as ImageIcon, Video, User, Tag, Calendar } from 'lucide-react';
 
-interface MediaItem {
-    id: number;
-    title: string;
-    description: string;
-    media_type: 'photo' | 'video';
-    before_image_url: string | null;
-    after_image_url: string | null;
-    video_url: string | null;
-    thumbnail_url: string | null;
-    category: string | null;
-    client_name: string | null;
-    service_type: string | null;
-    is_published: boolean;
-    created_at: string;
-}
+import { getPageCopy } from '@/lib/page-copy';
+
+
 
 export const dynamic = 'force-dynamic';
 
 export default async function MediaPage() {
-    const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
-
-    const { data: items } = await supabase
+    const copy = await getPageCopy('media');
+    const { data: items } = await db
         .from('media_gallery')
         .select('*')
         .eq('is_published', true)
@@ -42,16 +26,16 @@ export default async function MediaPage() {
                 <div className="max-w-6xl mx-auto">
                     <div className="text-center mb-12">
                         <h1 className="text-4xl md:text-5xl font-bold mb-4" style={{ color: 'var(--foreground)' }}>
-                            Результаты наших клиентов
+                            {copy.title}
                         </h1>
                         <p className="text-lg" style={{ color: 'var(--foreground-secondary)' }}>
-                            Фото и видео до и после прохождения программ
+                            {copy.lead}
                         </p>
                     </div>
 
                     {mediaItems.length === 0 ? (
                         <div className="text-center py-20">
-                            <p className="text-gray-400">Пока нет результатов</p>
+                            <p className="text-gray-400">{copy.empty}</p>
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -67,7 +51,7 @@ export default async function MediaPage() {
                                     {/* Изображение */}
                                     <div className="relative aspect-[4/3] overflow-hidden">
                                         {item.media_type === 'photo' ? (
-                                            <img
+                                            <SiteImage
                                                 src={item.after_image_url || item.before_image_url || '/placeholder.jpg'}
                                                 alt={item.title}
                                                 className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"

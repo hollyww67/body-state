@@ -6,12 +6,10 @@ export default function AnimatedLogo({ className = "" }: { className?: string })
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    let animation: any = null;
-
     const loadLottie = async () => {
       try {
         const res = await fetch("/animations/logo-animation.json");
-        const data = await res.json();
+        await res.json();
 
         // Используем Web Animations API как fallback
         if (containerRef.current) {
@@ -41,7 +39,8 @@ export default function AnimatedLogo({ className = "" }: { className?: string })
     loadLottie();
 
     return () => {
-      if (animation) animation.destroy();
+      // The current fallback uses SVG animations, so there is no imperative
+      // animation instance to dispose here.
     };
   }, []);
 

@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import { ArrowRight } from "lucide-react";
-import { supabaseAdmin } from "@/lib/supabase";
+import { db } from "@/lib/db";
+import { getPageCopy } from "@/lib/page-copy";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +13,8 @@ export const metadata: Metadata = {
 };
 
 export default async function BlogPage() {
-  const { data: posts } = await supabaseAdmin
+  const copy = await getPageCopy("blog");
+  const { data: posts } = await db
     .from("blog_posts")
     .select("slug, title, excerpt, image, created_at")
     .eq("published", true)
@@ -24,18 +26,18 @@ export default async function BlogPage() {
       <section className="pt-32 pb-16 px-4">
         <div className="max-w-3xl mx-auto">
           <div className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium mb-8" style={{ background: 'var(--primary-muted)', color: 'var(--primary)' }}>
-            <ArrowRight className="w-4 h-4" /> Блог
+            <ArrowRight className="w-4 h-4" /> {copy.eyebrow}
           </div>
 
           <h1 className="text-4xl md:text-5xl font-semibold leading-[1.05] mb-6" style={{ color: 'var(--foreground)' }}>
-            Статьи и заметки
+            {copy.title}
           </h1>
           <p className="text-lg leading-relaxed mb-10" style={{ color: 'var(--foreground-secondary)' }}>
-            О теле, фасциях, нервной системе и бережном подходе к восстановлению.
+            {copy.lead}
           </p>
 
           {!posts || posts.length === 0 ? (
-            <p className="text-[#6B7280]">Пока нет статей</p>
+            <p className="text-[#6B7280]">{copy.empty}</p>
           ) : (
             <div className="space-y-4">
               {posts.map((post: any) => (

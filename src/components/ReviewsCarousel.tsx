@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
-import { Star, ChevronLeft, ChevronRight, Quote } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { ChevronLeft, ChevronRight, Quote } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { ReviewRating } from "@/components/reviews/ReviewRating";
 
 interface Review {
   id: string;
@@ -113,18 +114,11 @@ export default function ReviewsCarousel() {
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
           >
-            <div className="flex justify-center gap-0.5 mb-4">
-              {[...Array(5)].map((_, j) => (
-                <Star
-                  key={j}
-                  className={`w-5 h-5 ${j < (reviews[current]?.rating || 5) ? "fill-[#E7CFA4] text-[#E7CFA4]" : "text-gray-300"}`}
-                />
-              ))}
-            </div>
-            <blockquote className="text-base md:text-lg leading-relaxed mb-6 max-w-md mx-auto" style={{ color: 'var(--foreground)' }}>
+            <div className="mb-5 flex justify-center"><ReviewRating rating={reviews[current]?.rating || 5} /></div>
+            <blockquote className="review-copy review-copy--hero mb-6 max-w-md mx-auto" style={{ color: 'var(--foreground)' }}>
               «{reviews[current]?.text}»
             </blockquote>
-            <p className="text-sm font-semibold" style={{ color: 'var(--primary)' }}>
+            <p className="review-author text-sm font-semibold" style={{ color: 'var(--primary)' }}>
               {reviews[current]?.author_name}
             </p>
           </motion.div>

@@ -6,6 +6,7 @@ export async function sendTelegram(text: string) {
 
   try {
     await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+      signal: AbortSignal.timeout(10000),
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -14,7 +15,7 @@ export async function sendTelegram(text: string) {
         parse_mode: "HTML",
       }),
     });
-  } catch (e) {
-    console.error("Telegram send error:", e);
+  } catch {
+    console.error("[Telegram] Admin notification unavailable");
   }
 }

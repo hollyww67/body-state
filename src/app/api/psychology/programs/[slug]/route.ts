@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { db } from '@/lib/db';
 
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 export async function GET(
     request: NextRequest,
@@ -13,7 +9,7 @@ export async function GET(
     try {
         const { slug } = await context.params;
 
-        const { data, error } = await supabase
+        const { data, error } = await db
             .from('psychology_programs')
             .select('*')
             .eq('slug', slug)

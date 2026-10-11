@@ -1,32 +1,34 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import Navbar from "@/components/Navbar";
-import BfmBookingForm from "@/components/BfmBookingForm";
-import { Brain, HandHelping, AudioLines, ArrowRight, Sparkles } from "lucide-react";
+import ServiceBookingForm from "@/components/ServiceBookingForm";
+import { Brain, HandHelping, AudioLines, Sparkles } from "lucide-react";
+import { getPageCopy } from "@/lib/page-copy";
+import { getServicePrice } from "@/lib/service-prices";
 
 export const metadata: Metadata = {
   title: "Реабилитация",
   description: "Социально-психологическая и физическая реабилитация в Хотьково. Индивидуальные программы восстановления.",
 };
+export const dynamic = "force-dynamic";
 
 const methods = [
   {
     icon: Brain,
-    title: "Социально-психологическая реабилитация",
+    title: "Психологическая реабилитация",
     okved: "ОКВЭД 88.10.14",
     description:
       "Восстановление эмоционального ресурса и психологического благополучия. Помощь в преодолении тревожности, стресса, эмоционального выгорания. Поддержка в сложных жизненных ситуациях.",
     details: ["Восстановление эмоционального баланса", "Работа с тревожностью и стрессом", "Преодоление эмоционального выгорания", "Психологическая поддержка"],
-    duration: "60 минут",
+    duration: "90 минут",
   },
   {
     icon: HandHelping,
     title: "Физическая реабилитация",
     okved: "ОКВЭД 88.10.17",
     description:
-      "Консультация по социальной адаптации через восстановление тела методом БФМ.",
+      "Консультация по социальной адаптации через бережное восстановление тела.",
     details: ["Снятие мышечных зажимов и напряжения", "Восстановление подвижности суставов", "Улучшение эластичности фасций", "Нормализация работы вегетативной нервной системы"],
-    duration: "45 минут",
+    duration: "90 минут",
   },
   {
     icon: AudioLines,
@@ -39,44 +41,65 @@ const methods = [
   },
 ];
 
-export default function RehabilitationPage() {
+export default async function RehabilitationPage() {
+  const [copy, bfmPrice, psychologyPrice] = await Promise.all([
+    getPageCopy("rehabilitation"),
+    getServicePrice("bfm"),
+    getServicePrice("psychology"),
+  ]);
   return (
-    <main style={{ background: 'var(--bg)', minHeight: '100vh' }}>
+    <main className="page-shell">
       <Navbar />
-      <section className="pt-32 pb-16 px-4">
-        <div className="max-w-4xl mx-auto">
-          <div className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium mb-8" style={{ background: 'var(--primary-muted)', color: 'var(--primary)' }}>
+      <section className="px-4 pt-24 pb-5 md:pt-28">
+        <div className="page-hero-inner max-w-4xl">
+          <div className="page-kicker rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] mb-7" style={{ color: 'var(--primary)' }}>
             <Sparkles className="w-4 h-4" />
-            Реабилитация
+            {copy.eyebrow}
           </div>
-          <h1 className="text-4xl md:text-5xl font-semibold leading-[1.05] mb-6" style={{ color: 'var(--foreground)' }}>
-            Восстановление ресурса организма
+          <h1 className="page-title text-3xl md:text-4xl font-semibold leading-tight mb-3" style={{ color: 'var(--foreground)' }}>
+            {copy.bookingTitle}
           </h1>
-          <p className="text-lg leading-relaxed mb-4" style={{ color: 'var(--foreground-secondary)' }}>
-            Реабилитация — это комплекс мер, направленных на восстановление психологического и физического благополучия. Я использую бережные методы, которые помогают организму восстановиться естественным путём, без насилия и принуждения.
-          </p>
-          <p className="text-lg leading-relaxed mb-12" style={{ color: 'var(--foreground-secondary)' }}>
-            Начинаем с психологической поддержки — это основа. Затем подключаем физическую реабилитацию. Программа подбирается индивидуально после консультации.
-          </p>
+        </div>
+      </section>
+      <section className="px-4 pb-20 lg:pb-28">
+        <div className="max-w-5xl mx-auto">
+          {/* Форма записи показывается раньше описания направлений. */}
+          <div id="booking" className="scroll-mt-28 mb-16">
+            <div className="mb-6">
+              <p className="max-w-2xl text-sm leading-6 md:text-base" style={{ color: "var(--foreground-secondary)" }}>Выберите направление и свободное время. Для очного приёма можно оплатить онлайн или на месте. Войдите в личный кабинет, чтобы видеть свою запись.</p>
+            </div>
+            <div className="glass-feature rounded-[30px] p-5 sm:p-7 md:p-8">
+              <ServiceBookingForm bfmPrice={bfmPrice.price} psychologyPrice={psychologyPrice.price} />
+            </div>
+            <p className="mt-4 text-center text-sm" style={{ color: "var(--foreground-secondary)" }}>{copy.bookingHint}</p>
+          </div>
 
-          {/* Методы */}
-          <div className="space-y-8 mb-16">
-            {methods.map((method, i) => {
+          <div id="procedures" className="scroll-mt-28">
+            <h2 className="mb-4 text-2xl font-semibold">{copy.title}</h2>
+            <p className="mb-4 text-base leading-7 text-[var(--foreground-secondary)]">{copy.lead}</p>
+            <p className="mb-8 text-base leading-7 text-[var(--foreground-secondary)]">{copy.leadSecond}</p>
+            <div className="mb-7"><p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em]" style={{ color: "var(--primary)" }}>Подробнее</p><h2 className="text-2xl font-semibold tracking-tight md:text-3xl" style={{ color: "var(--foreground)" }}>Описание направлений</h2></div>
+            <div className="space-y-8">
+              {methods.map((method, index) => {
               const Icon = method.icon;
+              const itemNumber = index + 1;
+              const itemTitle = copy[`service${itemNumber}Title`] || method.title;
+              const itemDescription = copy[`service${itemNumber}Description`] || method.description;
+              const itemDetails = (copy[`service${itemNumber}Details`] || method.details.join("\n")).split("\n").map((item) => item.trim()).filter(Boolean);
               return (
-                <div key={method.title} className="glass-feature rounded-3xl p-7">
+                <div key={method.title} className="service-card glass-feature rounded-[30px] p-6 md:p-8">
                   <div className="flex items-start gap-5 mb-5">
                     <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'var(--primary-muted)' }}>
                       <Icon className="w-6 h-6" style={{ color: 'var(--primary)' }} />
                     </div>
                     <div>
-                      <h2 className="text-xl font-semibold mb-1" style={{ color: 'var(--foreground)' }}>{method.title}</h2>
+                      <h2 className="text-xl font-semibold mb-1" style={{ color: 'var(--foreground)' }}>{itemTitle}</h2>
                       <p className="text-xs" style={{ color: 'var(--foreground-secondary)' }}>{method.okved} • {method.duration}</p>
                     </div>
                   </div>
-                  <p className="text-sm leading-relaxed mb-4" style={{ color: 'var(--foreground-secondary)' }}>{method.description}</p>
+                  <p className="text-sm leading-relaxed mb-4" style={{ color: 'var(--foreground-secondary)' }}>{itemDescription}</p>
                   <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {method.details.map((detail, j) => (
+                    {itemDetails.map((detail, j) => (
                       <li key={j} className="flex items-center gap-2 text-sm" style={{ color: 'var(--foreground-secondary)' }}>
                         <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: 'var(--primary)' }}></span>
                         {detail}
@@ -85,18 +108,8 @@ export default function RehabilitationPage() {
                   </ul>
                 </div>
               );
-            })}
-          </div>
-
-          {/* Форма записи */}
-          <h2 className="text-2xl font-semibold mb-6" style={{ color: 'var(--foreground)' }}>Записаться на консультацию</h2>
-          <div className="glass-feature rounded-3xl p-7 mb-12">
-            <BfmBookingForm />
-          </div>
-
-          {/* CTA */}
-          <div className="text-center">
-            <p className="text-sm mb-4" style={{ color: 'var(--foreground-secondary)' }}>Не знаете, с чего начать? Запишитесь на консультацию — мы обсудим ваш запрос и подберём направление.</p>
+              })}
+            </div>
           </div>
         </div>
       </section>

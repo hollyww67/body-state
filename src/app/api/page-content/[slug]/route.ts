@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { db } from '@/lib/db';
+import { ADMIN_COOKIE, requireAdmin, verifyAdminSessionToken } from '@/lib/admin-auth';
 
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 export async function GET(
     request: NextRequest,
@@ -12,15 +9,17 @@ export async function GET(
 ) {
     try {
         const { slug } = await context.params;
+        const isAdmin = await verifyAdminSessionToken(request.cookies.get(ADMIN_COOKIE)?.value);
 
-        const { data, error } = await supabase
+        let query = db
             .from('page_content')
             .select('*')
-            .eq('slug', slug)
-            .single();
+            .eq('slug', slug);
+        if (!isAdmin) query = query.eq('is_active', true);
+        const { data, error } = await query.single();
 
         if (error) {
-            console.error('Supabase error:', error);
+            console.error('PostgreSQL error:', error);
             return NextResponse.json({ error: error.message }, { status: 404 });
         }
 
@@ -35,6 +34,8 @@ export async function PUT(
     request: NextRequest,
     context: { params: Promise<{ slug: string }> }
 ) {
+    const unauthorized = await requireAdmin(request);
+    if (unauthorized) return unauthorized;
     try {
         const { slug } = await context.params;
         const body = await request.json();
@@ -54,7 +55,7 @@ export async function PUT(
             updateData.meta_keywords = body.meta_keywords;
         }
 
-        const { data, error } = await supabase
+        const { data, error } = await db
             .from('page_content')
             .update(updateData)
             .eq('slug', slug)
@@ -62,7 +63,7 @@ export async function PUT(
             .single();
 
         if (error) {
-            console.error('Supabase error:', error);
+            console.error('PostgreSQL error:', error);
             return NextResponse.json({ error: error.message }, { status: 500 });
         }
 
@@ -77,16 +78,18 @@ export async function DELETE(
     request: NextRequest,
     context: { params: Promise<{ slug: string }> }
 ) {
+    const unauthorized = await requireAdmin(request);
+    if (unauthorized) return unauthorized;
     try {
         const { slug } = await context.params;
 
-        const { error } = await supabase
+        const { error } = await db
             .from('page_content')
             .delete()
             .eq('slug', slug);
 
         if (error) {
-            console.error('Supabase error:', error);
+            console.error('PostgreSQL error:', error);
             return NextResponse.json({ error: error.message }, { status: 500 });
         }
 

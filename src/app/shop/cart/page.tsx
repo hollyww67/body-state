@@ -1,11 +1,17 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import Navbar from "@/components/Navbar";
-import { ShoppingBag, Trash2, ArrowRight, ArrowLeft } from "lucide-react";
+import { ArrowLeft, ShieldCheck } from "lucide-react";
 
-interface CartItem {
+import Navbar from "@/components/Navbar";
+import CartItem from "@/components/cart/CartItem";
+import OrderSummary from "@/components/cart/OrderSummary";
+import EmptyCart from "@/components/cart/EmptyCart";
+import { useAccountPrefill } from "@/lib/hooks/use-account-prefill";
+import { formatRussianPhoneInput } from "@/lib/phone";
+
+interface CartItemType {
   productId: string;
   slug: string;
   name: string;
@@ -15,105 +21,150 @@ interface CartItem {
 }
 
 export default function CartPage() {
-  const [cart, setCart] = useState<CartItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const profile = useAccountPrefill();
+  const [cart, setCart] = useState<CartItemType[]>([]);
+  const [hydrated, setHydrated] = useState(false);
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [name, setName] = useState("");
+  const [address, setAddress] = useState("");
 
   useEffect(() => {
-    const items = JSON.parse(localStorage.getItem("cart") || "[]") as CartItem[];
-    setCart(items);
-    setLoading(false);
-
-    const handler = () => {
-      setCart(JSON.parse(localStorage.getItem("cart") || "[]"));
-    };
-    window.addEventListener("cartUpdated", handler);
-    return () => window.removeEventListener("cartUpdated", handler);
+    try {
+      const stored = JSON.parse(localStorage.getItem("cart") || "[]") as CartItemType[];
+      setCart(stored);
+    } catch {
+      setCart([]);
+    } finally {
+      setHydrated(true);
+    }
   }, []);
 
-  const updateQty = (productId: string, delta: number) => {
-    const updated = cart.map((item) => {
-      if (item.productId === productId) {
-        const newQty = item.quantity + delta;
-        return newQty > 0 ? { ...item, quantity: newQty } : null;
-      }
-      return item;
-    }).filter(Boolean) as CartItem[];
-    setCart(updated);
-    localStorage.setItem("cart", JSON.stringify(updated));
-    window.dispatchEvent(new Event("cartUpdated"));
+  useEffect(() => {
+    if (!profile) return;
+    setName((value) => value || profile.display_name || "");
+    setEmail((value) => value || profile.email || "");
+    setPhone((value) => value || (profile.phone ? formatRussianPhoneInput(profile.phone) : ""));
+    setAddress((value) => value || profile.address || "");
+  }, [profile]);
+
+  const updateQuantity = (productId: string, delta: number) => {
+    setCart((prev) => {
+      const next = prev
+        .map((item) =>
+          item.productId === productId
+            ? { ...item, quantity: Math.max(1, item.quantity + delta) }
+            : item
+        )
+        .filter((item) => item.quantity > 0);
+
+      localStorage.setItem("cart", JSON.stringify(next));
+      window.dispatchEvent(new Event("cartUpdated"));
+      return next;
+    });
   };
 
   const removeItem = (productId: string) => {
-    const updated = cart.filter((item) => item.productId !== productId);
-    setCart(updated);
-    localStorage.setItem("cart", JSON.stringify(updated));
-    window.dispatchEvent(new Event("cartUpdated"));
+    setCart((prev) => {
+      const next = prev.filter((item) => item.productId !== productId);
+      localStorage.setItem("cart", JSON.stringify(next));
+      window.dispatchEvent(new Event("cartUpdated"));
+      return next;
+    });
   };
 
-  const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const total = useMemo(() => cart.reduce((sum, item) => sum + item.price * item.quantity, 0), [cart]);
+  const itemsCount = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart]);
+  const itemsForReceipt = useMemo(() => cart.map((item) => ({
+    productId: item.productId,
+    name: item.name,
+    price: item.price,
+    quantity: item.quantity,
+  })), [cart]);
 
   return (
-    <main style={{ background: 'var(--bg)', minHeight: '100vh' }}>
+    <main className="cart-page relative min-h-screen overflow-hidden" style={{ background: "var(--bg)", color: "var(--foreground)" }}>
       <Navbar />
-      <section className="pt-32 pb-16 px-4">
-        <div className="max-w-3xl mx-auto">
-          <div className="flex items-center justify-between mb-8">
-            <h1 className="text-3xl font-semibold" style={{ color: 'var(--foreground)' }}>Корзина</h1>
-            {cart.length > 0 && (
-              <Link href="/shop" className="text-sm flex items-center gap-1" style={{ color: 'var(--primary)' }}>
-                <ArrowLeft className="w-4 h-4" /> Продолжить покупки
-              </Link>
-            )}
-          </div>
 
-          {loading ? (
-            <p style={{ color: 'var(--foreground-secondary)' }}>Загрузка...</p>
-          ) : cart.length === 0 ? (
-            <div className="text-center py-20">
-              <ShoppingBag className="w-16 h-16 mx-auto mb-4" style={{ color: 'var(--foreground-secondary)' }} />
-              <p className="text-lg mb-4" style={{ color: 'var(--foreground-secondary)' }}>Корзина пуста</p>
-              <Link href="/shop" className="inline-flex items-center justify-center rounded-full text-white px-6 py-3 font-medium" style={{ background: 'var(--primary)' }}>
-                В магазин
-              </Link>
+      {/* AMBIENT BACKGROUND */}
+      <div className="pointer-events-none fixed inset-0 z-0">
+        <div
+          className="ambient-sphere -left-[300px] top-[80px] h-[650px] w-[650px]"
+          style={{ background: "var(--primary)" }}
+        />
+        <div
+          className="ambient-sphere -right-[300px] top-[35%] h-[650px] w-[650px]"
+          style={{ background: "#6366f1" }}
+        />
+        <div
+          className="ambient-sphere left-1/2 top-[70%] h-[500px] w-[500px] -translate-x-1/2"
+          style={{ background: "var(--primary)", opacity: 0.035 }}
+        />
+      </div>
+
+      <section className="relative z-10 mx-auto max-w-[1180px] px-5 pb-24 pt-28 sm:px-8 lg:px-10 lg:pt-32">
+        {/* TOP */}
+        <div className="mb-12">
+          <Link
+            href="/shop"
+            className="mb-8 inline-flex items-center gap-2 text-sm transition-opacity hover:opacity-60 text-secondary-cart"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Магазин
+          </Link>
+
+          <div className="flex items-end justify-between gap-6">
+            <div>
+              <h1 className="text-4xl font-semibold tracking-[-0.045em] sm:text-5xl text-primary-cart">
+                Корзина
+              </h1>
+              <p className="mt-3 text-sm sm:text-base text-secondary-cart">
+                {itemsCount}{" "}
+                {itemsCount === 1 ? "товар" : itemsCount < 5 ? "товара" : "товаров"}
+              </p>
             </div>
-          ) : (
-            <div className="space-y-4">
-              {cart.map((item) => (
-                <div key={item.productId} className="glass-feature rounded-2xl p-4 flex items-center gap-4">
-                  <div className="w-16 h-16 rounded-xl flex-shrink-0 overflow-hidden" style={{ background: 'var(--bg-secondary)' }}>
-                    {item.image ? <img src={item.image} alt={item.name} className="w-full h-full object-cover" /> : <ShoppingBag className="w-8 h-8 m-4" style={{ color: 'var(--foreground-secondary)' }} />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <Link href={`/shop/${item.slug}`} className="font-semibold text-sm hover:underline" style={{ color: 'var(--foreground)' }}>{item.name}</Link>
-                    <p className="text-sm" style={{ color: 'var(--primary)' }}>{item.price} ₽</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => updateQty(item.productId, -1)} className="w-8 h-8 rounded-full flex items-center justify-center text-sm" style={{ background: 'var(--bg-secondary)', color: 'var(--foreground)' }}>−</button>
-                    <span className="text-sm font-medium w-6 text-center" style={{ color: 'var(--foreground)' }}>{item.quantity}</span>
-                    <button onClick={() => updateQty(item.productId, 1)} className="w-8 h-8 rounded-full flex items-center justify-center text-sm" style={{ background: 'var(--bg-secondary)', color: 'var(--foreground)' }}>+</button>
-                  </div>
-                  <button onClick={() => removeItem(item.productId)} className="p-2 rounded-xl hover:opacity-70" style={{ color: '#ef4444' }}>
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
+          </div>
+        </div>
 
-              <div className="glass-feature rounded-2xl p-6 mt-6">
-                <div className="flex justify-between items-center mb-4">
-                  <span className="text-lg font-semibold" style={{ color: 'var(--foreground)' }}>Итого</span>
-                  <span className="text-2xl font-bold" style={{ color: 'var(--primary)' }}>{total} ₽</span>
-                </div>
-                <Link
-                  href="/shop/checkout"
-                  className="liquid-btn group relative w-full inline-flex items-center justify-center rounded-full text-white px-8 py-4 font-medium gap-2"
-                >
-                  <span className="relative z-10">Оформить заказ</span>
-                  <ArrowRight className="relative z-10 w-4 h-4" />
-                </Link>
+        {/* EMPTY */}
+        {!hydrated ? (
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_440px]" aria-label="Загрузка корзины"><div className="ds-panel h-40 animate-pulse" /><div className="ds-panel h-72 animate-pulse" /></div>
+        ) : cart.length === 0 ? (
+          <EmptyCart />
+        ) : (
+          <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_440px] xl:gap-12">
+            {/* CART ITEMS */}
+            <div>
+              {cart.map((item) => (
+                  <CartItem
+                    key={item.productId}
+                    item={item}
+                    onRemove={removeItem}
+                    onQuantityChange={updateQuantity}
+                  />
+                ))}
+
+              <div className="mt-6 flex items-center gap-2 text-xs">
+                <ShieldCheck className="h-4 w-4" style={{ color: "var(--primary)" }} />
+                <span className="text-secondary-cart">Безопасная оплата · Электронный чек</span>
               </div>
             </div>
-          )}
-        </div>
+
+            {/* CHECKOUT */}
+            <OrderSummary
+              total={total}
+              items={itemsForReceipt}
+              name={name}
+              email={email}
+              phone={phone}
+              address={address}
+              onNameChange={setName}
+              onEmailChange={setEmail}
+              onPhoneChange={(value) => setPhone(formatRussianPhoneInput(value))}
+              onAddressChange={setAddress}
+            />
+          </div>
+        )}
       </section>
     </main>
   );

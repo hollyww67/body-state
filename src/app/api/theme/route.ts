@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase";
+import { db } from "@/lib/db";
 
 export async function GET() {
-  const { data } = await supabaseAdmin.from("settings").select("value").eq("key", "theme").single();
+  const { data } = await db.from("settings").select("value").eq("key", "theme").single();
   return NextResponse.json({ theme: data?.value || "teal" });
 }

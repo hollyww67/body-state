@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase";
+import { db } from "@/lib/db";
+import { refreshScheduleOccupancy, SERVICE_DURATION_MINUTES, type ServiceType } from "@/lib/slots";
 
 export async function POST(request: NextRequest) {
   const { service_type, slot_time } = await request.json();
@@ -12,14 +13,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Укажите время" }, { status: 400 });
   }
 
-  const { error } = await supabaseAdmin.from("slots").insert({
+  const { error } = await db.from("slots").insert({
     service_type,
     slot_time,
+    duration_minutes: SERVICE_DURATION_MINUTES[service_type as ServiceType],
   });
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+  await refreshScheduleOccupancy();
 
   return NextResponse.json({ ok: true }, { status: 201 });
 }

@@ -3,16 +3,20 @@ import QRCode from "qrcode";
 import sharp from "sharp";
 import path from "path";
 import fs from "fs";
+import { enforceRateLimit } from "@/lib/request";
 
 export async function GET(request: NextRequest) {
+  const limited = await enforceRateLimit(request, "qr", 60, 60 * 60);
+  if (limited) return limited;
   const { searchParams } = new URL(request.url);
   const url = searchParams.get("url");
   const color = searchParams.get("color") || "#0F766E";
   const withLogo = searchParams.get("logo") !== "false";
 
-  if (!url) {
+  if (!url || url.length > 2048) {
     return NextResponse.json({ error: "URL обязателен" }, { status: 400 });
   }
+  if (!/^#[0-9a-f]{6}$/i.test(color)) return NextResponse.json({ error: "Некорректный цвет" }, { status: 400 });
 
   try {
     const qrBuffer = await QRCode.toBuffer(url, {

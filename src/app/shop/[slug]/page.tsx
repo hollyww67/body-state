@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Navbar from "@/components/Navbar";
-import { supabaseAdmin } from "@/lib/supabase";
+import { db } from "@/lib/db";
 import AddToCartButton from "./AddToCartButton";
 import ReviewSection from "./ReviewSection";
 import ProductGallery from "./ProductGallery";
@@ -10,14 +10,14 @@ import Link from "next/link";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
-  const { data: product } = await supabaseAdmin.from("products").select("*").eq("slug", slug).single();
+  const { data: product } = await db.from("products").select("*").eq("slug", slug).eq("is_active", true).single();
   if (!product) return { title: "Товар не найден" };
   return { title: product.name, description: product.description?.slice(0, 160) };
 }
 
 export default async function ProductPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const { data: product } = await supabaseAdmin.from("products").select("*").eq("slug", slug).single();
+  const { data: product } = await db.from("products").select("*").eq("slug", slug).eq("is_active", true).single();
   if (!product) notFound();
 
   return (

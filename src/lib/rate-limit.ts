@@ -1,22 +1,9 @@
-const attempts = new Map<string, { count: number; resetAt: number }>();
+import { cacheDelete, cacheIncrement } from "./redis";
 
-export function checkRateLimit(ip: string): boolean {
-  const now = Date.now();
-  const entry = attempts.get(ip);
-
-  if (!entry || now > entry.resetAt) {
-    attempts.set(ip, { count: 1, resetAt: now + 15 * 60 * 1000 });
-    return true;
-  }
-
-  if (entry.count >= 5) {
-    return false;
-  }
-
-  entry.count++;
-  return true;
+export async function checkRateLimit(key: string, limit = 5, ttlSeconds = 15 * 60): Promise<boolean> {
+  return (await cacheIncrement(`rate-limit:${key}`, ttlSeconds)) <= limit;
 }
 
-export function resetRateLimit(ip: string) {
-  attempts.delete(ip);
+export async function resetRateLimit(key: string) {
+  await cacheDelete(`rate-limit:${key}`);
 }

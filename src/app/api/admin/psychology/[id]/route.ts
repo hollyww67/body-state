@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { db } from '@/lib/db';
 
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 export async function GET(
     request: NextRequest,
@@ -13,7 +9,7 @@ export async function GET(
     try {
         const { id } = await context.params;
 
-        const { data, error } = await supabase
+        const { data, error } = await db
             .from('psychology_programs')
             .select('*')
             .eq('id', id)
@@ -24,7 +20,7 @@ export async function GET(
         }
 
         return NextResponse.json(data);
-    } catch (error) {
+    } catch {
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
 }
@@ -37,7 +33,7 @@ export async function PUT(
         const { id } = await context.params;
         const body = await request.json();
 
-        const { data, error } = await supabase
+        const { data, error } = await db
             .from('psychology_programs')
             .update({
                 title: body.title,
@@ -60,7 +56,7 @@ export async function PUT(
         }
 
         return NextResponse.json(data);
-    } catch (error) {
+    } catch {
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
 }
@@ -72,7 +68,7 @@ export async function DELETE(
     try {
         const { id } = await context.params;
 
-        const { error } = await supabase
+        const { error } = await db
             .from('psychology_programs')
             .delete()
             .eq('id', id);
@@ -82,7 +78,7 @@ export async function DELETE(
         }
 
         return NextResponse.json({ success: true });
-    } catch (error) {
+    } catch {
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
 }

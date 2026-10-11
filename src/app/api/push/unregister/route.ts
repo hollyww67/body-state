@@ -1,10 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase";
+import { db } from "@/lib/db";
+import { cleanText, enforceRateLimit, readJsonObject } from "@/lib/request";
+import { requireAdmin } from "@/lib/admin-auth";
 
 export async function POST(request: NextRequest) {
-  const { token } = await request.json();
+  const unauthorized = await requireAdmin(request);
+  if (unauthorized) return unauthorized;
+  const limited = await enforceRateLimit(request, "push-unregister", 30, 60 * 60);
+  if (limited) return limited;
+  let body: Record<string, unknown>;
+  try { body = await readJsonObject(request, 8_192); } catch { return NextResponse.json({ error: "Некорректный JSON" }, { status: 400 }); }
+  const token = cleanText(body.token, 4096);
   if (token) {
-    await supabaseAdmin.from("push_tokens").delete().eq("token", token);
+    await db.from("push_tokens").delete().eq("token", token);
   }
   return NextResponse.json({ ok: true });
 }

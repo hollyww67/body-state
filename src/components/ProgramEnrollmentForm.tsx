@@ -1,16 +1,27 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle2, AlertCircle, Sparkles } from 'lucide-react';
+import PersonalDataConsent from '@/components/legal/PersonalDataConsent';
+import { formatRussianPhoneInput } from '@/lib/phone';
+import { useAccountPrefill } from '@/lib/hooks/use-account-prefill';
 
 export default function ProgramEnrollmentForm() {
+    const profile = useAccountPrefill();
     const [name, setName] = useState('');
     const [phone, setPhone] = useState('');
     const [message, setMessage] = useState('');
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [consent, setConsent] = useState(false);
+
+    useEffect(() => {
+        if (!profile) return;
+        setName((value) => value || profile.display_name || '');
+        setPhone((value) => value || (profile.phone ? formatRussianPhoneInput(profile.phone) : ''));
+    }, [profile]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -25,10 +36,10 @@ export default function ProgramEnrollmentForm() {
         }
 
         try {
-            const res = await fetch('/api/program-enroll', {
+            const res = await fetch('/api/program', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ client_name: name, client_phone: phone, notes: message }),
+                body: JSON.stringify({ client_name: name, client_phone: phone, notes: message, consent }),
             });
 
             const data = await res.json();
@@ -103,7 +114,7 @@ export default function ProgramEnrollmentForm() {
                 <input
                     type="tel"
                     value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
+                    onChange={(e) => setPhone(formatRussianPhoneInput(e.target.value))}
                     className="w-full px-4 py-3 rounded-2xl border transition-all focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
                     style={{
                         background: 'var(--bg)',
@@ -137,7 +148,7 @@ export default function ProgramEnrollmentForm() {
 
             <button
                 type="submit"
-                disabled={loading || success}
+                disabled={loading || success || !consent}
                 className="w-full py-4 px-6 rounded-2xl font-semibold text-white transition-all hover:shadow-lg disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 style={{ background: 'linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 82%, white))' }}
             >
@@ -153,9 +164,7 @@ export default function ProgramEnrollmentForm() {
                 )}
             </button>
 
-            <p className="text-xs text-center" style={{ color: 'var(--foreground-secondary)' }}>
-                Нажимая на кнопку, вы соглашаетесь с обработкой персональных данных
-            </p>
+            <PersonalDataConsent id="program-consent" checked={consent} onChange={setConsent} />
         </form>
     );
 }

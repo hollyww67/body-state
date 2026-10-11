@@ -12,22 +12,30 @@ export interface Booking {
   service_type: ServiceType;
   status: BookingStatus;
   booking_type?: BookingType;
+  payment_option?: "online" | "at_appointment";
+  payment_status?: "pending" | "paid" | "due";
   room_id?: string;
   notes?: string;
+  source?: string;
+  consent_version?: string;
+  consent_at?: string;
+  account_user_id?: string;
+  attendance?: "present" | "absent" | null;
+  program_id?: number;
   created_at: string;
 }
 
 export const STATUS_LABELS: Record<string, string> = {
-  pending: "Новая",
-  confirmed: "Подтв.",
+  pending: "Ждёт оплаты",
+  confirmed: "Подтверждена",
   cancelled: "Отмен.",
   completed: "Заверш.",
 };
 
 export const TYPE_LABELS: Record<string, string> = {
-  bfm: "БФМ",
+  bfm: "Физическая реабилитация",
   brt: "БРТ",
-  psychology: "Психология",
+  psychology: "Психологическая реабилитация",
   program: "Программа",
   consultation: "Консультация",
 };
@@ -45,5 +53,5 @@ export async function patchBooking(id: string, status: BookingStatus): Promise<v
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ id, status }),
   });
-  if (!res.ok) throw new Error("Ошибка обновления");
+  if (!res.ok) { const data = await res.json().catch(() => ({})); throw new Error(data.error || "Ошибка обновления"); }
 }

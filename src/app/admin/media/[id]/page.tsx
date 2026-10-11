@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Save, Image, Video } from 'lucide-react';
+import { ArrowLeft, Save } from 'lucide-react';
 import FileUploader from '@/components/FileUploader';
 
 interface MediaItem {
@@ -203,7 +203,7 @@ export default function EditMediaPage() {
                             onChange={(e) => handleChange('category', e.target.value)}
                             className="w-full p-3 border rounded-xl"
                             style={{ borderColor: 'var(--border)', background: 'var(--bg)', color: 'var(--foreground)' }}
-                            placeholder="Например: БФМ"
+                            placeholder="Например: Физическая реабилитация"
                         />
                     </div>
                     <div>
@@ -225,7 +225,7 @@ export default function EditMediaPage() {
                             onChange={(e) => handleChange('service_type', e.target.value)}
                             className="w-full p-3 border rounded-xl"
                             style={{ borderColor: 'var(--border)', background: 'var(--bg)', color: 'var(--foreground)' }}
-                            placeholder="БФМ / БРТ / Психология"
+                            placeholder="Физическая реабилитация / БРТ / Психологическая реабилитация"
                         />
                     </div>
                 </div>
