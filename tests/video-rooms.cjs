@@ -20,8 +20,10 @@ const rooms=require(path.join(base,'app/api/psychology/rooms/route.js'));
 const {randomUUID}=require('node:crypto');
 let room,user,other,adminToken,userToken,otherToken,slot,booking;
 let passed=0;
+const testOrigin=new URL(process.env.NEXT_PUBLIC_SITE_URL).origin;
+if(!['localhost','127.0.0.1'].includes(new URL(testOrigin).hostname))throw new Error('Local QA origin required');
 function req(id,cookie,method='GET',body,session=''){
- return new NextRequest('http://localhost:3100/api/room/signal?id='+id+(session?'&session='+session:''),{method,headers:{cookie:cookie||'',origin:'http://localhost:3100','content-type':'application/json'},...(body?{body:JSON.stringify(body)}:{})});
+ return new NextRequest(testOrigin+'/api/room/signal?id='+id+(session?'&session='+session:''),{method,headers:{cookie:cookie||'',origin:testOrigin,'content-type':'application/json'},...(body?{body:JSON.stringify(body)}:{})});
 }
 async function expect(response,status,label){assert.equal(response.status,status,label);passed++;return response.json();}
 (async()=>{

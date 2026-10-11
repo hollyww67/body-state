@@ -1,9 +1,10 @@
 "use client";
+import AdminConfirmDialog from "@/components/admin/AdminConfirmDialog";
 
 import { useEffect, useState, useMemo } from "react";
 import { format, parseISO, addDays, differenceInDays } from "date-fns";
 import { ru } from "date-fns/locale";
-import { Plus, Trash2, RefreshCw, Calendar, Eye, AlertTriangle, Layers, Coffee, Clock3 } from "lucide-react";
+import { Plus, Trash2, RefreshCw, Calendar, Eye, Layers, Coffee, Clock3 } from "lucide-react";
 import { toast } from "sonner";
 
 interface Slot {
@@ -46,7 +47,6 @@ export default function AdminSlotsPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showConfirm, setShowConfirm] = useState(false);
   const [deleteMode, setDeleteMode] = useState<"selected" | "all_free">("selected");
-  const [deleting, setDeleting] = useState(false);
   const [filterFree, setFilterFree] = useState<boolean | null>(null);
   const [filterType, setFilterType] = useState<string | null>(null);
 
@@ -175,12 +175,7 @@ export default function AdminSlotsPage() {
   const deleteSelected = async () => {
     const ids = deleteMode === "all_free" ? allFreeSlots.map(s => s.id) : [...selected];
     if (ids.length === 0) return;
-    
-    setDeleting(true);
-    setShowConfirm(false);
-    
-    try {
-      const res = await fetch("/api/admin/slots/delete", {
+    const res = await fetch("/api/admin/slots/delete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ids }),
@@ -190,15 +185,8 @@ export default function AdminSlotsPage() {
         toast.success(`Удалено слотов: ${data.count || ids.length}`);
         fetchSlots();
       } else {
-        toast.error(data.error || "Ошибка удаления");
-        fetchSlots();
+        throw new Error(data.error || "Ошибка удаления");
       }
-    } catch {
-      toast.error("Ошибка сети");
-      fetchSlots();
-    } finally {
-      setDeleting(false);
-    }
   };
 
   const createBreak = async () => {
@@ -337,17 +325,9 @@ export default function AdminSlotsPage() {
       </div>
 
       {showConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl p-6 max-w-sm w-full mx-4 shadow-2xl">
-            <div className="w-12 h-12 rounded-2xl bg-red-100 flex items-center justify-center mb-4"><AlertTriangle className="w-6 h-6 text-red-600" /></div>
-            <h3 className="text-lg font-semibold text-[#111827] mb-2">Удалить {deleteMode === "all_free" ? allFreeSlots.length : selected.size} слотов?</h3>
-            <p className="text-sm text-[#6B7280] mb-6">Это действие нельзя отменить.</p>
-            <div className="flex gap-2">
-              <button onClick={() => setShowConfirm(false)} className="flex-1 py-2.5 rounded-full text-sm font-medium bg-gray-100 hover:bg-gray-200 transition-colors">Отмена</button>
-              <button onClick={deleteSelected} disabled={deleting} className="flex-1 py-2.5 rounded-full text-sm font-medium bg-red-600 text-white hover:bg-red-700 transition-colors disabled:opacity-50">{deleting ? "Удаление..." : "Удалить"}</button>
-            </div>
-          </div>
-        </div>
+        <AdminConfirmDialog title={`Удалить ${deleteMode === "all_free" ? allFreeSlots.length : selected.size} слотов?`} onCancel={() => setShowConfirm(false)} onConfirm={deleteSelected}>
+          <p>Это действие нельзя отменить.</p>
+        </AdminConfirmDialog>
       )}
 
       {loading ? (

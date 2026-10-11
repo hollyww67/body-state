@@ -22,3 +22,7 @@ doctor-site-deploy-*.tar.gz
 audit
 qa-audit
 release-audit
+.audit
+.stage-*
+*.dump
+*.tsbuildinfo
