@@ -386,5 +386,205 @@ const baseOrder = () => ({ external_order_id: crypto.randomUUID(), client_name: 
     await pool.query("UPDATE promo_codes SET discount_value=20 WHERE code='QA-FROZEN10'");
     const reread=journey.publicJourney('bfm',await journey.loadJourney('bfm',discounted.booking.id));assert.deepEqual(reread.snapshot,saved);
   });
+  const { deleteUnreferencedSlots } = require('../src/lib/slot-deletion.js');
+  const slotDeleteApi = require('../src/app/api/admin/slots/delete/route.js');
+  const { cancelAccountBooking } = require('../src/lib/slots.js');
+  const signIndependent = (body, secret = process.env.TINKOFF_PASSWORD) => {
+    const pairs = Object.entries(body).filter(([k, v]) => k !== 'Token' && k !== 'Password' && v != null && typeof v !== 'object');
+    pairs.push(['Password', secret]);
+    return require('node:crypto').createHash('sha256').update(pairs.sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0).map(([, v]) => String(v)).join(''), 'utf8').digest('hex');
+  };
+  const signedCallback = body => callback.POST(request('/api/payment/callback', { ...body, Token: signIndependent(body) }, 'POST'));
+  await test('A01 forged Password and absent/wrong terminal have zero order/booking/queue side effects', async () => {
+    const booking = await claimSlot(await slot('2099-08-01T09:30:00+03:00'), 'bfm', fields());
+    const order = await createPendingOrderWithReservation(baseOrder(), [{ bookingId: booking.booking.id, bookingType: 'bfm' }]);
+    await pool.query('UPDATE orders SET payment_id=$2 WHERE id=$1', [order.id, 'hardening-adversarial']);
+    const original = (await pool.query('SELECT to_jsonb(b) AS snapshot FROM bfm_bookings b WHERE id=$1', [booking.booking.id])).rows[0].snapshot;
+    const originalOrder = (await pool.query('SELECT to_jsonb(o) AS snapshot FROM orders o WHERE id=$1', [order.id])).rows[0].snapshot;
+    const queueCount = (await pool.query('SELECT count(*)::int n FROM appointment_notifications WHERE booking_id=$1', [booking.booking.id])).rows[0].n;
+    const body = { TerminalKey: 'audit-terminal', PaymentId: 'hardening-adversarial', OrderId: order.id, Status: 'CONFIRMED', Success: true, Amount: 100000 };
+    for (const Password of ['attacker', '', 123, false, null, {}, []]) {
+      const response = await callback.POST(request('/api/payment/callback', { ...body, Password, Token: signIndependent(body, String(Password)) }, 'POST'));
+      assert.equal(response.status, 403);
+    }
+    for (const TerminalKey of [undefined, '', false, 'wrong']) assert.equal((await signedCallback({ ...body, TerminalKey })).status, 403);
+    assert.deepEqual((await pool.query('SELECT to_jsonb(b) AS snapshot FROM bfm_bookings b WHERE id=$1', [booking.booking.id])).rows[0].snapshot, original);
+    assert.deepEqual((await pool.query('SELECT to_jsonb(o) AS snapshot FROM orders o WHERE id=$1', [order.id])).rows[0].snapshot, originalOrder);
+    assert.equal((await pool.query('SELECT count(*)::int n FROM appointment_notifications WHERE booking_id=$1', [booking.booking.id])).rows[0].n, queueCount);
+    assert.equal((await signedCallback({ ...body, Amount: 999 })).status, 400);
+    assert.equal((await signedCallback({ ...body, PaymentId: 'other-payment' })).status, 409);
+    assert.deepEqual((await pool.query('SELECT status,payment_status FROM bfm_bookings WHERE id=$1', [booking.booking.id])).rows[0], { status: 'pending', payment_status: 'pending' });
+    assert.equal((await signedCallback(body)).status, 200);
+    const notificationsAfter = (await pool.query('SELECT count(*)::int n FROM appointment_notifications WHERE booking_id=$1', [booking.booking.id])).rows[0].n;
+    const revisionAfter = (await pool.query('SELECT notification_revision FROM bfm_bookings WHERE id=$1', [booking.booking.id])).rows[0].notification_revision;
+    const duplicates = await Promise.all(Array.from({ length: 10 }, () => signedCallback(body)));
+    assert(duplicates.every(r => r.status === 200));
+    assert.equal((await pool.query('SELECT status FROM orders WHERE id=$1', [order.id])).rows[0].status, 'paid');
+    assert.deepEqual((await pool.query('SELECT status,payment_status,notification_revision FROM bfm_bookings WHERE id=$1', [booking.booking.id])).rows[0], { status: 'confirmed', payment_status: 'paid', notification_revision: revisionAfter });
+    assert.equal((await pool.query('SELECT count(*)::int n FROM appointment_notifications WHERE booking_id=$1', [booking.booking.id])).rows[0].n, notificationsAfter);
+    assert.equal((await pool.query('SELECT count(*)::int n FROM bfm_bookings WHERE slot_id=$1', [booking.slot.id])).rows[0].n, 1);
+  });
+  await test('A01 duplicate first confirmations are idempotent and competing failure preserves paid facts', async () => {
+    for (let i = 0; i < 6; i++) {
+      const booking = await claimSlot(await slot(`2099-08-${String(i + 2).padStart(2, '0')}T09:30:00+03:00`), 'bfm', fields());
+      const order = await createPendingOrderWithReservation(baseOrder(), [{ bookingId: booking.booking.id, bookingType: 'bfm' }]);
+      const PaymentId = `hardening-concurrent-${i}`;
+      await pool.query('UPDATE orders SET payment_id=$2 WHERE id=$1', [order.id, PaymentId]);
+      const body = { TerminalKey: 'audit-terminal', PaymentId, OrderId: order.id, Success: true, Amount: 100000 };
+      const responses = await Promise.all([signedCallback({ ...body, Status: 'CONFIRMED' }), signedCallback({ ...body, Status: i % 2 ? 'REJECTED' : 'CONFIRMED' })]);
+      assert(responses.every(r => r.status === 200));
+      assert.equal((await pool.query('SELECT status FROM orders WHERE id=$1', [order.id])).rows[0].status, 'paid');
+      const row = (await pool.query('SELECT status,payment_status FROM bfm_bookings WHERE id=$1', [booking.booking.id])).rows[0];
+      assert.equal(row.payment_status, 'paid');
+      // A genuinely failed/cancelled hold may receive a late payment; never resurrect it.
+      assert(['confirmed', 'cancelled'].includes(row.status));
+      assert.equal((await pool.query('SELECT count(*)::int n FROM bfm_bookings WHERE slot_id=$1', [booking.slot.id])).rows[0].n, 1);
+    }
+  });
+  await test('A01 real callback path records late money without resurrecting a cancelled appointment', async () => {
+    const booking = await claimSlot(await slot('2099-08-09T09:30:00+03:00'), 'bfm', fields());
+    const order = await createPendingOrderWithReservation(baseOrder(), [{ bookingId: booking.booking.id, bookingType: 'bfm' }]);
+    await pool.query('UPDATE orders SET payment_id=$2 WHERE id=$1', [order.id, 'hardening-late']);
+    await cancelAccountBooking(booking.booking.id, 'bfm');
+    const body = { TerminalKey: 'audit-terminal', PaymentId: 'hardening-late', OrderId: order.id, Status: 'CONFIRMED', Amount: 100000, Success: true };
+    assert.equal((await signedCallback(body)).status, 200);
+    assert.equal((await signedCallback(body)).status, 200);
+    assert.deepEqual((await pool.query('SELECT status,payment_status,slot_id FROM bfm_bookings WHERE id=$1', [booking.booking.id])).rows[0], { status: 'cancelled', payment_status: 'paid', slot_id: booking.slot.id });
+    assert.equal((await pool.query('SELECT count(*)::int n FROM payment_cases WHERE order_id=$1', [order.id])).rows[0].n, 1);
+  });
+  await test('A01 interrupted settlement returns retry and signed replay repairs order/booking consistency', async () => {
+    const booking = await claimSlot(await slot('2099-08-10T09:30:00+03:00'), 'bfm', fields());
+    const order = await createPendingOrderWithReservation(baseOrder(), [{ bookingId: booking.booking.id, bookingType: 'bfm' }]);
+    await pool.query('UPDATE orders SET payment_id=$2 WHERE id=$1', [order.id, 'hardening-replay-repair']);
+    const body = { TerminalKey: 'audit-terminal', PaymentId: 'hardening-replay-repair', OrderId: order.id, Status: 'CONFIRMED', Success: true, Amount: 100000 };
+    const settlement = require('../src/lib/booking-payments.js'); const saved = settlement.settleBookingPayments;
+    settlement.settleBookingPayments = async () => { throw new Error('Synthetic settlement interruption'); };
+    try { assert.equal((await signedCallback(body)).status, 500); }
+    finally { settlement.settleBookingPayments = saved; }
+    assert.equal((await pool.query('SELECT status FROM orders WHERE id=$1', [order.id])).rows[0].status, 'paid');
+    assert.equal((await pool.query('SELECT status FROM bfm_bookings WHERE id=$1', [booking.booking.id])).rows[0].status, 'pending');
+    assert.equal((await signedCallback(body)).status, 200);
+    assert.deepEqual((await pool.query('SELECT status,payment_status FROM bfm_bookings WHERE id=$1', [booking.booking.id])).rows[0], { status: 'confirmed', payment_status: 'paid' });
+  });
+  await test('A02 protected member beyond the old 200-row chunk prevents any batch deletion', async () => {
+    const inserted = await pool.query("INSERT INTO slots(service_type,slot_time,duration_minutes) SELECT 'bfm','2103-01-01T00:00:00+03:00'::timestamptz + n * interval '1 minute',90 FROM generate_series(0,200) n RETURNING id::text");
+    const ids = inserted.rows.map(r => r.id);
+    await pool.query("INSERT INTO bfm_bookings(slot_id,client_name,client_phone,status) VALUES($1,'Batch history','+79990000001','cancelled')", [ids[200]]);
+    assert.equal((await deleteUnreferencedSlots(ids)).status, 409);
+    assert.equal((await pool.query('SELECT count(*)::int n FROM slots WHERE id=ANY($1::uuid[])', [ids])).rows[0].n, 201);
+  });
+  await test('A02 all services and statuses protect history even with stale free occupancy; batch is atomic', async () => {
+    for (const service of ['bfm', 'brt', 'psychology']) for (const status of ['pending', 'confirmed', 'cancelled', 'completed']) {
+      const id = await slot(`2099-09-01T${service === 'bfm' ? '09' : service === 'brt' ? '12' : '15'}:${String(['pending', 'confirmed', 'cancelled', 'completed'].indexOf(status) * 10).padStart(2, '0')}:00+03:00`, service);
+      const booking = (await pool.query(`INSERT INTO ${service}_bookings(slot_id,client_name,client_phone,status) VALUES($1,'Historical fixture','+79990000001',$2) RETURNING id`, [id, status])).rows[0];
+      await pool.query('UPDATE slots SET is_booked=false WHERE id=$1', [id]);
+      const snapshot = (await pool.query(`SELECT to_jsonb(b) AS booking,to_jsonb(s) AS slot FROM ${service}_bookings b JOIN slots s ON s.id=b.slot_id WHERE b.id=$1`, [booking.id])).rows[0];
+      const free = await slot(`2099-09-02T${service === 'bfm' ? '09' : service === 'brt' ? '12' : '15'}:${String(['pending', 'confirmed', 'cancelled', 'completed'].indexOf(status) * 10).padStart(2, '0')}:00+03:00`, service);
+      const batch = await slotDeleteApi.POST(request('/api/admin/slots/delete', { ids: [free, id] }, 'POST'));
+      assert.equal(batch.status, 409); assert((await batch.json()).error.includes('История'));
+      assert.equal((await slotDeleteApi.DELETE(new NextRequest(`http://localhost/api/admin/slots/delete?id=${id}`))).status, 409);
+      assert.equal((await pool.query('SELECT count(*)::int n FROM slots WHERE id=$1', [free])).rows[0].n, 1);
+      assert.deepEqual((await pool.query(`SELECT to_jsonb(b) AS booking,to_jsonb(s) AS slot FROM ${service}_bookings b JOIN slots s ON s.id=b.slot_id WHERE b.id=$1`, [booking.id])).rows[0], snapshot);
+    }
+  });
+  await test('A02 free batch counts actual unique rows, missing slots count zero, malformed input is rejected', async () => {
+    const id = await slot('2099-09-03T09:30:00+03:00');
+    const other = await slot('2099-09-03T12:00:00+03:00');
+    const response = await slotDeleteApi.POST(request('/api/admin/slots/delete', { ids: [id, id.toUpperCase(), other, crypto.randomUUID()] }, 'POST'));
+    assert.equal(response.status, 200); assert.equal((await response.json()).count, 2);
+    assert.equal((await (await slotDeleteApi.DELETE(new NextRequest(`http://localhost/api/admin/slots/delete?id=${id}`))).json()).count, 0);
+    for (const ids of [null, [], 'bad', [123], ['bad-id'], Array(5001).fill(crypto.randomUUID())]) assert.equal((await deleteUnreferencedSlots(ids)).status, 400);
+  });
+  await test('A02 stale-screen deletion races with claims: either delete or booking wins, never orphaned', async () => {
+    for (let i = 0; i < 12; i++) {
+      const id = await slot(`2099-10-${String(i + 1).padStart(2, '0')}T09:30:00+03:00`);
+      const [deleted, booked] = await Promise.all([deleteUnreferencedSlots([id]), claimSlot(id, 'bfm', fields())]);
+      assert.notEqual(deleted.ok, booked.ok);
+      if (booked.ok) {
+        assert.equal(deleted.status, 409);
+        assert.equal((await pool.query('SELECT slot_id FROM bfm_bookings WHERE id=$1', [booked.booking.id])).rows[0].slot_id, id);
+      } else assert.equal(deleted.count, 1);
+    }
+    assert.equal((await pool.query('SELECT count(*)::int n FROM bfm_bookings WHERE slot_id IS NULL')).rows[0].n, 0);
+  });
+  await test('A02 target deletion races with reschedule without losing the source or creating orphan history', async () => {
+    for (let i = 0; i < 8; i++) {
+      const source = await slot(`2099-11-${String(i + 1).padStart(2, '0')}T09:30:00+03:00`);
+      const booked = await claimSlot(source, 'bfm', fields()); assert(booked.ok);
+      const target = await slot(`2099-11-${String(i + 15).padStart(2, '0')}T09:30:00+03:00`);
+      const [deleted, moved] = await Promise.all([deleteUnreferencedSlots([target]), rescheduleBooking({ bookingId: booked.booking.id, serviceType: 'bfm', newSlotId: target })]);
+      assert.notEqual(deleted.ok, moved.ok);
+      const row = (await pool.query('SELECT slot_id FROM bfm_bookings WHERE id=$1', [booked.booking.id])).rows[0];
+      assert.equal(row.slot_id, moved.ok ? target : source);
+      assert.equal((await pool.query('SELECT count(*)::int n FROM slots WHERE id=$1', [source])).rows[0].n, 1);
+    }
+  });
+  await test('A02 concurrent cancellation cannot make its historical slot deletable', async () => {
+    for (let i = 0; i < 8; i++) {
+      const id = await slot(`2099-12-${String(i + 1).padStart(2, '0')}T09:30:00+03:00`);
+      const booked = await claimSlot(id, 'bfm', fields()); assert(booked.ok);
+      const [deleted, cancelled] = await Promise.all([deleteUnreferencedSlots([id]), cancelAccountBooking(booked.booking.id, 'bfm')]);
+      assert.equal(deleted.status, 409); assert(cancelled.ok);
+      assert.deepEqual((await pool.query('SELECT status,slot_id FROM bfm_bookings WHERE id=$1', [booked.booking.id])).rows[0], { status: 'cancelled', slot_id: id });
+      assert.equal((await pool.query('SELECT is_booked FROM slots WHERE id=$1', [id])).rows[0].is_booked, false);
+    }
+  });
+  await test('A02 SQL failure during DELETE rolls back the entire batch', async () => {
+    const one = await slot('2100-01-01T09:30:00+03:00'); const two = await slot('2100-01-02T09:30:00+03:00');
+    await pool.query(`CREATE FUNCTION hardening_fail_delete() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.id='${two}'::uuid THEN RAISE EXCEPTION 'test-only delete failure'; END IF; RETURN OLD; END $$`);
+    await pool.query('CREATE TRIGGER hardening_fail_delete BEFORE DELETE ON slots FOR EACH ROW EXECUTE FUNCTION hardening_fail_delete()');
+    try {
+      await assert.rejects(deleteUnreferencedSlots([one, two]), /test-only delete failure/);
+      assert.equal((await pool.query('SELECT count(*)::int n FROM slots WHERE id=ANY($1::uuid[])', [[one, two]])).rows[0].n, 2);
+    } finally {
+      await pool.query('DROP TRIGGER hardening_fail_delete ON slots'); await pool.query('DROP FUNCTION hardening_fail_delete()');
+    }
+  });
+  await test('scheduling invariants: 20 contenders one winner, exact service, adjacent window and break boundary', async () => {
+    const id = await slot('2100-02-01T09:30:00+03:00');
+    const attempts = await Promise.all(Array.from({ length: 20 }, () => claimSlot(id, 'bfm', fields())));
+    assert.equal(attempts.filter(r => r.ok).length, 1);
+    assert.equal((await claimSlot(await slot('2100-02-01T10:00:00+03:00', 'psychology'), 'psychology', { ...fields(), booking_type: 'offline' })).status, 409);
+    assert((await claimSlot(await slot('2100-02-01T11:00:00+03:00', 'psychology'), 'psychology', { ...fields(), booking_type: 'offline' })).ok);
+    assert.equal((await claimSlot(await slot('2100-02-02T09:30:00+03:00', 'brt'), 'bfm', fields())).ok, false);
+    assert.equal((await claimSlot(crypto.randomUUID(), 'bfm', fields())).ok, false);
+    assert.equal((await claimSlot(await slot('2020-01-01T09:30:00+03:00'), 'bfm', fields())).ok, false);
+    assert((await createScheduleBreak({ startsAt: '2100-02-03T09:45:00+03:00', endsAt: '2100-02-03T10:15:00+03:00', reason: 'Hardening fixture' })).ok);
+    assert.equal((await claimSlot(await slot('2100-02-03T09:30:00+03:00'), 'bfm', fields())).ok, false);
+    assert((await claimSlot(await slot('2100-02-03T10:15:00+03:00'), 'bfm', fields())).ok);
+  });
+  await test('real isolated Redis sessions protect slot mutations via proxy: anonymous/forged/revoked/expired', async () => {
+    const redisUrl = new URL(process.env.REDIS_URL || '');
+    if (redisUrl.hostname !== '127.0.0.1' || redisUrl.port !== '16379') throw new Error('Only the isolated Redis on port 16379 is allowed');
+    const savedAdminMock = mocks['@/lib/admin-auth']; const savedRedisMock = mocks['@/lib/redis'];
+    delete mocks['@/lib/admin-auth']; delete mocks['@/lib/redis'];
+    const realAuth = require('../src/lib/admin-auth.js');
+    const realRedis = require('../src/lib/redis.js');
+    const { proxy } = require('../src/proxy.js');
+    const client = await realRedis.getRedis(); assert(client?.isReady);
+    const id = await slot('2100-03-01T09:30:00+03:00');
+    const dispatch = async headers => {
+      const req = new NextRequest(`http://localhost/api/admin/slots/delete?id=${id}`, { method: 'DELETE', headers });
+      const gate = await proxy(req); return gate.status === 401 ? gate : slotDeleteApi.DELETE(req);
+    };
+    try {
+      assert.equal((await dispatch({})).status, 401);
+      assert.equal((await dispatch({ Cookie: `admin_session=${crypto.randomUUID()}` })).status, 401);
+      const revoked = await realAuth.createAdminSessionToken(); await realAuth.revokeAdminSessionToken(revoked);
+      assert.equal((await dispatch({ Authorization: `Bearer ${revoked}` })).status, 401);
+      const expired = await realAuth.createAdminSessionToken(); await client.pExpire(`admin-session:${expired}`, 1);
+      await new Promise(resolve => setTimeout(resolve, 20));
+      assert.equal((await dispatch({ Cookie: `admin_session=${expired}` })).status, 401);
+      const rotated = await realAuth.createAdminSessionToken(); await realAuth.rotateAdminSessionVersion();
+      assert.equal((await dispatch({ Cookie: `admin_session=${rotated}` })).status, 401);
+      assert.equal((await pool.query('SELECT count(*)::int n FROM slots WHERE id=$1', [id])).rows[0].n, 1);
+      const valid = await realAuth.createAdminSessionToken();
+      assert.equal((await dispatch({ Cookie: `admin_session=${valid}` })).status, 200);
+      const bearer = await dispatch({ Authorization: `Bearer ${valid}` }); assert.equal(bearer.status, 200); assert.equal((await bearer.json()).count, 0);
+      await realAuth.revokeAdminSessionToken(valid);
+    } finally {
+      mocks['@/lib/admin-auth'] = savedAdminMock; mocks['@/lib/redis'] = savedRedisMock; await client.quit();
+    }
+  });
   console.log(JSON.stringify({passed:results.length,tests:results}));
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(()=>pool.end());

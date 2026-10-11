@@ -5,11 +5,14 @@ const TERMINAL_KEY = process.env.TINKOFF_TERMINAL_KEY || "";
 const PASSWORD = process.env.TINKOFF_PASSWORD || "";
 
 export function generateToken(params: Record<string, unknown>, password: string = PASSWORD): string {
-  const tokenParams: Record<string, string> = { Password: password };
+  const tokenParams: Record<string, string> = Object.create(null);
   for (const [key, value] of Object.entries(params)) {
+    // Password is a server-owned signing input, never a caller override.
+    if (key === "Password" || key === "Token") continue;
     if (value === undefined || value === null || typeof value === "object") continue;
     tokenParams[key] = String(value);
   }
+  tokenParams.Password = password;
   const tokenString = Object.keys(tokenParams)
     .sort()
     .map((key) => tokenParams[key])
@@ -34,6 +37,8 @@ export function verifyPaymentStatusToken(orderId: string, token: string): boolea
 /** Verify T‑Bank NotificationURL callback signature. */
 export function verifyNotificationToken(body: Record<string, unknown>): boolean {
   if (!PASSWORD || !TERMINAL_KEY) return false;
+  if (Object.prototype.hasOwnProperty.call(body, "Password")) return false;
+  if (typeof body.TerminalKey !== "string" || body.TerminalKey !== TERMINAL_KEY) return false;
   const token = body.Token;
   if (typeof token !== "string" || !token) return false;
 
@@ -42,10 +47,6 @@ export function verifyNotificationToken(body: Record<string, unknown>): boolean 
     if (key === "Token") continue;
     if (value === undefined || value === null || typeof value === "object") continue;
     params[key] = value;
-  }
-
-  if (params.TerminalKey && String(params.TerminalKey) !== TERMINAL_KEY) {
-    return false;
   }
 
   const expected = generateToken(params, PASSWORD);

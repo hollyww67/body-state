@@ -3,9 +3,10 @@ import { AdminModal } from "@/components/admin/AdminConfirmDialog";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  addDays, addMonths, endOfMonth, endOfWeek, format,
-  isSameDay, isSameMonth, parseISO, startOfMonth, startOfWeek, subMonths,
+  addDays, addMonths, endOfMonth, endOfWeek,
+  parseISO, startOfMonth, startOfWeek, subMonths,
 } from "date-fns";
+import { formatMoscow as format, sameMoscowDay as isSameDay, sameMoscowMonth as isSameMonth, moscowDate, moscowInputToISO } from "@/lib/moscow-time";
 import { ru } from "date-fns/locale";
 import {
   ChevronLeft, ChevronRight, RefreshCw, Plus, Check,
@@ -33,8 +34,8 @@ export default function AdminCalendarPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [scheduleBreaks, setScheduleBreaks] = useState<ScheduleBreak[]>([]);
   const [loading, setLoading] = useState(true);
-  const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [selectedDay, setSelectedDay] = useState<Date>(new Date());
+  const [currentMonth, setCurrentMonth] = useState<Date>(() => moscowDate());
+  const [selectedDay, setSelectedDay] = useState<Date>(() => moscowDate());
   const [search, setSearch] = useState("");
   const [selectedType, setSelectedType] = useState<ServiceType | "all">("all");
   const [showAddModal, setShowAddModal] = useState(false);
@@ -81,12 +82,11 @@ export default function AdminCalendarPage() {
   const handleAddBooking = async (e: React.FormEvent) => {
     e.preventDefault(); setAdding(true);
     try {
-      const slotTime = new Date(selectedDay); const [h, m] = newTime.split(":").map(Number);
-      slotTime.setHours(h, m, 0, 0);
+      const slotTime = moscowInputToISO(format(selectedDay, "yyyy-MM-dd"), newTime);
 
       const bookingRes = await fetch("/api/admin/bookings", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ service_type: newService, slot_time: slotTime.toISOString(), client_name: newName, client_phone: newPhone, consent_confirmed: true }),
+        body: JSON.stringify({ service_type: newService, slot_time: slotTime, client_name: newName, client_phone: newPhone, consent_confirmed: true }),
       });
       const result = await bookingRes.json();
       if (!bookingRes.ok) throw new Error(result.error || "Не удалось создать запись");
@@ -99,8 +99,8 @@ export default function AdminCalendarPage() {
   const handleAddBreak = async (e: React.FormEvent) => {
     e.preventDefault();
     const date = format(selectedDay, "yyyy-MM-dd");
-    const startsAt = new Date(`${date}T${breakFrom}:00`);
-    const endsAt = new Date(`${date}T${breakTo}:00`);
+    const startsAt = new Date(moscowInputToISO(date, breakFrom));
+    const endsAt = new Date(moscowInputToISO(date, breakTo));
     if (endsAt <= startsAt) return toast.error("Окончание должно быть позже начала");
     setSavingBreak(true);
     try {
@@ -140,7 +140,7 @@ export default function AdminCalendarPage() {
   };
 
   const getDayBreaks = (d: Date) => {
-    const dayStart = new Date(d); dayStart.setHours(0, 0, 0, 0);
+    const dayStart = moscowDate(d); dayStart.setHours(0, 0, 0, 0);
     const dayEnd = addDays(dayStart, 1);
     return scheduleBreaks.filter((item) => parseISO(item.starts_at) < dayEnd && parseISO(item.ends_at) > dayStart)
       .sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime());
@@ -149,10 +149,10 @@ export default function AdminCalendarPage() {
   const selectedBookings = getDayBookings(selectedDay);
   const selectedBreaks = getDayBreaks(selectedDay);
   const stats = {
-    today: getDayBookings(new Date()).length,
+    today: getDayBookings(moscowDate()).length,
     total: filteredBookings.length,
     completed: bookings.filter((b) => b.status === "completed").length,
-    week: filteredBookings.filter((b) => { if (!b.slot_time) return false; const d = parseISO(b.slot_time); return d >= new Date() && d <= addDays(new Date(), 7); }).length,
+    week: filteredBookings.filter((b) => { if (!b.slot_time) return false; const d = parseISO(b.slot_time); return d >= new Date() && d <= addDays(moscowDate(), 7); }).length,
   };
 
   const weekDays = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
@@ -162,7 +162,7 @@ export default function AdminCalendarPage() {
       <div className="sticky top-0 z-50 backdrop-blur-xl bg-white/80 border-b border-gray-200">
         <div className="max-w-[1600px] mx-auto px-4 py-4">
           <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
-            <div><h1 className="text-2xl font-semibold tracking-tight text-[#111827]">Календарь записей</h1><p className="text-sm text-[#6B7280] mt-1">Управление клиентскими записями</p></div>
+            <div><h1 className="text-2xl font-semibold tracking-tight text-[#111827]">Календарь записей</h1><p className="text-sm text-[#6B7280] mt-1">Управление клиентскими записями · Московское время</p></div>
             <div className="admin-mobile-toolbar flex flex-wrap items-center gap-3">
               <div className="relative w-full sm:w-[280px]"><Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#9CA3AF]" /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Поиск клиента..." className="w-full h-11 rounded-2xl border border-gray-200 bg-white pl-10 pr-4 text-sm outline-none focus:ring-4 focus:ring-teal-500/10 focus:border-teal-500 transition-all" /></div>
               <div className="admin-mobile-scroll flex items-center gap-2 bg-white border border-gray-200 rounded-2xl p-1">
@@ -187,7 +187,7 @@ export default function AdminCalendarPage() {
                 <button onClick={() => setCurrentMonth((m) => addMonths(m, 1))} className="w-11 h-11 rounded-2xl border border-gray-200 hover:bg-gray-50 flex items-center justify-center transition-all"><ChevronRight className="w-5 h-5 text-[#6B7280]" /></button>
               </div>
               <div className="text-center"><h2 className="text-xl font-semibold text-[#111827] capitalize">{format(currentMonth, "LLLL yyyy", { locale: ru })}</h2><p className="text-sm text-[#6B7280] mt-1">{filteredBookings.length} записей</p></div>
-              <button onClick={() => setCurrentMonth(new Date())} className="h-11 px-4 rounded-2xl bg-[#111827] text-white text-sm font-medium hover:opacity-90 transition-all">Сегодня</button>
+              <button onClick={() => { const today = moscowDate(); setCurrentMonth(today); setSelectedDay(today); }} className="h-11 px-4 rounded-2xl bg-[#111827] text-white text-sm font-medium hover:opacity-90 transition-all">Сегодня</button>
             </div>
             <div className="grid grid-cols-7 px-4 pt-4">{weekDays.map((d) => (<div key={d} className="h-12 flex items-center justify-center text-sm font-medium text-[#6B7280]">{d}</div>))}</div>
             <div className="admin-calendar-days grid grid-cols-7 gap-2 p-4">
