@@ -1,0 +1,5 @@
+# Emergency app-only rollback. Use with docker-compose.prod.yml; never restore DB for this UI release.
+services:
+  app:
+    image: sha256:3399ebffd8d4346e40b1c536e34f1fbf620caa8982283e037831a47747d380aa
+    command: ["sh", "-c", "node scripts/validate-production-env.mjs && exec node server.js"]
