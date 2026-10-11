@@ -1,4 +1,5 @@
 "use client";
+import { AdminModal } from "@/components/admin/AdminConfirmDialog";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -284,11 +285,11 @@ export default function AdminCalendarPage() {
       </div>
 
       {showAddModal && (
-        <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+        <AdminModal title="Новая запись" onCancel={() => setShowAddModal(false)}>
           <div className="w-full max-w-md rounded-[32px] bg-white shadow-2xl overflow-hidden">
             <div className="flex items-center justify-between p-6 border-b border-gray-100">
               <div><h3 className="text-lg font-semibold text-[#111827]">Новая запись</h3><p className="text-sm text-[#6B7280] mt-1">{format(selectedDay, "d MMMM yyyy", { locale: ru })}</p></div>
-              <button onClick={() => setShowAddModal(false)} className="w-10 h-10 rounded-2xl hover:bg-gray-100 flex items-center justify-center transition-all"><X className="w-5 h-5 text-[#6B7280]" /></button>
+              <button type="button" aria-label="Закрыть" onClick={() => setShowAddModal(false)} className="w-10 h-10 rounded-2xl hover:bg-gray-100 flex items-center justify-center transition-all"><X className="w-5 h-5 text-[#6B7280]" /></button>
             </div>
             <form onSubmit={handleAddBooking} className="p-6 space-y-4">
               <input required placeholder="Имя клиента" value={newName} onChange={(e) => setNewName(e.target.value)} className="w-full h-12 rounded-2xl border border-gray-200 px-4 text-sm outline-none focus:ring-4 focus:ring-teal-500/10 focus:border-teal-500 transition-all" />
@@ -300,11 +301,11 @@ export default function AdminCalendarPage() {
               <button type="submit" disabled={adding} className="w-full h-12 rounded-2xl bg-[#111827] text-white text-sm font-medium hover:opacity-90 transition-all disabled:opacity-50">{adding ? "Добавление..." : "Добавить запись"}</button>
             </form>
           </div>
-        </div>
+        </AdminModal>
       )}
 
       {showBreakModal && (
-        <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+        <AdminModal title="Новый перерыв" onCancel={() => setShowBreakModal(false)}>
           <div className="w-full max-w-md rounded-[32px] bg-white shadow-2xl overflow-hidden">
             <div className="flex items-center justify-between p-6 border-b border-gray-100">
               <div><h3 className="text-lg font-semibold text-[#111827]">Новый перерыв</h3><p className="text-sm text-[#6B7280] mt-1">{format(selectedDay, "d MMMM yyyy", { locale: ru })}</p></div>
@@ -320,7 +321,7 @@ export default function AdminCalendarPage() {
               <button type="submit" disabled={savingBreak} className="w-full h-12 rounded-2xl bg-violet-700 text-white text-sm font-medium hover:bg-violet-800 transition-all disabled:opacity-50">{savingBreak ? "Добавление..." : "Добавить перерыв"}</button>
             </form>
           </div>
-        </div>
+        </AdminModal>
       )}
     </div>
   );

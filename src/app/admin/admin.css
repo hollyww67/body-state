@@ -16,6 +16,34 @@
   --admin-hover: #f1f6f4;
 }
 
+/* Native top layer + body portal: independent of admin-shell stacking contexts. */
+.admin-confirm-dialog {
+  position: fixed; inset: 0; top: var(--modal-top, 0px); margin: 0;
+  width: 100%; max-width: none; height: var(--modal-height, 100dvh); max-height: none;
+  padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  border: 0; background: transparent; color: var(--admin-text); overflow: hidden;
+}
+.admin-confirm-dialog[open] { display: flex; align-items: center; justify-content: center; }
+.admin-confirm-dialog::backdrop { background: rgba(5, 10, 15, .55); }
+.admin-confirm-dialog.admin-modal-general > * { position: relative !important; inset: auto !important; max-height: 100% !important; overflow-y: auto !important; overscroll-behavior: contain; background: var(--admin-panel) !important; color: var(--admin-text); border-radius: 24px; }
+.admin-modal-general button { min-height: 44px; }
+.admin-modal-general button:has(svg):not(:has(span)) { min-width: 44px; }
+.admin-confirm-panel { width: 100%; max-width: 440px; max-height: 100%; min-height: 0; display: flex; flex-direction: column; border: 1px solid var(--admin-border); border-radius: 24px; background: var(--admin-panel); box-shadow: var(--admin-shadow); overflow: hidden; }
+.admin-confirm-panel header { padding: 20px 20px 12px; flex-shrink: 0; }
+.admin-confirm-panel h2 { margin: 0; font-size: 1.125rem; font-weight: 650; overflow-wrap: anywhere; }
+.admin-confirm-body { padding: 0 20px 20px; min-height: 0; overflow-y: auto; overscroll-behavior: contain; overflow-wrap: anywhere; color: var(--admin-muted); }
+.admin-confirm-panel footer { display: flex; gap: 10px; padding: 12px 20px 20px; flex-shrink: 0; border-top: 1px solid var(--admin-border); }
+.admin-confirm-panel button { flex: 1; min-width: 0; min-height: 48px; padding: 10px; border: 1px solid var(--admin-border); border-radius: 14px; background: var(--admin-panel-soft); color: var(--admin-text); font-weight: 600; overflow-wrap: anywhere; }
+.admin-confirm-panel .admin-confirm-danger { background: #b91c1c; color: #fff; border-color: #b91c1c; }
+.admin-confirm-panel button:focus-visible { outline: 3px solid var(--admin-accent); outline-offset: 2px; }
+.admin-confirm-panel button:disabled { opacity: .6; cursor: wait; }
+.admin-confirm-error { margin-top: 12px; padding: 12px; border: 1px solid #e9a0a0; border-radius: 10px; background: #fff1f2; color: #991b1b; }
+@media (max-height: 340px) {
+  .admin-confirm-panel header { padding: 10px 12px 6px; }
+  .admin-confirm-body { padding: 0 12px 8px; }
+  .admin-confirm-panel footer { padding: 8px 12px; }
+}
+
 html[data-admin-theme="violet"] {
   color-scheme: dark;
   --admin-bg: #0b0812;

@@ -25,6 +25,9 @@ ENV NEXT_PUBLIC_OPERATOR_OGRNIP=$NEXT_PUBLIC_OPERATOR_OGRNIP
 ENV NEXT_PUBLIC_OPERATOR_ADDRESS=$NEXT_PUBLIC_OPERATOR_ADDRESS
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY . .
+RUN npx tsc --noEmit && npx eslint src \
+  && node tests/admin-modal.cjs && node tests/admin-pwa.cjs \
+  && node tests/payment-init.cjs && node tests/dependency-regressions.cjs
 RUN npm run build
 
 FROM node:24-alpine AS runner
@@ -53,4 +56,5 @@ COPY --from=builder --chown=nextjs:nodejs /app/scripts/validate-production-env.m
 
 USER nextjs
 EXPOSE 3000
-CMD ["sh", "-c", "node scripts/validate-production-env.mjs && node scripts/migrate.mjs && exec node server.js"]
+# Schema changes are a separately reviewed release operation, never an app restart side effect.
+CMD ["sh", "-c", "node scripts/validate-production-env.mjs && exec node server.js"]

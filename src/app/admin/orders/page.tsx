@@ -6,6 +6,7 @@ import { formatDistanceToNowStrict, format, isThisMonth } from "date-fns";
 import { ru } from "date-fns/locale";
 import { RefreshCw, Check, Search, Package, Clock3, CreditCard, X as XIcon, Trash2, History, Link2 } from "lucide-react";
 import { toast } from "sonner";
+import AdminConfirmDialog, { AdminModal } from "@/components/admin/AdminConfirmDialog";
 
 interface OrderItem { name: string; quantity: number; price: number; }
 interface Order { id: string; client_name: string; client_phone: string; address: string; delivery: string; items: OrderItem[]; total: number; status: string; created_at: string; }
@@ -61,7 +62,6 @@ export default function AdminOrdersPage() {
   const [search, setSearch] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
-  const [deleting, setDeleting] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
 
 
@@ -79,11 +79,11 @@ export default function AdminOrdersPage() {
   }, [fetchOrders]);
 
   const deleteOrder = useCallback(async (id: string) => {
-    setDeleting(true);
+    const res = await fetch(`/api/admin/orders?id=${id}`, { method: "DELETE" });
+    if (!res.ok) { const data = await res.json().catch(() => ({})); throw new Error(data.error || "Не удалось удалить заказ. Попробуйте ещё раз."); }
     setOrders((prev) => prev.filter((o) => o.id !== id));
-    try { const res = await fetch(`/api/admin/orders?id=${id}`, { method: "DELETE" }); if (!res.ok) throw new Error(); toast.success("Удалён"); }
-    catch { fetchOrders(); toast.error("Ошибка"); }
-    finally { setDeleting(false); setShowDeleteConfirm(null); }
+    toast.success("Удалён");
+    void fetchOrders();
   }, [fetchOrders]);
 
 
@@ -154,7 +154,7 @@ export default function AdminOrdersPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="font-semibold text-sm text-[#111827]">{order.total} ₽</span>
-                      <button onClick={() => setShowDeleteConfirm(order.id)} className="p-1.5 rounded-lg text-red-400 hover:bg-red-50 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                      <button type="button" aria-label={`Удалить заказ ${order.id.slice(0, 8)}`} onClick={() => setShowDeleteConfirm(order.id)} className="min-h-11 min-w-11 p-1.5 rounded-lg text-red-400 hover:bg-red-50 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
                     </div>
                   </div>
                 ))}
@@ -188,23 +188,14 @@ export default function AdminOrdersPage() {
 
       {/* Delete modal */}
       {showDeleteConfirm && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl p-6 max-w-sm w-full mx-4 shadow-2xl text-center">
-            <div className="w-12 h-12 rounded-2xl bg-red-100 flex items-center justify-center mx-auto mb-4"><Trash2 className="w-6 h-6 text-red-600" /></div>
-            <h3 className="text-lg font-semibold text-[#111827] mb-2">Удалить заказ?</h3>
-            <p className="text-sm text-[#6B7280] mb-6">Это действие нельзя отменить.</p>
-            <div className="flex gap-2">
-              <button onClick={() => setShowDeleteConfirm(null)} className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-medium hover:bg-gray-50 transition-all">Отмена</button>
-              <button onClick={() => deleteOrder(showDeleteConfirm)} disabled={deleting} className="flex-1 py-2.5 rounded-xl bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition-all disabled:opacity-50">{deleting ? "Удаление..." : "Удалить"}</button>
-            </div>
-          </div>
-        </div>
+        <AdminConfirmDialog title="Удалить заказ?" onCancel={() => setShowDeleteConfirm(null)} onConfirm={() => deleteOrder(showDeleteConfirm)}>
+          <p>Это действие нельзя отменить.</p>
+        </AdminConfirmDialog>
       )}
 
       {/* Drawer */}
       {drawerOrder && (
-        <div className="fixed inset-0 z-[100] flex">
-          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setDrawerOrder(null)} />
+        <AdminModal title="Заказ" onCancel={() => setDrawerOrder(null)}>
           <div className="absolute right-0 top-0 bottom-0 w-full max-w-md bg-white shadow-2xl overflow-y-auto">
             <div className="p-6">
               <div className="flex items-center justify-between mb-8"><h2 className="text-xl font-semibold text-[#111827]">Заказ #{drawerOrder.id.slice(0, 8)}</h2><button type="button" aria-label="Закрыть карточку заказа" onClick={() => setDrawerOrder(null)} className="p-2 rounded-xl hover:bg-gray-100"><XIcon className="w-5 h-5" /></button></div>
@@ -228,7 +219,7 @@ export default function AdminOrdersPage() {
               )}
             </div>
           </div>
-        </div>
+        </AdminModal>
       )}
     </div>
   );

@@ -2,6 +2,11 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 const Module = require('node:module');
 const { spawnSync } = require('node:child_process');
+// No live provider traffic, even if an integration forgets its fixture.
+global.fetch = async () => { throw new Error('External network disabled in integration tests'); };
+for (const protocol of ['node:http', 'node:https']) {
+  require(protocol).request = () => { throw new Error('HTTP transport disabled in integration tests; install an explicit provider fixture'); };
+}
 
 // This suite runs exclusively in a newly created, isolated database.
 const database = process.env.AUDIT_DATABASE_NAME;
@@ -19,6 +24,14 @@ let sessionUser;
 let adminAllowed=true;
 let adminPushAttempts=0;
 const mocks = {
+  '@/lib/tbank-transport': {
+    paymentId: value => { if (value == null) throw new Error('Missing payment id'); return String(value); },
+    paymentErrorCode: () => 'MOCK_PROVIDER_ERROR',
+    requestTbank: async (url, payload) => {
+      const response = await global.fetch(url, { method: 'POST', body: JSON.stringify(payload) });
+      return { ok: response.ok, data: await response.json() };
+    },
+  },
   '@/lib/account-auth': { getAccountSession: async () => sessionUser ? { userId: sessionUser } : null },
   '@/lib/admin-auth': { requireAdmin: async () => adminAllowed ? null : new Response(null,{status:401}) },
   '@/lib/cron-auth': { requireCronSecret: () => null },

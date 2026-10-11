@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import type { Booking, BookingStatus, ServiceType } from "@/lib/api/bookings";
 import { getBookings, patchBooking, TYPE_LABELS } from "@/lib/api/bookings";
 import { formatRussianPhoneInput } from "@/lib/phone";
+import AdminConfirmDialog, { AdminModal } from "@/components/admin/AdminConfirmDialog";
 
 const STATUS_CONFIG: Record<BookingStatus, { label: string; className: string; icon: any }> = {
   pending: { label: "Ожидает оплаты", className: "bg-amber-50 text-amber-700 border border-amber-200", icon: AlertCircle },
@@ -35,7 +36,6 @@ export default function AdminBookingsPage() {
   const [search, setSearch] = useState("");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Booking | null>(null);
-  const [deleting, setDeleting] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const router = useRouter();
   const openedLink=useRef(false);
@@ -101,15 +101,11 @@ export default function AdminBookingsPage() {
 
   const confirmDelete = async () => {
     if (!deleteTarget) return;
-    setDeleting(true);
-    const prev = bookings;
-    setBookings((p) => p.filter((b) => b.id !== deleteTarget.id));
-    try {
-      const res = await fetch("/api/admin/bookings", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: deleteTarget.id }) });
-      if (!res.ok) { const data = await res.json(); toast.error(data.error || "Ошибка"); setBookings(prev); }
-      else toast.success("Заявка удалена");
-    } catch { setBookings(prev); toast.error("Ошибка"); }
-    finally { setDeleteTarget(null); setDeleting(false); }
+    const res = await fetch("/api/admin/bookings", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: deleteTarget.id }) });
+    if (!res.ok) { const data = await res.json().catch(() => ({})); throw new Error(data.error || "Не удалось удалить запись. Попробуйте ещё раз."); }
+    setBookings(p => p.filter(b => b.id !== deleteTarget.id));
+    toast.success("Заявка удалена");
+    void fetchBookings();
   };
 
   const handleAdd = async (e: React.FormEvent) => {
@@ -223,7 +219,7 @@ export default function AdminBookingsPage() {
         {(search || filter !== "all") && <div className="mb-4 flex flex-wrap items-center gap-3 text-sm"><span>{loading ? "Поиск…" : `Найдено записей: ${filtered.length}`}</span><button type="button" className="admin-secondary-action" onClick={() => { setSearch(""); setFilter("all"); }}>Сбросить фильтры</button></div>}
         {/* Add modal */}
         {showAddForm && (
-          <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <AdminModal title="Новая запись" onCancel={() => setShowAddForm(false)}>
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="w-full max-w-md bg-white rounded-[32px] shadow-2xl overflow-hidden">
               <div className="flex items-center justify-between p-6 border-b border-slate-100">
                 <div><h3 className="text-lg font-semibold text-slate-900">Новая запись</h3><p className="text-sm text-slate-500 mt-1">Заполните данные клиента</p></div>
@@ -244,13 +240,13 @@ export default function AdminBookingsPage() {
                 <button type="submit" disabled={adding} className="w-full h-12 rounded-2xl bg-slate-900 text-white text-sm font-medium hover:bg-black transition-all disabled:opacity-50 flex items-center justify-center gap-2">{adding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}Создать запись</button>
               </form>
             </motion.div>
-          </div>
+          </AdminModal>
         )}
 
         {/* Client details modal */}
         {selectedBooking && (
-          <div className="admin-booking-modal fixed inset-0 z-[110] flex items-end justify-center bg-slate-950/45 p-0 backdrop-blur-sm sm:items-center sm:p-4" onMouseDown={(event) => { if (event.currentTarget === event.target) setSelectedBooking(null); }}>
-            <motion.section role="dialog" aria-modal="true" aria-labelledby="booking-detail-title" initial={{ opacity: 0, y: 18, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} className="max-h-[92dvh] w-full max-w-2xl overflow-y-auto rounded-t-[28px] bg-white shadow-2xl sm:rounded-[32px]">
+          <AdminModal title="Карточка клиента" onCancel={() => setSelectedBooking(null)}>
+            <motion.section aria-labelledby="booking-detail-title" initial={{ opacity: 0, y: 18, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} className="admin-booking-modal max-h-[92dvh] w-full max-w-2xl overflow-y-auto rounded-t-[28px] bg-white shadow-2xl sm:rounded-[32px]">
               <header className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-slate-100 bg-white/95 p-5 backdrop-blur-xl sm:p-6">
                 <div><p className="mb-1 text-xs font-semibold uppercase tracking-[.14em] text-teal-700">Карточка клиента</p><h2 id="booking-detail-title" className="text-xl font-bold text-slate-900 sm:text-2xl">{selectedBooking.client_name}</h2><p className="mt-1 text-xs text-slate-500">Заявка {selectedBooking.id.slice(0, 8)} · {new Date(selectedBooking.created_at).toLocaleString("ru-RU")}</p></div>
                 <button type="button" onClick={() => setSelectedBooking(null)} className="grid h-10 w-10 flex-none place-items-center rounded-2xl bg-slate-100 text-slate-600 hover:bg-slate-200" aria-label="Закрыть карточку"><X className="h-5 w-5" /></button>
@@ -284,23 +280,15 @@ export default function AdminBookingsPage() {
                 </>}
               </footer>
             </motion.section>
-          </div>
+          </AdminModal>
         )}
 
         {/* Delete modal */}
         {deleteTarget && (
-          <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="w-full max-w-sm bg-white rounded-[32px] shadow-2xl p-6 text-center">
-              <div className="w-14 h-14 rounded-2xl bg-red-100 flex items-center justify-center mx-auto mb-4"><XCircle className="w-7 h-7 text-red-600" /></div>
-              <h3 className="text-lg font-semibold text-slate-900 mb-1">Удалить заявку?</h3>
-              <p className="text-sm text-slate-500 mb-2">{deleteTarget.client_name} • {deleteTarget.slot_time ? format(new Date(deleteTarget.slot_time), "d MMM, HH:mm", { locale: ru }) : ""}</p>
-              <p className="text-xs text-slate-400 mb-6">Это действие необратимо</p>
-              <div className="flex gap-2">
-                <button onClick={() => setDeleteTarget(null)} className="flex-1 h-11 rounded-2xl border border-slate-200 text-sm font-medium hover:bg-slate-50 transition-all">Отмена</button>
-                <button onClick={confirmDelete} disabled={deleting} className="flex-1 h-11 rounded-2xl bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition-all disabled:opacity-50">{deleting ? "Удаление..." : "Удалить"}</button>
-              </div>
-            </motion.div>
-          </div>
+          <AdminConfirmDialog title="Удалить запись?" onCancel={() => setDeleteTarget(null)} onConfirm={confirmDelete}>
+            <p>{deleteTarget.client_name} • {deleteTarget.slot_time ? format(new Date(deleteTarget.slot_time), "d MMM, HH:mm", { locale: ru }) : ""}</p>
+            <p>Вы действительно хотите удалить эту запись? Это действие может быть необратимым.</p>
+          </AdminConfirmDialog>
         )}
 
         {/* Content */}
