@@ -1,0 +1,68 @@
+name: Scheduling release gate (no deployment)
+
+on:
+  pull_request:
+    branches: [release/stage06-admin-pwa]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: hardening-local-only
+          POSTGRES_DB: audit_regression_2026101201
+        ports:
+          - 15432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+      redis:
+        image: redis:8-alpine
+        ports:
+          - 16379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    env:
+      DATABASE_URL: postgresql://postgres:hardening-local-only@127.0.0.1:15432/audit_regression_2026101201
+      AUDIT_DATABASE_NAME: audit_regression_2026101201
+      REDIS_URL: redis://127.0.0.1:16379
+      POSTGRES_POOL_SIZE: '10'
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Record exact candidate
+        run: git rev-parse HEAD
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: node scripts/build-audit-tests.cjs
+      - run: node artifacts/audit-runtime/tests/scheduling-hardening-unit.cjs
+      - run: node artifacts/audit-runtime/tests/audit-regressions.cjs
+      - name: Create separate pool stress database
+        run: docker exec "${{ job.services.postgres.id }}" psql -U postgres -d postgres -c 'CREATE DATABASE audit_regression_2026101202'
+      - name: Pool10 concurrency and transaction-client guard
+        env:
+          DATABASE_URL: postgresql://postgres:hardening-local-only@127.0.0.1:15432/audit_regression_2026101202
+          AUDIT_DATABASE_NAME: audit_regression_2026101202
+        run: node artifacts/audit-runtime/tests/scheduling-pool.cjs
+      - run: npx tsc --noEmit
+      - run: npm run lint
+      - run: node tests/payment-init.cjs
+      - run: node tests/admin-modal.cjs
+      - run: node tests/admin-pwa.cjs
+      - run: node tests/stage05-providers.cjs
+      - run: node tests/dependency-regressions.cjs
+      - name: Production build without live credentials
+        run: npm run build

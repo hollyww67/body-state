@@ -1,4 +1,5 @@
 import { pool } from "@/lib/db";
+import type { PoolClient } from "pg";
 
 export type ServicePrice = {
   code: string;
@@ -15,9 +16,9 @@ const FALLBACK_PRICES: Record<string, ServicePrice> = {
   "recovery-program": { code: "recovery-program", label: "Комплексная программа восстановления", price: 25000, prefix: "от", is_active: true },
 };
 
-export async function getServicePrice(code: string): Promise<ServicePrice> {
+export async function getServicePrice(code: string, client: Pick<PoolClient, "query"> = pool): Promise<ServicePrice> {
   try {
-    const result = await pool.query<ServicePrice>(
+    const result = await client.query<ServicePrice>(
       `SELECT code, label, price, prefix, is_active FROM service_prices WHERE code=$1 LIMIT 1`,
       [code],
     );

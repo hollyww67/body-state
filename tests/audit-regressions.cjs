@@ -544,6 +544,7 @@ const baseOrder = () => ({ external_order_id: crypto.randomUUID(), client_name: 
     const id = await slot('2100-02-01T09:30:00+03:00');
     const attempts = await Promise.all(Array.from({ length: 20 }, () => claimSlot(id, 'bfm', fields())));
     assert.equal(attempts.filter(r => r.ok).length, 1);
+    assert(attempts.filter(r => !r.ok).every(r => r.status === 409));
     assert.equal((await claimSlot(await slot('2100-02-01T10:00:00+03:00', 'psychology'), 'psychology', { ...fields(), booking_type: 'offline' })).status, 409);
     assert((await claimSlot(await slot('2100-02-01T11:00:00+03:00', 'psychology'), 'psychology', { ...fields(), booking_type: 'offline' })).ok);
     assert.equal((await claimSlot(await slot('2100-02-02T09:30:00+03:00', 'brt'), 'bfm', fields())).ok, false);

@@ -17,17 +17,17 @@ export function matchesAccessToken(token: string, hash?: string | null) {
   return timingSafeEqual(Buffer.from(hashAccessToken(token),'hex'), Buffer.from(hash,'hex'));
 }
 export const createBookingAccess = () => { const token=randomBytes(32).toString('base64url'); return {token,hash:hashAccessToken(token)}; };
-export async function createJourneySnapshot(service: JourneyService, fields: Record<string,unknown>, duration: number): Promise<JourneySnapshot> {
-  const price = await getServicePrice(service);
+export async function createJourneySnapshot(service: JourneyService, fields: Record<string,unknown>, duration: number, client: Pick<PoolClient,'query'> = pool): Promise<JourneySnapshot> {
+  const price = await getServicePrice(service,client);
   let title=price.label, subtotal=Number(price.price);
   if (service==='psychology' && fields.program_id) {
-    const program=await pool.query('SELECT title,price FROM psychology_programs WHERE id=$1 AND is_active=true',[fields.program_id]);
+    const program=await client.query('SELECT title,price FROM psychology_programs WHERE id=$1 AND is_active=true',[fields.program_id]);
     if (!program.rows[0]) throw new Error('Программа недоступна');
     title=program.rows[0].title; subtotal=Number(program.rows[0].price);
   }
   if (!price.is_active || !Number.isFinite(subtotal) || subtotal<=0) throw new Error('Цена услуги не настроена');
   const promoCode=typeof fields.journey_promo_code==='string' && fields.payment_option!=='at_appointment' ? fields.journey_promo_code.trim().toUpperCase() : null;
-  const applied=promoCode ? await validatePromoCode(promoCode, fields.program_id ? 'psychology_program' : service, subtotal, fields.account_user_id as string|undefined) : null;
+  const applied=promoCode ? await validatePromoCode(promoCode, fields.program_id ? 'psychology_program' : service, subtotal, fields.account_user_id as string|undefined,client) : null;
   return {title,duration,address: fields.booking_type==='online' ? null : legalDetails.address || null,preparation:null,subtotal,discount:applied?.discount||0,total:applied?.total??subtotal,promoCode,format:fields.booking_type==='online'?'online':'offline'};
 }
 export async function loadJourney(service: JourneyService,id: string, client: Pick<PoolClient,'query'> = pool) {

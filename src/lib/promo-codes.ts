@@ -1,5 +1,6 @@
 import { randomInt } from "crypto";
 import { pool } from "@/lib/db";
+import type { PoolClient } from "pg";
 
 export const PROMO_SERVICE_CODES = ["bfm", "brt", "psychology", "psychology_program"] as const;
 export type PromoServiceCode = typeof PROMO_SERVICE_CODES[number];
@@ -37,10 +38,10 @@ export function calculatePromoDiscount(subtotal: number, type: PromoDiscountType
   return Math.round(raw * 100) / 100;
 }
 
-export async function validatePromoCode(codeValue: unknown, serviceCode: PromoServiceCode, subtotal: number, accountUserId?: string | null) {
+export async function validatePromoCode(codeValue: unknown, serviceCode: PromoServiceCode, subtotal: number, accountUserId?: string | null, client: Pick<PoolClient, "query"> = pool) {
   const code = normalizePromoCode(codeValue);
   if (!/^[A-Z0-9-]{4,32}$/.test(code)) throw new Error("Введите корректный промокод");
-  const result = await pool.query<PromoCodeRecord>(
+  const result = await client.query<PromoCodeRecord>(
     `SELECT id, code, discount_type, discount_value, service_codes, max_redemptions,
             redeemed_count, reserved_count, expires_at, is_active, assigned_account_user_id
        FROM promo_codes WHERE code=$1 LIMIT 1`,

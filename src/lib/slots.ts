@@ -116,7 +116,9 @@ export async function claimSlot(
       );
       // Keep slot occupancy and its booking in the same transaction. Otherwise a
       // concurrent schedule refresh can clear the claim before the booking exists.
-      const snapshot=await createJourneySnapshot(serviceType,bookingFields,slot.duration_minutes);
+      // Every snapshot query must reuse this client: pool waiters hold connections
+      // while awaiting the scheduling lock, so borrowing again can exhaust the pool.
+      const snapshot=await createJourneySnapshot(serviceType,bookingFields,slot.duration_minutes,client);
       const savedFields={...bookingFields};delete savedFields.journey_promo_code;delete savedFields.journey_request_key;delete savedFields.journey_access_token;
       const entries = Object.entries({ ...savedFields, slot_id: slotId,journey_snapshot:snapshot,access_hash:access.hash,
         request_key:requestKey,hold_expires_at:bookingFields.status==='confirmed'?null:new Date(Date.now()+10*60000).toISOString() });

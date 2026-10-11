@@ -26,10 +26,23 @@ node tests/stage05-providers.cjs
 
 Every integration run requires a fresh database; existing regression fixtures are intentionally not overwritten.
 Create another `audit_regression_<digits>` database on that task-owned container for a repeat.
-The default pool10 saturation observation must remain visible: 20 callers still produce one winner,
-but some requests can time out while the claim's snapshot helper borrows another connection.
-For a separate no-saturation concurrency control run set `POSTGRES_POOL_SIZE=40` in QA only.
-This is NOT a production setting change or a fix to `claimSlot`.
+The historical V1 snapshot helper borrowed additional pool connections under the scheduling lock.
+The final release-gate patch passes the same transaction client to price/program/promo reads.
+Keep `POSTGRES_POOL_SIZE=10` for BOTH the 47 integration cases and the dedicated load suite:
+
+```powershell
+$env:POSTGRES_POOL_SIZE='10'
+# Set DATABASE_URL/AUDIT_DATABASE_NAME to a DIFFERENT fresh isolated audit database first.
+node artifacts/audit-runtime/tests/scheduling-pool.cjs
+```
+
+The load suite checks 10/20/30 concurrent API requests, program/promo snapshots, legacy helper calls,
+idempotency, mixed directions, reschedule/cancel/break races and rollback after injected failures.
+It detects nested pool checkouts with AsyncLocalStorage, including errors swallowed by fallback prices.
+Its provider, account and rate-limit dependencies are offline fixtures; the real Redis proxy/session
+checks remain in the 47-case integration suite. No pool size increase is part of the fix.
+GitHub Actions `Scheduling release gate (no deployment)` checks out the exact PR head SHA, with
+PostgreSQL17 and Redis8 service containers and synthetic credentials; it never deploys.
 
 Optional local browser smoke after a successful build:
 
