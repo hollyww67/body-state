@@ -4,6 +4,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowRight, Brain, CheckCircle2, Clock, HandHelping, ShieldCheck, Sparkles } from "lucide-react";
 import Navbar from "@/components/Navbar";
+import { trackMetricaGoal } from "@/components/AnalyticsConsent";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -45,6 +46,7 @@ export default function ContactPage() {
         }),
       });
       if (!response.ok) throw new Error("request_failed");
+      trackMetricaGoal("contact_request_success");
       setDone(true);
     } catch {
       setError("Не удалось отправить заявку. Попробуйте ещё раз или позвоните нам.");

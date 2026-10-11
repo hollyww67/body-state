@@ -3,7 +3,7 @@ import { Manrope } from "next/font/google";
 import "./globals.css";
 import Footer from "@/components/Footer";
 import ThemeProvider from "@/components/ThemeProvider";
-import UmamiScript from "@/components/UmamiScript";
+import AnalyticsConsent from "@/components/AnalyticsConsent";
 import { AnimatedBackground, ChatWidget, Snowfall } from "@/components/LazyComponents";
 
 const manrope = Manrope({ subsets: ["latin", "cyrillic"], variable: "--font-manrope" });
@@ -39,7 +39,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {children}
         <Footer />
         <ChatWidget />
-        <UmamiScript />
+        <AnalyticsConsent />
       </body>
     </html>
   );

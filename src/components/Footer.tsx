@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import SocialLinks from "./SocialLinks";
+import { AnalyticsSettingsButton } from "./AnalyticsConsent";
 
 export default function Footer() {
   return (
@@ -28,6 +29,7 @@ export default function Footer() {
               <Link href="/privacy" className="hover:underline" style={{ color: 'var(--primary)' }}>Конфиденциальность</Link>
               <Link href="/reviews" className="hover:underline" style={{ color: 'var(--primary)' }}>Отзывы</Link>
               <Link href="/qr" className="hover:underline" style={{ color: 'var(--primary)' }}>QR-коды</Link>
+              <AnalyticsSettingsButton />
             </p>
           </div>
           <p className="text-xs">© Через тело к состоянию. Хотьково.</p>
