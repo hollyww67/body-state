@@ -24,7 +24,10 @@ export async function enqueueAppointment(client:PoolClient,service:JourneyServic
     VALUES($1,$2,$3,$4,$5,$6,$6) ON CONFLICT DO NOTHING`,[id,service,kind,b.notification_revision,channel,planned]);
 }
 export async function invalidateAppointmentNotifications(client:PoolClient,service:JourneyService,id:string) {
-  await client.query(`UPDATE appointment_notifications SET status='cancelled',updated_at=now() WHERE booking_id=$1 AND service_type=$2 AND status IN ('queued','retry','processing','failed','not_configured')`,[id,service]);
+  await client.query(`UPDATE appointment_notifications SET
+    status=CASE WHEN status='processing' AND send_started_at IS NOT NULL THEN 'uncertain' ELSE 'cancelled' END,
+    last_error=CASE WHEN status='processing' AND send_started_at IS NOT NULL THEN 'provider_outcome_unknown' ELSE last_error END,
+    updated_at=now() WHERE booking_id=$1 AND service_type=$2 AND status IN ('queued','retry','processing','failed','not_configured')`,[id,service]);
   await client.query(`UPDATE ${service}_bookings SET notification_revision=notification_revision+1 WHERE id=$1`,[id]);
 }
 export async function scheduleReminder(client:PoolClient,service:JourneyService,id:string) {
@@ -52,7 +55,7 @@ function isCurrent(row:NotificationRow,b:Record<string,unknown>|null){
   if(!['pending','confirmed'].includes(String(b.status)))return false;
   return !(b.status==='pending'&&b.hold_expires_at&&new Date(String(b.hold_expires_at))<=new Date());
 }
-export async function processNotificationQueue(limit=20,providers:NotificationProviders={sms:deliverSMS,email:deliverEmail}) {
+export async function processNotificationQueue(limit=20,providers:NotificationProviders={sms:deliverSMS,email:deliverEmail},providerTimeoutMs=15_000) {
   // An interrupted send can have been accepted remotely. Never automatically resend it.
   await pool.query(`UPDATE appointment_notifications SET status='uncertain',last_error='worker_interrupted',updated_at=now() WHERE status='processing' AND processing_at<now()-interval '5 minutes'`);
   let processed=0;
@@ -60,21 +63,41 @@ export async function processNotificationQueue(limit=20,providers:NotificationPr
     const row=await db.transaction(async client=>{
       const r=await client.query<NotificationRow>(`SELECT * FROM appointment_notifications WHERE status IN ('queued','retry') AND scheduled_at<=now() AND next_attempt_at<=now() ORDER BY next_attempt_at,id FOR UPDATE SKIP LOCKED LIMIT 1`);
       if(!r.rows[0])return null;
-      await client.query(`UPDATE appointment_notifications SET status='processing',processing_at=now(),attempts=attempts+1,updated_at=now() WHERE id=$1`,[r.rows[0].id]);
+      await client.query(`UPDATE appointment_notifications SET status='processing',processing_at=now(),send_started_at=NULL,attempts=attempts+1,updated_at=now() WHERE id=$1`,[r.rows[0].id]);
       return {...r.rows[0],attempts:r.rows[0].attempts+1};
     });
     if(!row)break;
-    await db.transaction(async client=>{
+    const payload=await db.transaction(async client=>{
       await client.query('SELECT pg_advisory_xact_lock($1)',[913202609]);
       const current=await client.query(`SELECT status FROM appointment_notifications WHERE id=$1 FOR UPDATE`,[row.id]);
-      if(current.rows[0]?.status!=='processing')return;
+      if(current.rows[0]?.status!=='processing')return null;
       const b=await loadJourney(row.service_type,row.booking_id,client);
       const stale=!isCurrent(row,b);
-      if(stale){await client.query(`UPDATE appointment_notifications SET status='cancelled',updated_at=now() WHERE id=$1`,[row.id]);return;}
-      const message=appointmentMessage(row.event_type,b);
-      let result:ProviderResult;
-      try {result=row.channel==='sms'?(b.client_phone?await providers.sms(b.client_phone,message.text):{status:'failed',error:'contact_missing'}):(b.client_email?await providers.email(b.client_email,message.subject,message.html):{status:'failed',error:'contact_missing'});}
-      catch{result={status:'uncertain',error:'provider_outcome_unknown'};}
+      if(stale){await client.query(`UPDATE appointment_notifications SET status='cancelled',updated_at=now() WHERE id=$1`,[row.id]);return null;}
+      await client.query('UPDATE appointment_notifications SET send_started_at=now() WHERE id=$1',[row.id]);
+      return {message:appointmentMessage(row.event_type,b),phone:b.client_phone,email:b.client_email};
+    });
+    if(!payload) {processed++;continue;}
+    // The provider never holds a PostgreSQL connection or the shared scheduling lock.
+    // A timeout cannot prove rejection and must never create an automatic resend.
+    let result:ProviderResult;
+    let timer:ReturnType<typeof setTimeout>|undefined;
+    try {
+      const send=row.channel==='sms'?(payload.phone?providers.sms(payload.phone,payload.message.text):Promise.resolve<ProviderResult>({status:'failed',error:'contact_missing'})):
+        (payload.email?providers.email(payload.email,payload.message.subject,payload.message.html):Promise.resolve<ProviderResult>({status:'failed',error:'contact_missing'}));
+      result=await Promise.race([send,new Promise<ProviderResult>(resolve=>{timer=setTimeout(()=>resolve({status:'uncertain',error:'provider_outcome_unknown'}),providerTimeoutMs);})]);
+    } catch {result={status:'uncertain',error:'provider_outcome_unknown'};}
+    finally {if(timer) clearTimeout(timer);}
+    await db.transaction(async client=>{
+      await client.query('SELECT pg_advisory_xact_lock($1)',[913202609]);
+      const current=await client.query('SELECT status FROM appointment_notifications WHERE id=$1 FOR UPDATE',[row.id]);
+      const b=await loadJourney(row.service_type,row.booking_id,client);
+      // An in-flight stale send is retained as uncertain, not reported as a current reminder.
+      if(current.rows[0]?.status!=='processing'||!isCurrent(row,b)) {
+        await client.query(`UPDATE appointment_notifications SET status='uncertain',last_error='provider_outcome_unknown',
+          provider_message_id=$2,updated_at=now() WHERE id=$1 AND send_started_at IS NOT NULL`,[row.id,result.id?.slice(0,128)||null]);
+        return;
+      }
       const status=result.status==='retry'&&row.attempts>=4?'failed':result.status;
       const error=row.attempts>=4&&result.status==='retry'?'attempts_exhausted':safeErrors.has(result.error||'')?result.error:null;
       await client.query(`UPDATE appointment_notifications SET status=$2,last_error=$3,provider_message_id=$4,next_attempt_at=now()+$5*interval '1 second',

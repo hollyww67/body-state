@@ -28,7 +28,7 @@ COPY . .
 RUN npx tsc --noEmit && npx eslint src \
   && node tests/admin-modal.cjs && node tests/admin-pwa.cjs \
   && node tests/payment-init.cjs && node tests/dependency-regressions.cjs
-RUN npm run build
+RUN npm run build -- --webpack
 
 FROM node:24-alpine AS runner
 WORKDIR /app

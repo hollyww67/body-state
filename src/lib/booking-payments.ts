@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto";
 import { db } from "@/lib/db";
-import { releaseSlotTime, type ServiceType } from "@/lib/slots";
+import { refreshSlotOccupancy, type ServiceType } from "@/lib/slots";
 import type { OrderItem } from "@/lib/order-stock";
 import { enqueueAppointment, invalidateAppointmentNotifications, scheduleReminder } from '@/lib/appointment-notifications';
 import { findBookingPaymentCases } from '@/lib/payment-cases';
@@ -23,13 +23,12 @@ export async function settleBookingPayments(items: OrderItem[], outcome: "paid" 
     const table = BOOKING_TABLES[service];
 
     if (outcome === "cancelled") {
-      const booking=await db.transaction(async client=>{
+      await db.transaction(async client=>{
         await client.query('SELECT pg_advisory_xact_lock($1)',[913202609]);
         const r=await client.query(`UPDATE ${table} SET status='cancelled',updated_at=now() WHERE id=$1 AND status='pending' RETURNING slot_id`,[item.bookingId]);
         if(r.rows[0]){await invalidateAppointmentNotifications(client,service,item.bookingId!);await enqueueAppointment(client,service,item.bookingId!,'cancelled');}
-        return r.rows[0];
+        if(r.rows[0]) await refreshSlotOccupancy(client);
       });
-      if (booking?.slot_id) await releaseSlotTime(String(booking.slot_id));
       continue;
     }
 

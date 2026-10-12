@@ -38,7 +38,7 @@ const mocks = {
   '@/lib/telegram': { sendTelegram: async () => true },
   '@/lib/push': { sendPushToAdmin:async()=>{adminPushAttempts++;throw new Error('Synthetic push failure');} },
   '@/lib/notifications': { sendEmail: async () => true, deliverEmail: async () => ({ status: 'not_configured' }) },
-  '@/lib/redis': { cacheGet: async () => null, cacheSet: async () => undefined, cacheDelete: async () => undefined, cacheIncrement: async () => 1 },
+  '@/lib/redis': { getRedis:async()=>({eval:async()=>1}),cacheGet: async () => null, cacheSet: async () => undefined, cacheDelete: async () => undefined, cacheIncrement: async () => 1 },
 };
 const originalLoad = Module._load;
 Module._load = function(request, parent, isMain) {

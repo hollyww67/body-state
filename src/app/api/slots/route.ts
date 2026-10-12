@@ -20,6 +20,8 @@ export async function GET(request: NextRequest) {
       SELECT candidate.id::text, candidate.service_type, candidate.slot_time, candidate.duration_minutes
         FROM slots candidate
        WHERE candidate.service_type=$1 AND candidate.slot_time > now() AND candidate.is_booked=false
+         AND NOT EXISTS(SELECT 1 FROM schedule_days d WHERE d.day=(candidate.slot_time AT TIME ZONE 'Europe/Moscow')::date
+           AND (d.mode<>'published' OR (d.hours->'services' IS NOT NULL AND NOT(d.hours->'services' ? candidate.service_type))))
          AND NOT EXISTS (
            SELECT 1 FROM active appointment
             WHERE tstzrange(candidate.slot_time, candidate.slot_time + candidate.duration_minutes * interval '1 minute', '[)')
