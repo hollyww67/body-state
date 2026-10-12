@@ -5,7 +5,7 @@ import { requireCronSecret } from "@/lib/cron-auth";
 import { transitionOrderState } from "@/lib/order-stock";
 import { settleBookingPayments } from "@/lib/booking-payments";
 import { recordSuccessfulVisit } from "@/lib/loyalty";
-import { refreshScheduleOccupancy } from "@/lib/slots";
+import { refreshSlotOccupancy } from "@/lib/slots";
 import {invalidateAppointmentNotifications,enqueueAppointment} from '@/lib/appointment-notifications';
 
 const PAID_STATUSES = new Set(["CONFIRMED"]);
@@ -101,9 +101,9 @@ export async function GET(request: NextRequest) {
         for(const b of result.rows){await invalidateAppointmentNotifications(client,service,b.id);await enqueueAppointment(client,service,b.id,'cancelled');}
         count += result.rowCount || 0;
       }
+      if(count) await refreshSlotOccupancy(client);
       return count;
     });
-    if (expiredHolds) await refreshScheduleOccupancy();
 
     console.log(`[Cron cancel-pending] cancelled=${cancelled} markedPaid=${markedPaid}`);
     return NextResponse.json({ cancelled, markedPaid, expiredHolds });

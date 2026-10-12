@@ -35,20 +35,20 @@ const activeAppointmentsSql = BOOKING_TABLES.map((table) => `
 `).join(" UNION ALL ");
 
 export async function refreshSlotOccupancy(client: PoolClient) {
-  await client.query("UPDATE slots SET is_booked=false");
+  // Materialize the small set of occupied intervals once, not once per candidate.
+  // Update only changed flags: bulk repeat must not rewrite thousands of unchanged rows.
   await client.query(`
-    WITH active AS (${activeAppointmentsSql})
+    WITH active AS MATERIALIZED (${activeAppointmentsSql}), blocked AS MATERIALIZED (
+      SELECT tstzrange(slot_time,slot_time+duration_minutes*interval '1 minute','[)') AS occupied FROM active
+      UNION ALL SELECT tstzrange(starts_at,ends_at,'[)') FROM schedule_breaks
+    ), occupancy AS MATERIALIZED (
+      SELECT s.id,EXISTS(SELECT 1 FROM blocked b WHERE
+        tstzrange(s.slot_time,s.slot_time+s.duration_minutes*interval '1 minute','[)') && b.occupied) AS busy
+      FROM slots s
+    )
     UPDATE slots candidate
-       SET is_booked=true
-     WHERE EXISTS (
-       SELECT 1 FROM active appointment
-        WHERE tstzrange(candidate.slot_time, candidate.slot_time + candidate.duration_minutes * interval '1 minute', '[)')
-           && tstzrange(appointment.slot_time, appointment.slot_time + appointment.duration_minutes * interval '1 minute', '[)')
-     ) OR EXISTS (
-       SELECT 1 FROM schedule_breaks pause
-        WHERE tstzrange(candidate.slot_time, candidate.slot_time + candidate.duration_minutes * interval '1 minute', '[)')
-           && tstzrange(pause.starts_at, pause.ends_at, '[)')
-     )
+       SET is_booked=occupancy.busy FROM occupancy
+     WHERE candidate.id=occupancy.id AND candidate.is_booked IS DISTINCT FROM occupancy.busy
   `);
 }
 
@@ -67,9 +67,10 @@ export async function claimSlot(
   slotId: string,
   serviceType: ServiceType,
   bookingFields: Record<string, unknown>,
+  transactionClient?: PoolClient,
 ): Promise<{ ok: true; created:boolean; slot: ClaimedSlot; booking: { id: string; status: string; summary:BookingJourney; accessToken:string } } | { ok: false; error: string; status: number }> {
   try {
-    return await db.transaction(async (client) => {
+    const reserve = async (client: PoolClient) => {
       await client.query("SELECT pg_advisory_xact_lock($1)", [913202609]);
       const requestKey=validBookingId(String(bookingFields.journey_request_key))?String(bookingFields.journey_request_key):null;
       const suppliedToken=String(bookingFields.journey_access_token||'');
@@ -135,7 +136,8 @@ export async function claimSlot(
       await enqueueAppointment(client,serviceType,b.id,b.status==='confirmed'?'confirmed':'created');
       await scheduleReminder(client,serviceType,b.id);
       return { ok: true as const, created:true, slot, booking: {id:b.id,status:b.status,summary:publicJourney(serviceType,{...b,slot_time:slot.slot_time}),accessToken:access.token} };
-    });
+    };
+    return transactionClient ? await reserve(transactionClient) : await db.transaction(reserve);
   } catch (error) {
     console.error("[Booking] Could not reserve appointment");
     if(error instanceof Error && /^(Промокод|Программа|Цена услуги)/.test(error.message))return {ok:false,error:error.message,status:400};
@@ -157,13 +159,20 @@ export async function rescheduleBooking(args: {
   serviceType: ServiceType;
   newSlotId: string;
   accountUserId?: string;
+  actor?: string;
+  reason?: string;
 }) {
   const table = tableForService(args.serviceType);
+  if(!validBookingId(args.bookingId)||!validBookingId(args.newSlotId))return {ok:false as const,error:'Некорректный идентификатор записи или времени',status:400};
+  // PostgreSQL UUID identity is case-insensitive. Use its canonical representation
+  // for both the no-op guard and the active-appointment self-exclusion predicate.
+  args={...args,bookingId:args.bookingId.toLowerCase(),newSlotId:args.newSlotId.toLowerCase()};
   try {
     return await db.transaction(async (client) => {
       await client.query("SELECT pg_advisory_xact_lock($1)", [913202609]);
-      const booking = await client.query<{ id: string; status: string }>(
-        `SELECT id::text, status FROM ${table} WHERE id=$1${args.accountUserId ? " AND account_user_id=$2" : ""} FOR UPDATE`,
+      await client.query("SELECT set_config('body_state.actor',$1,true),set_config('body_state.reason',$2,true)",[args.actor??(args.accountUserId?'account':'guest'),args.reason??'']);
+      const booking = await client.query<{ id: string; status: string; slot_id: string }>(
+        `SELECT id::text, status, slot_id::text FROM ${table} WHERE id=$1${args.accountUserId ? " AND account_user_id=$2" : ""} FOR UPDATE`,
         args.accountUserId ? [args.bookingId, args.accountUserId] : [args.bookingId],
       );
       if (!booking.rows[0]) return { ok: false as const, error: "Запись не найдена", status: 404 };
@@ -175,6 +184,7 @@ export async function rescheduleBooking(args: {
       );
       const slot = slotResult.rows[0];
       if (!slot) return { ok: false as const, error: "Новое время не найдено", status: 404 };
+      if (booking.rows[0].slot_id===slot.id) return {ok:true as const,slot,noop:true};
 
       const conflict = await client.query(`
         WITH active AS (${activeAppointmentsSql})
@@ -238,6 +248,8 @@ export async function deleteScheduleBreak(id: string) {
   try {
     return await db.transaction(async (client) => {
       await client.query("SELECT pg_advisory_xact_lock($1)", [913202609]);
+      const owned=await client.query('SELECT source_type FROM schedule_breaks WHERE id=$1',[id]);
+      if(owned.rows[0]&&owned.rows[0].source_type!=='manual') return {ok:false as const,error:'Измените исключение или рабочий шаблон, которому принадлежит это ограничение',status:409};
       const deleted = await client.query("DELETE FROM schedule_breaks WHERE id=$1 RETURNING id", [id]);
       if (!deleted.rowCount) return { ok: false as const, error: "Перерыв не найден", status: 404 };
       await refreshSlotOccupancy(client);
@@ -252,6 +264,7 @@ export async function cancelAccountBooking(bookingId: string, serviceType: Servi
   const table = tableForService(serviceType);
   return db.transaction(async (client) => {
     await client.query("SELECT pg_advisory_xact_lock($1)", [913202609]);
+    await client.query("SELECT set_config('body_state.actor',$1,true)",[accountUserId?'account':'guest']);
     const result = await client.query(
       `UPDATE ${table} SET status='cancelled', updated_at=now() WHERE id=$1 ${accountUserId?'AND account_user_id=$2':''} AND status NOT IN ('cancelled','completed') RETURNING id`,
       accountUserId?[bookingId, accountUserId]:[bookingId],
