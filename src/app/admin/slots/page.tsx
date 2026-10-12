@@ -19,6 +19,7 @@ interface Slot {
   slot_time: string;
   is_booked: boolean;
   is_break?: boolean;
+  is_closed?:boolean;
   duration_minutes:number;
 }
 
@@ -265,14 +266,14 @@ export default function AdminSlotsPage() {
         </div>
 
         <div className="grid grid-cols-2 gap-3 mb-4 sm:grid-cols-4">
-          {[{ label: "Всего", value: stats.total }, { label: "Свободно", value: stats.free }, { label: "Занято", value: stats.booked }, { label: "Перерывы", value: stats.breaks }].map((s) => (
+          {[{ label: "Всего", value: stats.total }, { label: "Свободно", value: stats.free }, { label: "Недоступно", value: stats.booked }, { label: "Перерывы", value: stats.breaks }].map((s) => (
             <div key={s.label} className="bg-gray-50 rounded-2xl p-3 text-center"><div className="text-2xl font-bold text-[#111827]">{s.value}</div><div className="text-xs text-[#6B7280]">{s.label}</div></div>
           ))}
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
           <button onClick={() => setFilterFree(filterFree === true ? null : true)} className={`px-3 py-1.5 rounded-full text-xs font-medium ${filterFree === true ? "bg-green-100 text-green-700" : "bg-white border text-[#6B7280]"}`}>Свободные</button>
-          <button onClick={() => setFilterFree(filterFree === false ? null : false)} className={`px-3 py-1.5 rounded-full text-xs font-medium ${filterFree === false ? "bg-red-100 text-red-700" : "bg-white border text-[#6B7280]"}`}>Занятые</button>
+          <button onClick={() => setFilterFree(filterFree === false ? null : false)} className={`px-3 py-1.5 rounded-full text-xs font-medium ${filterFree === false ? "bg-red-100 text-red-700" : "bg-white border text-[#6B7280]"}`}>Недоступные</button>
           {SERVICE_TYPES.map((t) => (<button key={t.value} onClick={() => setFilterType(filterType === t.value ? null : t.value)} className={`px-3 py-1.5 rounded-full text-xs font-medium ${filterType === t.value ? t.badge : "bg-white border text-[#6B7280]"}`}>{t.label}</button>))}
           {selected.size > 0 && (
             <button onClick={() => { setDeleteMode("selected"); setShowConfirm(true); }} className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium bg-red-50 text-red-600 hover:bg-red-100">
@@ -379,7 +380,7 @@ export default function AdminSlotsPage() {
                         <span className="font-medium">{format(parseISO(slot.slot_time), "HH:mm")}</span>
                         <span className={`text-xs px-1.5 py-0.5 rounded-full ${type?.badge}`}>{type?.label}</span>
                       </div>
-                      <span className={`text-xs ${slot.is_break ? "font-medium text-violet-700" : slot.is_booked ? "text-red-500" : "text-green-600"}`}>{slot.is_break ? "Перерыв" : slot.is_booked ? "Занят" : "Свободен"}</span>
+                      <span className={`text-xs ${slot.is_break ? "font-medium text-violet-700" : slot.is_booked ? "text-red-500" : "text-green-600"}`}>{slot.is_closed?'Закрыто графиком':slot.is_break ? "Перерыв" : slot.is_booked ? "Недоступен" : "Свободен"}</span>
                     </div>
                   );
                 })}

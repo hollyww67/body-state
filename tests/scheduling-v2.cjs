@@ -271,5 +271,27 @@ const slot=async(day,time='09:30',service='bfm')=>(await pool.query('INSERT INTO
     assert.equal(moscow.getUTCDay(),0);assert.equal(moscow.getUTCHours(),3);assert.equal(moscow.getUTCMinutes(),15);
     assert(Date.parse(metadata.generation.next_run_at)>Date.now());assert(metadata.generation.published_through);
   });
+  await test('changing published template directions retires old free starts without cancelling appointments',async()=>{
+    const day='2106-03-01',week=Array.from({length:7},()=>({...hours,services:['bfm']}));
+    const first=await management.saveScheduleTemplate({name:'Direction changes',week,horizon:7,active:false});
+    const applyWeek=async t=>{const p=await management.withScheduleTransaction(c=>management.previewTemplate(c,t.id,[day]));return management.applyTemplate(t.id,[day],p.token,crypto.randomUUID());};
+    await applyWeek(first);
+    const id=(await pool.query('SELECT id::text FROM slots WHERE service_type=\'bfm\' AND slot_time=$1',[plan.moscowInstant(day,570)])).rows[0].id;
+    const booked=await slots.claimSlot(id,'bfm',fields);assert(booked.ok);
+    const changed=await management.saveScheduleTemplate({id:first.id,version:first.version,name:first.name,week:week.map(h=>({...h,services:['brt']})),horizon:7,active:false});
+    const consequence=await management.withScheduleTransaction(c=>management.previewTemplate(c,changed.id,[day]));assert(consequence.counts.directions_closed>0);
+    await applyWeek(changed);
+    const publicApi=require('../src/app/api/slots/route.js');
+    const available=await (await publicApi.GET(req('/api/slots?service_type=bfm',null,'GET'))).json();
+    assert.equal(available.slots.filter(s=>plan.moscowInstant(day,0)<=s.slot_time&&s.slot_time<plan.moscowInstant(plan.dayAfter(day),0)).length,0);
+    assert.equal((await pool.query('SELECT status FROM bfm_bookings WHERE id=$1',[booked.booking.id])).rows[0].status,'confirmed');
+    assert((await slots.rescheduleBooking({bookingId:booked.booking.id,serviceType:'bfm',newSlotId:id})).noop);
+    const retired=(await pool.query('SELECT id::text FROM slots WHERE service_type=\'bfm\' AND slot_time=$1',[plan.moscowInstant(day,840)])).rows[0].id;
+    assert.equal((await slots.rescheduleBooking({bookingId:booked.booking.id,serviceType:'bfm',newSlotId:retired})).status,409);
+    assert((await slots.cancelAccountBooking(booked.booking.id,'bfm')).ok);
+    assert.equal((await pool.query('SELECT is_booked FROM slots WHERE id=$1',[id])).rows[0].is_booked,true);
+    assert.equal((await slots.claimSlot(id,'bfm',fields)).status,409);
+    const brt=await (await publicApi.GET(req('/api/slots?service_type=brt',null,'GET'))).json();assert(brt.slots.some(s=>Date.parse(s.slot_time)===Date.parse(plan.moscowInstant(day,840))));
+  });
   assert.equal(pool.waitingCount,0);console.log(JSON.stringify({passed:tests.length,nestedCheckouts:nested,tests}));
 })().catch(e=>{console.error(e);process.exitCode=1;}).finally(()=>pool.end());

@@ -23,6 +23,8 @@ export async function GET(request:NextRequest) {
       count(*) FILTER(WHERE slot.is_booked)::int AS booked FROM slots slot WHERE ${where}`,values);
     const result = await client.query(`
       SELECT slot.id::text, slot.service_type, slot.slot_time, slot.duration_minutes, slot.is_booked,
+             EXISTS(SELECT 1 FROM schedule_days d WHERE d.day=(slot.slot_time AT TIME ZONE 'Europe/Moscow')::date
+               AND (d.mode<>'published' OR (d.hours->'services' IS NOT NULL AND NOT(d.hours->'services' ? slot.service_type)))) AS is_closed,
              EXISTS (
                SELECT 1 FROM schedule_breaks pause
                 WHERE tstzrange(slot.slot_time, slot.slot_time + slot.duration_minutes * interval '1 minute', '[)')

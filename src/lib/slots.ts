@@ -41,10 +41,10 @@ export async function refreshSlotOccupancy(client: PoolClient) {
     WITH active AS MATERIALIZED (${activeAppointmentsSql}), blocked AS MATERIALIZED (
       SELECT tstzrange(slot_time,slot_time+duration_minutes*interval '1 minute','[)') AS occupied FROM active
       UNION ALL SELECT tstzrange(starts_at,ends_at,'[)') FROM schedule_breaks
-    ), occupancy AS MATERIALIZED (
-      SELECT s.id,EXISTS(SELECT 1 FROM blocked b WHERE
-        tstzrange(s.slot_time,s.slot_time+s.duration_minutes*interval '1 minute','[)') && b.occupied) AS busy
-      FROM slots s
+    ), policies AS MATERIALIZED (SELECT day,mode,hours->'services' AS services FROM schedule_days), occupancy AS MATERIALIZED (
+      SELECT s.id,(COALESCE(p.mode<>'published' OR (p.services IS NOT NULL AND NOT(p.services ? s.service_type)),false) OR
+        EXISTS(SELECT 1 FROM blocked b WHERE tstzrange(s.slot_time,s.slot_time+s.duration_minutes*interval '1 minute','[)') && b.occupied)) AS busy
+      FROM slots s LEFT JOIN policies p ON p.day=(s.slot_time AT TIME ZONE 'Europe/Moscow')::date
     )
     UPDATE slots candidate
        SET is_booked=occupancy.busy FROM occupancy
@@ -57,6 +57,12 @@ export async function refreshScheduleOccupancy(): Promise<void> {
     await client.query("SELECT pg_advisory_xact_lock($1)", [913202609]);
     await refreshSlotOccupancy(client);
   });
+}
+
+async function directionPublished(client:PoolClient,slot:ClaimedSlot) {
+  const closed=await client.query(`SELECT 1 FROM schedule_days WHERE day=($1::timestamptz AT TIME ZONE 'Europe/Moscow')::date
+    AND (mode<>'published' OR (hours->'services' IS NOT NULL AND NOT(hours->'services' ? $2::text)))`,[slot.slot_time,slot.service_type]);
+  return !closed.rowCount;
 }
 
 /**
@@ -93,6 +99,7 @@ export async function claimSlot(
       const slot = result.rows[0];
       if (!slot) return { ok: false as const, error: "Время не найдено или уже прошло", status: 409 };
       if (slot.is_booked) return { ok: false as const, error: "Это время уже занято", status: 409 };
+      if(!await directionPublished(client,slot))return {ok:false as const,error:'Направление закрыто в рабочем графике на этот день',status:409};
 
       const conflict = await client.query(`
         WITH active AS (${activeAppointmentsSql})
@@ -185,6 +192,7 @@ export async function rescheduleBooking(args: {
       const slot = slotResult.rows[0];
       if (!slot) return { ok: false as const, error: "Новое время не найдено", status: 404 };
       if (booking.rows[0].slot_id===slot.id) return {ok:true as const,slot,noop:true};
+      if(!await directionPublished(client,slot))return {ok:false as const,error:'Направление закрыто в рабочем графике на этот день',status:409};
 
       const conflict = await client.query(`
         WITH active AS (${activeAppointmentsSql})

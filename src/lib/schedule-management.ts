@@ -52,7 +52,7 @@ export async function previewSchedule(client: PoolClient, plan: SchedulePlan) {
     let result: keyof typeof counts;
     if (Date.parse(start.time)<=now) result='past';
     else if (existing?.protected) result='protected';
-    else if (exception?.mode==='closed' || rule?.mode==='closed' || state.breaks.some(b=>overlaps(interval,b))||plannedBreaks.some(b=>overlaps(interval,b))) result='blocked';
+    else if (exception?.mode==='closed' || rule&&rule.mode!=='published' || rule?.hours&&!rule.hours.services.includes(start.service) || state.breaks.some(b=>overlaps(interval,b))||plannedBreaks.some(b=>overlaps(interval,b))) result='blocked';
     else if (state.appointments.some(a=>overlaps(interval,a))) result='conflicts';
     else if (existing) result='existing';
     else result='created';
@@ -248,13 +248,14 @@ export async function previewTemplate(client:PoolClient,templateId:string,dates:
   const template=(await client.query('SELECT * FROM schedule_templates WHERE id=$1',[templateId])).rows[0];
   if(!template) throw new ScheduleError('Шаблон не найден',404);
   const state=await context(client,dates);
-  const counts={created:0,existing:0,unchanged:0,blocked:0,protected:0,conflicts:0,closed:0,opened:0,past:0};
+  const counts={created:0,existing:0,unchanged:0,blocked:0,protected:0,conflicts:0,closed:0,opened:0,past:0,directions_closed:0};
   const days=dates.map(day=>{
     const exception=state.exceptions.find(e=>e.day===day);
     const hours:Hours|null=exception?(exception.mode==='closed'?null:normalizeHours(exception.hours)):template.week[new Date(`${day}T12:00Z`).getUTCDay()];
     const blocks=blockedIntervals(day,hours);
     const conflicts=state.appointments.filter(a=>blocks.some(b=>overlaps(a,b))).length;
     const previous=state.days.find(d=>d.day===day);
+    if(hours)counts.directions_closed+=state.slots.filter(s=>moscowDayKey(s.slot_time)===day&&Date.parse(s.slot_time)>Date.now()&&!hours.services.includes(s.service_type)&&(!previous?.hours||previous.hours.services.includes(s.service_type))).length;
     if(conflicts) counts.conflicts+=conflicts;
     if(!hours&&previous?.mode!=='closed') counts.closed++;
     if(hours&&previous?.mode!=='published') counts.opened++;

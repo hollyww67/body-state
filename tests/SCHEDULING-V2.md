@@ -25,7 +25,7 @@ node tests/dependency-regressions.cjs
 npm run build
 ```
 
-Expected groups: 47 regression + 9 pool stress + 20 V2. A failed assertion is fatal.
+Expected groups: 47 regression + 9 pool stress + 21 V2. A failed assertion is fatal.
 Integration HTTP handlers are invoked in-process with real PostgreSQL. Account/admin/provider
 fixtures are offline; the V2 rescheduling-quota group additionally uses real isolated Redis.
 No real payment, email, SMS, fiscalization or customer notification is permitted.
