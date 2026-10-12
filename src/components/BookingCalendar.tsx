@@ -2,11 +2,12 @@
 
 import { useState, useEffect, useId } from "react";
 
-interface Slot { id: string; slot_time: string; }
+export interface BookingCalendarSlot { id: string; slot_time: string; duration_minutes:number; }
+type Slot=BookingCalendarSlot;
 const dayKey = (value: string) => new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Moscow" }).format(new Date(value));
 const dayLabel = (value: string) => new Date(value).toLocaleDateString("ru-RU", { day: "numeric", month: "long", weekday: "long", timeZone: "Europe/Moscow" });
 
-export default function BookingCalendar({ serviceType, onSelect }: { serviceType: "bfm" | "brt" | "psychology"; onSelect: (slotId: string) => void }) {
+export default function BookingCalendar({ serviceType, onSelect }: { serviceType: "bfm" | "brt" | "psychology"; onSelect: (slotId: string,slot:BookingCalendarSlot) => void }) {
   const [slots, setSlots] = useState<Slot[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -54,7 +55,7 @@ export default function BookingCalendar({ serviceType, onSelect }: { serviceType
     </select>
     <p className="text-xs text-[var(--foreground-secondary)]">Время московское (UTC+3)</p>
     <div className="flex flex-wrap gap-2" role="group" aria-label="Свободное время">
-      {(grouped.get(selectedDay) || []).map((slot) => <button key={slot.id} type="button" aria-pressed={selectedId === slot.id} onClick={() => { setSelectedId(slot.id); onSelect(slot.id); }} className="min-h-11 rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors" style={{ background: selectedId === slot.id ? "var(--primary)" : "var(--input-bg)", color: selectedId === slot.id ? "white" : "var(--foreground)", borderColor: selectedId === slot.id ? "var(--primary)" : "var(--input-border)" }}>
+      {(grouped.get(selectedDay) || []).map((slot) => <button key={slot.id} type="button" aria-pressed={selectedId === slot.id} onClick={() => { setSelectedId(slot.id); onSelect(slot.id,slot); }} className="min-h-11 rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors" style={{ background: selectedId === slot.id ? "var(--primary)" : "var(--input-bg)", color: selectedId === slot.id ? "white" : "var(--foreground)", borderColor: selectedId === slot.id ? "var(--primary)" : "var(--input-border)" }}>
         {new Date(slot.slot_time).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Moscow" })}
       </button>)}
     </div>

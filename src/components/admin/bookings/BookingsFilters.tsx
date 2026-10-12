@@ -8,8 +8,9 @@ interface Props {
 export default function BookingsFilters({ filter, onFilterChange }: Props) {
   const tabs: { value: BookingStatus | "all"; label: string }[] = [
     { value: "all", label: "Все" },
+    {value:'new',label:'Новые заявки'},
     { value: "pending", label: "Ждут оплату" },
-    { value: "confirmed", label: "Оплачены" },
+    { value: "confirmed", label: "Подтверждены" },
     { value: "cancelled", label: "Отмен." },
     { value: "completed", label: "Заверш." },
   ];
