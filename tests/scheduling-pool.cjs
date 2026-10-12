@@ -14,7 +14,7 @@ assert.equal(migrate.status, 0);
 const originalLoad = Module._load;
 const mocks = {
   '@/lib/account-auth': { getAccountSession: async () => null },
-  '@/lib/redis': { cacheIncrement: async () => 1, cacheDelete: async () => undefined },
+  '@/lib/redis': { getRedis:async()=>({eval:async()=>1}),cacheIncrement: async () => 1, cacheDelete: async () => undefined },
   '@/lib/telegram': { sendTelegram: async () => true },
   '@/lib/push': { sendPushToAdmin: async () => true },
 };
