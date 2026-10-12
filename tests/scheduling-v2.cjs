@@ -274,6 +274,9 @@ const slot=async(day,time='09:30',service='bfm')=>(await pool.query('INSERT INTO
   await test('changing published template directions retires old free starts without cancelling appointments',async()=>{
     const day='2106-03-01',week=Array.from({length:7},()=>({...hours,services:['bfm']}));
     const first=await management.saveScheduleTemplate({name:'Direction changes',week,horizon:7,active:false});
+    const {templateEditSignature}=require('../src/lib/schedule-template-state.js');
+    assert.equal(templateEditSignature({name:first.name,week,horizon_days:7,active:false}),templateEditSignature(first));
+    assert.notEqual(templateEditSignature({...first,week:week.map(h=>({...h,step:90}))}),templateEditSignature(first));
     const applyWeek=async t=>{const p=await management.withScheduleTransaction(c=>management.previewTemplate(c,t.id,[day]));return management.applyTemplate(t.id,[day],p.token,crypto.randomUUID());};
     await applyWeek(first);
     const id=(await pool.query('SELECT id::text FROM slots WHERE service_type=\'bfm\' AND slot_time=$1',[plan.moscowInstant(day,570)])).rows[0].id;

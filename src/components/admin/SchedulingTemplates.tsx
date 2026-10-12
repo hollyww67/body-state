@@ -5,6 +5,7 @@ import type {Hours,WeekDay} from '@/lib/schedule-plan';
 import ScheduleBreakEditor from './ScheduleBreakEditor';
 import AdminConfirmDialog from './AdminConfirmDialog';
 import {formatMoscow} from '@/lib/moscow-time';
+import {templateEditSignature} from '@/lib/schedule-template-state';
 type Template={id:string;name:string;version:number;active:boolean;week:WeekDay[];horizon_days:number};
 type Preview={token:string;counts:Record<string,number>;days?:{day:string;conflicts:number}[]};
 const weekdays=[{i:1,n:'Понедельник'},{i:2,n:'Вторник'},{i:3,n:'Среда'},{i:4,n:'Четверг'},{i:5,n:'Пятница'},{i:6,n:'Суббота'},{i:0,n:'Воскресенье'}];
@@ -37,7 +38,7 @@ export default function SchedulingTemplates({from,to,dates,hours,onChanged}:{fro
   const select=(id:string)=>{setSelected(id);setPreview(null);const t=templates.find(t=>t.id===id);setName(t?.name??'');setWeek(t?.week??Array(7).fill(null));setHorizon(t?.horizon_days??30);setActive(t?.active??false);setVersion(t?.version);};
   const signature=JSON.stringify({id:selected,version,from,to,name,week,horizon,active});
   const saved=templates.find(t=>t.id===selected);
-  const unsaved=!!saved&&JSON.stringify({name,week,horizon_days:horizon,active})!==JSON.stringify({name:saved.name,week:saved.week,horizon_days:saved.horizon_days,active:saved.active});
+  const unsaved=!!saved&&templateEditSignature({name,week,horizon_days:horizon,active})!==templateEditSignature(saved);
   return <section className="mb-6 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm" aria-label="Недельные шаблоны и исключения">
     <h3 className="font-semibold text-gray-900">Рабочая неделя и исключения</h3>
     <p className="mt-1 text-xs text-gray-500">Один общий ресурс для всех услуг. Воскресный cron использует только выбранный активный шаблон; ручные исключения имеют приоритет.</p>
