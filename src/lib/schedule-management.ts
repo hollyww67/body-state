@@ -190,13 +190,23 @@ export async function extendSchedule(dryRun=false) {
           AND NOT EXISTS(SELECT 1 FROM schedule_days p WHERE p.day=d.day AND p.mode IN ('closed','unpublished'))
         ORDER BY d.day,s.service_type,s.slot_time`);
       const starts=source.rows.map(s=>({...s,time:iso(s.time)}));
-      const days=[...new Set(starts.map(s=>moscowDayKey(s.time)))];
+      // Include every Moscow day touched by [start,end), even beyond the copy horizon.
+      // Subtract 1ms so an end exactly at midnight does not close the preceding window.
+      const touchedDays=starts.flatMap(s=>[moscowDayKey(s.time),moscowDayKey(new Date(Date.parse(s.time)+s.duration*60000-1))]).sort();
+      const days=touchedDays.length?dateRange(touchedDays[0],touchedDays.at(-1)!):[];
       const eligible:typeof starts=[];
       if(days.length) {
         const state=await context(client,days);
+        const exceptionBlocks=state.exceptions.flatMap(e=>blockedIntervals(e.day,e.mode==='closed'?null:normalizeHours(e.hours)));
         for(const s of starts) {
           const interval={starts_at:s.time,ends_at:new Date(Date.parse(s.time)+s.duration*60000)};
-          if(!state.breaks.some(b=>overlaps(interval,b))&&!state.appointments.some(a=>overlaps(interval,a))&&
+          const touchesDay=(day:string)=>overlaps(interval,{starts_at:moscowInstant(day,0),ends_at:moscowInstant(day,1440)});
+          // Standalone published hours restrict services only; absent service policy is legacy-compatible.
+          const policyBlocked=state.days.some(d=>touchesDay(d.day)&&(d.mode!=='published'||
+            d.hours?.services!=null&&!d.hours.services.includes(s.service)))||
+            state.exceptions.some(e=>touchesDay(e.day)&&e.hours?.services!=null&&!e.hours.services.includes(s.service));
+          if(!policyBlocked&&!exceptionBlocks.some(b=>overlaps(interval,b))&&
+             !state.breaks.some(b=>overlaps(interval,b))&&!state.appointments.some(a=>overlaps(interval,a))&&
              !state.slots.some(a=>a.service_type===s.service&&iso(a.slot_time)===s.time)) eligible.push(s);
         }
       }
