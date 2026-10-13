@@ -20,7 +20,7 @@ function loadSource(relative, mocks = {}) {
   let source = fs.readFileSync(filename, 'utf8');
   // Read-only negative control: prove these regressions catch the pre-fix source.
   if (process.env.WEEKLY_REGRESSION_BASELINE === '1' && relative.endsWith('schedule-management.ts')) {
-    source = require('node:child_process').execFileSync('git', ['-C', root, 'show', 'HEAD:src/lib/schedule-management.ts'], { encoding: 'utf8' });
+    source = require('node:child_process').execFileSync('git', ['-C', root, 'show', '29748e4d935335a1379fa6deb45052986617fb8a:src/lib/schedule-management.ts'], { encoding: 'utf8' });
   }
   const compiled = ts.transpileModule(source, {
     fileName: filename, reportDiagnostics: true,
