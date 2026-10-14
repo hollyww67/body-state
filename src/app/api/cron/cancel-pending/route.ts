@@ -4,7 +4,7 @@ import { cancelPayment, getPaymentState } from "@/lib/tbank";
 import { requireCronSecret } from "@/lib/cron-auth";
 import { transitionOrderState } from "@/lib/order-stock";
 import { settleBookingPayments } from "@/lib/booking-payments";
-import { recordSuccessfulVisit } from "@/lib/loyalty";
+import { processMonetaryNotification } from "@/lib/payment-lifecycle";
 import { refreshSlotOccupancy } from "@/lib/slots";
 import {invalidateAppointmentNotifications,enqueueAppointment} from '@/lib/appointment-notifications';
 
@@ -37,6 +37,11 @@ export async function GET(request: NextRequest) {
         ? new Date(String(order.payment_link_expires_at)).getTime()
         : 0;
       if (isManualLink && expiresAt > Date.now()) continue;
+      const refundReview = await pool.query(
+        "SELECT 1 FROM payment_cases WHERE order_id=$1 AND status='open' AND reason IN ('full_refund_service_review','partial_refund_service_review') LIMIT 1",
+        [order.id],
+      );
+      if (refundReview.rowCount) continue;
 
       // Missing PaymentId after a timeout is not proof that Init failed at the bank.
       if (!order.payment_id) {
@@ -49,19 +54,19 @@ export async function GET(request: NextRequest) {
         // A timeout is not evidence of non-payment. Keep the reservation for retry.
         if (state?.Success !== true) continue;
         const status = String(state?.Status || "").toUpperCase();
+        if (["REFUNDED","PARTIAL_REFUNDED"].includes(status)) {
+          await processMonetaryNotification({...state,Status:status,OrderId:String(order.id),
+            PaymentId:String(order.payment_id),EventSource:"bank_get_state"});
+          continue;
+        }
 
         if (PAID_STATUSES.has(status)) {
           if (Number(state.Amount) !== Math.round(Number(order.total) * 100)) continue;
-          const transition = await transitionOrderState(String(order.id), "paid", {
-            allowedFrom: ["pending", "cancelled", "failed"],
-            paidAt: new Date().toISOString(),
-            amountPaid: Number(order.total),
+          const reconciled = await processMonetaryNotification({
+            ...state, Status: "CONFIRMED", OrderId: String(order.id),
+            PaymentId: String(order.payment_id), EventSource: "bank_get_state",
           });
-          await settleBookingPayments(order.items || [], "paid");
-          if (order.counts_as_visit && order.loyalty_client_phone && order.loyalty_service_code) {
-            await recordSuccessfulVisit({ accountUserId: order.account_user_id, phone: order.loyalty_client_phone, email: order.receipt_email, serviceCode: order.loyalty_service_code, orderId: String(order.id) });
-          }
-          if (transition.changed) {
+          if (reconciled.status === 200 && reconciled.notify) {
             markedPaid++;
           }
           continue;
@@ -97,6 +102,12 @@ export async function GET(request: NextRequest) {
                SELECT 1 FROM orders o, jsonb_array_elements(o.items) item
                 WHERE lower(item->>'bookingId')=b.id::text AND item->>'bookingType'=$1
                   AND o.status IN ('pending','paid','shipped','delivered')
+             )
+             AND NOT EXISTS (
+               SELECT 1 FROM payment_cases pc JOIN orders o ON o.id=pc.order_id,
+                 jsonb_array_elements(o.items) item
+               WHERE lower(item->>'bookingId')=b.id::text AND item->>'bookingType'=$1
+                 AND pc.status='open' AND pc.reason IN ('full_refund_service_review','partial_refund_service_review')
              ) RETURNING id`, [service]);
         for(const b of result.rows){await invalidateAppointmentNotifications(client,service,b.id);await enqueueAppointment(client,service,b.id,'cancelled');}
         count += result.rowCount || 0;
