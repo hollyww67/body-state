@@ -22,7 +22,7 @@ export function isMonetaryNotification(status: string) {
 async function exception(client: PoolClient, order: Order, reason: string, data: Record<string, unknown>) {
   const item = order.items.find(i => i.bookingId && isPayableBookingType(i.bookingType));
   await openPaymentCase(client, order.id, reason, item?.bookingId, item?.bookingType);
-  const found = await client.query<{id:string;status:string}>("SELECT id,status FROM payment_cases WHERE order_id=$1 AND reason=$2", [order.id, reason]);
+  const found = await client.query<{id:string;status:string}>("SELECT id,status FROM payment_cases WHERE order_id=$1 AND reason=$2 FOR UPDATE", [order.id, reason]);
   const current = found.rows[0];
   if (!current) throw new Error("PAYMENT_EXCEPTION_NOT_DURABLE");
   // Keep normalized bank evidence, not PAN/contact/Token/Password. Distinct
@@ -34,7 +34,7 @@ async function exception(client: PoolClient, order: Order, reason: string, data:
   const evidence = Object.fromEntries(["Status","PaymentId","OrderId","Amount","Success","ErrorCode","TerminalKey"].filter(k => canonical[k] !== undefined).map(k => [k,canonical[k]]));
   const actor = "payment_callback:" + eventHash;
   const recorded = await client.query("SELECT 1 FROM payment_case_history WHERE case_id=$1 AND actor=$2", [current.id,actor]);
-  if (recorded.rowCount) return;
+  if (recorded.rowCount) return false;
   if (current.status === "resolved") {
     // A new event requires a fresh review; an identical bank retry must not
     // reopen a case already resolved by the administrator.
@@ -44,6 +44,7 @@ async function exception(client: PoolClient, order: Order, reason: string, data:
   await client.query(`INSERT INTO payment_case_history(case_id,actor,status,comment)
     SELECT $1,$2,$3,$4 WHERE NOT EXISTS(SELECT 1 FROM payment_case_history WHERE case_id=$1 AND actor=$2)`,
     [current.id, actor, current.status, JSON.stringify({eventHash, event:evidence, policy:"service_preserved_pending_manual_review"})]);
+  return true;
 }
 
 /** One PoolClient, one commit: scheduling lock -> current order -> bookings. */
@@ -87,8 +88,8 @@ export async function processMonetaryNotification(data: Record<string, unknown>)
 
     let newlyPaid = false;
     if (status === "PARTIAL_REFUNDED") {
-      await client.query("UPDATE orders SET payment_data=$2::jsonb WHERE id=$1", [order.id,JSON.stringify(data)]);
-      await exception(client, order, "partial_refund_service_review", data);
+      const newEvent = await exception(client, order, "partial_refund_service_review", data);
+      if (newEvent) await client.query("UPDATE orders SET payment_data=$2::jsonb WHERE id=$1", [order.id,JSON.stringify(data)]);
       // A partial callback alone does not prove the original paid amount.
       // Preserve the evidence for review; do not infer pricing/debt.
       if (!PAID.has(order.status)) return {status:200};
