@@ -7,6 +7,7 @@ import { readJsonObject } from "@/lib/request";
 import { transitionOrderState } from "@/lib/order-stock";
 import { settleBookingPayments } from "@/lib/booking-payments";
 import { recordSuccessfulVisit } from "@/lib/loyalty";
+import { isMonetaryNotification, processMonetaryNotification } from "@/lib/payment-lifecycle";
 
 const TERMINAL_PAID = new Set(["CONFIRMED"]);
 const TERMINAL_FAILED = new Set(["REJECTED", "AUTH_FAIL", "DEADLINE_EXPIRED"]);
@@ -59,6 +60,13 @@ export async function POST(request: NextRequest) {
     };
 
     const statusRaw = String(Status || "").toUpperCase();
+    if (isMonetaryNotification(statusRaw)) {
+      const result = await processMonetaryNotification(paymentData);
+      if (result.notify) await sendTelegram(
+        `<b>💳 Оплата получена</b>\n\n<b>Заказ:</b> ${escapeHtml(result.notify.id)}\n<b>Сумма:</b> ${escapeHtml(String(result.notify.total))} ₽\n<b>Детали:</b> в защищённой админке\n\n<a href="${adminBookingsUrl()}">Админка</a>`
+      );
+      return new NextResponse(result.status === 200 ? "OK" : "Retry", {status:result.status});
+    }
     const monetary = TERMINAL_PAID.has(statusRaw) || TERMINAL_REFUNDED.has(statusRaw) || statusRaw === "PARTIAL_REFUNDED";
     if (!PaymentId) return new NextResponse(monetary ? "Retry" : "OK", { status: monetary ? 503 : 200 });
 
@@ -110,10 +118,8 @@ export async function POST(request: NextRequest) {
     }
 
     if (FINAL_STATUSES.has(order.status) && !TERMINAL_REFUNDED.has(statusRaw)) {
-      if (["paid", "shipped", "delivered"].includes(order.status)) {
-        await settleBookingPayments(order.items || [], "paid");
-        await recordOrderVisit(order);
-      }
+      // Nonmonetary notifications cannot perform settlement from a stale order.
+      // The monetary executor above owns payment reconciliation and its locks.
       console.log(`[Callback] Заказ ${orderId} уже ${order.status}, игнорируем ${statusRaw}`);
       return new NextResponse("OK", { status: 200 });
     }
