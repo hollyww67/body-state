@@ -654,6 +654,11 @@ const baseOrder = () => ({ external_order_id: crypto.randomUUID(), client_name: 
     const rows=await pool.query("SELECT h.id FROM payment_case_history h JOIN payment_cases c ON c.id=h.case_id WHERE c.order_id=$1",[order.id]);
     assert.equal(rows.rowCount,1);assert.equal((await signedCallback(body)).status,200);
     assert.equal((await pool.query("SELECT h.id FROM payment_case_history h JOIN payment_cases c ON c.id=h.case_id WHERE c.order_id=$1",[order.id])).rowCount,1);
+    assert.equal((await signedCallback({...body,Amount:20000})).status,200);
+    const latestPayload=(await pool.query("SELECT payment_data FROM orders WHERE id=$1",[order.id])).rows[0].payment_data;
+    assert.equal((await signedCallback({...body,UnsignedObject:{nonce:'partial-retry'}})).status,200);
+    assert.deepEqual((await pool.query("SELECT payment_data FROM orders WHERE id=$1",[order.id])).rows[0].payment_data,latestPayload);
+    assert.equal((await pool.query("SELECT h.id FROM payment_case_history h JOIN payment_cases c ON c.id=h.case_id WHERE c.order_id=$1",[order.id])).rowCount,2);
   });
   await test('FIX02 refunded order does not confirm pending booking and retains an explicit manual review case', async () => {
     const visit=await claimSlot(await slot('2145-03-02T09:30:00+03:00'),'bfm',fields());
