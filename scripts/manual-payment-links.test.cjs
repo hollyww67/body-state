@@ -11,9 +11,9 @@ function load(relative, mocks) {
   const code = ts.transpileModule(fs.readFileSync(filename, "utf8"), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, jsx: ts.JsxEmit.ReactJSX },
   }).outputText;
-  const module = { exports: {} };
+  const fixtureModule = { exports: {} };
   vm.runInNewContext(code, {
-    module, exports: module.exports,
+    module: fixtureModule, exports: fixtureModule.exports,
     require: (name) => {
       if (Object.hasOwn(mocks, name)) return mocks[name];
       if (name === "node:crypto") return require(name);
@@ -22,7 +22,7 @@ function load(relative, mocks) {
     URL, Date, crypto: globalThis.crypto, process: { env: {} },
     console: { error() {} },
   }, { filename });
-  return module.exports;
+  return fixtureModule.exports;
 }
 
 const key = "12345678-1234-4123-8123-123456789abc";
@@ -197,9 +197,9 @@ function uiFixture(fetch) {
   const code = ts.transpileModule(fs.readFileSync(filename, "utf8"), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, jsx: ts.JsxEmit.ReactJSX },
   }).outputText;
-  const module = { exports: {} };
+  const fixtureModule = { exports: {} };
   vm.runInNewContext(code, {
-    module, exports: module.exports, fetch, crypto: globalThis.crypto,
+    module: fixtureModule, exports: fixtureModule.exports, fetch, crypto: globalThis.crypto,
     window: { confirm: () => true }, Intl, Date,
     require(name) {
       if (name === "react") return react;
@@ -210,7 +210,7 @@ function uiFixture(fetch) {
       throw new Error("Unexpected UI import: " + name);
     },
   });
-  const render = () => { cursor = 0; return module.exports.default(); };
+  const render = () => { cursor = 0; return fixtureModule.exports.default(); };
   function find(tree, predicate) {
     if (!tree || typeof tree !== "object") return null;
     if (predicate(tree)) return tree;
