@@ -58,7 +58,9 @@ export async function POST(request: NextRequest) {
       OrderId?: string;
     };
 
-    if (!PaymentId) return new NextResponse("OK", { status: 200 });
+    const statusRaw = String(Status || "").toUpperCase();
+    const monetary = TERMINAL_PAID.has(statusRaw) || TERMINAL_REFUNDED.has(statusRaw) || statusRaw === "PARTIAL_REFUNDED";
+    if (!PaymentId) return new NextResponse(monetary ? "Retry" : "OK", { status: monetary ? 503 : 200 });
 
     const { data: initialOrders, error: findError } = await db
       .from<CallbackOrder>("orders")
@@ -79,6 +81,9 @@ export async function POST(request: NextRequest) {
     }
 
     if (!orders || orders.length === 0) {
+      // Never acknowledge money that has no durable local order. Keep the
+      // provider notification retryable until its linkage is reconciled.
+      if (monetary) return new NextResponse("Retry", { status: 503 });
       // A cancelled order can be removed from the admin before T-Bank sends its
       // final asynchronous notification. The callback is already signed, so
       // acknowledge it to stop pointless provider retries.
@@ -96,12 +101,11 @@ export async function POST(request: NextRequest) {
       const { error: paymentIdError } = await db.from("orders").update({ payment_id: String(PaymentId) }).eq("id", String(orderId));
       if (paymentIdError) throw paymentIdError;
     }
-    const statusRaw = String(Status || "").toUpperCase();
-
     if (statusRaw === "PARTIAL_REFUNDED") {
       // A partial refund does not return all inventory or cancel fulfillment.
-      const { error } = await db.from("orders").update({ payment_data: paymentData }).eq("id", orderId);
+      const { data, error } = await db.from("orders").update({ payment_data: paymentData }).eq("id", orderId);
       if (error) throw error;
+      if (!data?.length) return new NextResponse("Retry", { status: 503 });
       return new NextResponse("OK", { status: 200 });
     }
 
@@ -130,7 +134,18 @@ export async function POST(request: NextRequest) {
         amountPaid: Number(order.total),
         paymentData,
       });
-      if (!transition.changed) return new NextResponse("OK", { status: 200 });
+      if (!transition.changed) {
+        if (!transition.order) return new NextResponse("Retry", { status: 503 });
+        if (["paid", "shipped", "delivered"].includes(transition.order.status)) {
+          // Another CONFIRMED may have committed paid after our initial read,
+          // while its booking settlement is still running or interrupted.
+          await settleBookingPayments(transition.order.items || [], "paid");
+          await recordOrderVisit(order);
+        } else if (transition.order.status !== "refunded") {
+          return new NextResponse("Retry", { status: 503 });
+        }
+        return new NextResponse("OK", { status: 200 });
+      }
 
       await settleBookingPayments(order.items || [], "paid");
       await recordOrderVisit(order);
@@ -163,11 +178,14 @@ export async function POST(request: NextRequest) {
     }
 
     const allowedFrom = nextStatus === "refunded" ? ["pending", "paid", "shipped", "delivered", "failed", "cancelled"] : ["pending"];
-    await transitionOrderState(String(orderId), nextStatus, {
+    const transition = await transitionOrderState(String(orderId), nextStatus, {
       allowedFrom,
       releaseStock: !["shipped", "delivered"].includes(order.status),
       paymentData,
     });
+    if (nextStatus === "refunded" && !transition.changed && transition.order?.status !== "refunded") {
+      return new NextResponse("Retry", { status: 503 });
+    }
     if (["failed", "cancelled"].includes(nextStatus)) {
       // Even unchanged/conflicting transitions reconcile under the current order
       // row lock. Paid/refunded orders are never cancelled by a stale notification.
