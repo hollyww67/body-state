@@ -395,6 +395,42 @@ const baseOrder = () => ({ external_order_id: crypto.randomUUID(), client_name: 
     return require('node:crypto').createHash('sha256').update(pairs.sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0).map(([, v]) => String(v)).join(''), 'utf8').digest('hex');
   };
   const signedCallback = body => callback.POST(request('/api/payment/callback', { ...body, Token: signIndependent(body) }, 'POST'));
+
+  await test('Closure monetary orphan/missing identifier is not ACKed; early Init linkage and nonmoney callbacks remain valid', async () => {
+    const crypto = require('node:crypto');
+    for (const Status of ['CONFIRMED','REFUNDED','PARTIAL_REFUNDED']) {
+      const body = {TerminalKey:'audit-terminal',PaymentId:'closure-orphan-'+Status,OrderId:crypto.randomUUID(),Status,Success:true,Amount:100000};
+      assert.equal((await signedCallback(body)).status,503);
+      for(const PaymentId of [undefined,null,'']) assert.equal((await signedCallback({...body,PaymentId})).status,503);
+    }
+    assert.equal((await signedCallback({TerminalKey:'audit-terminal',PaymentId:'closure-unknown-cancel',OrderId:crypto.randomUUID(),Status:'CANCELED',Success:true})).status,200);
+    const visit = await claimSlot(await slot('2142-01-01T09:30:00+03:00'),'bfm',fields());
+    const order = await createPendingOrderWithReservation(baseOrder(),[{bookingId:visit.booking.id,bookingType:'bfm'}]);
+    const body = {TerminalKey:'audit-terminal',PaymentId:'closure-early-init',OrderId:order.id,Status:'CONFIRMED',Success:true,Amount:100000};
+    assert.equal((await signedCallback(body)).status,200);
+    assert.equal((await pool.query('SELECT payment_id,status FROM orders WHERE id=$1',[order.id])).rows[0].payment_id,body.PaymentId);
+    assert.equal((await pool.query('SELECT payment_status FROM bfm_bookings WHERE id=$1',[visit.booking.id])).rows[0].payment_status,'paid');
+    assert.equal((await signedCallback({...body,OrderId:undefined})).status,200);
+    assert.equal((await pool.query("SELECT count(*)::int n FROM booking_events WHERE booking_id=$1 AND new_status='confirmed'",[visit.booking.id])).rows[0].n,1);
+  });
+  await test('Closure concurrent CONFIRMED with stale pending snapshot repairs settlement before ACK', async () => {
+    const visit = await claimSlot(await slot('2142-02-01T09:30:00+03:00'),'bfm',fields());
+    const order = await createPendingOrderWithReservation(baseOrder(),[{bookingId:visit.booking.id,bookingType:'bfm'}]);
+    await pool.query("UPDATE orders SET payment_id='closure-concurrent-confirmed' WHERE id=$1",[order.id]);
+    const orderModule = require('../src/lib/order-stock.js'),settlementModule = require('../src/lib/booking-payments.js');
+    const originalTransition=orderModule.transitionOrderState,originalSettlement=settlementModule.settleBookingPayments;
+    let reads=0,settles=0,releaseReads,releaseFirst;
+    const bothReads=new Promise(resolve=>{releaseReads=resolve;}),firstSettlement=new Promise(resolve=>{releaseFirst=resolve;});
+    orderModule.transitionOrderState=async (...args)=>{if(++reads===2)releaseReads();await bothReads;return originalTransition(...args);};
+    settlementModule.settleBookingPayments=async (...args)=>{if(++settles===1)await firstSettlement;return originalSettlement(...args);};
+    const body={TerminalKey:'audit-terminal',PaymentId:'closure-concurrent-confirmed',OrderId:order.id,Status:'CONFIRMED',Success:true,Amount:100000};
+    const one=signedCallback(body),two=signedCallback(body);
+    try {
+      const ack=await Promise.race([one,two]);assert.equal(ack.status,200);
+      assert.equal((await pool.query('SELECT payment_status FROM bfm_bookings WHERE id=$1',[visit.booking.id])).rows[0].payment_status,'paid');
+    } finally {releaseFirst();await Promise.allSettled([one,two]);orderModule.transitionOrderState=originalTransition;settlementModule.settleBookingPayments=originalSettlement;}
+    assert.equal((await pool.query("SELECT count(*)::int n FROM booking_events WHERE booking_id=$1 AND new_status='confirmed'",[visit.booking.id])).rows[0].n,1);
+  });
   await test('A01 forged Password and absent/wrong terminal have zero order/booking/queue side effects', async () => {
     const booking = await claimSlot(await slot('2099-08-01T09:30:00+03:00'), 'bfm', fields());
     const order = await createPendingOrderWithReservation(baseOrder(), [{ bookingId: booking.booking.id, bookingType: 'bfm' }]);
