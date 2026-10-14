@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import AdminConfirmDialog, { AdminModal } from "@/components/admin/AdminConfirmDialog";
 
 interface OrderItem { name: string; quantity: number; price: number; }
-interface Order { id: string; client_name: string; client_phone: string; address: string; delivery: string; items: OrderItem[]; total: number; status: string; created_at: string; }
+interface Order { id: string; client_name: string; client_phone: string; address: string; delivery: string; items: OrderItem[]; total: number; status: string; created_at: string; payment_id?: string | null; paid_at?: string | null; amount_paid?: number | string | null; }
 
 const STATUS_CONFIG: Record<string, { label: string; badge: string }> = {
   pending: { label: "Ожидает оплаты", badge: "bg-amber-100 text-amber-700" },
@@ -22,10 +22,11 @@ const STATUS_CONFIG: Record<string, { label: string; badge: string }> = {
 };
 
 const ACTIVE_COLUMNS = ["pending", "paid", "shipped", "delivered"];
+const canDeleteOrder = (order: Order) => order.status === "cancelled" && !order.payment_id && !order.paid_at && Number(order.amount_paid || 0) === 0;
 
 function OrderCard({ order, onOpen, onDelete }: { order: Order; onOpen: (o: Order) => void; onDelete?: (id: string) => void }) {
   const isOverdue = order.status === "pending" && (Date.now() - new Date(order.created_at).getTime()) > 30 * 60 * 1000;
-  const canDelete = order.status === "delivered" || order.status === "cancelled";
+  const canDelete = canDeleteOrder(order);
 
   return (
     <div className={`bg-white rounded-2xl border p-4 transition-all duration-200 hover:shadow-md shadow-sm ${isOverdue ? "border-l-2 border-l-red-400" : "border-gray-100"}`}>
@@ -154,7 +155,7 @@ export default function AdminOrdersPage() {
                     </button>
                     <div className="flex items-center gap-2">
                       <span className="font-semibold text-sm text-[#111827]">{order.total} ₽</span>
-                      <button type="button" aria-label={`Удалить заказ ${order.id.slice(0, 8)}`} onClick={() => setShowDeleteConfirm(order.id)} className="min-h-11 min-w-11 p-1.5 rounded-lg text-red-400 hover:bg-red-50 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                      {canDeleteOrder(order) && <button type="button" aria-label={`Удалить заказ ${order.id.slice(0, 8)}`} onClick={() => setShowDeleteConfirm(order.id)} className="min-h-11 min-w-11 p-1.5 rounded-lg text-red-400 hover:bg-red-50 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>}
                     </div>
                   </div>
                 ))}
