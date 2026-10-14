@@ -4,13 +4,14 @@ import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 /** Native modal top layer escapes every sidebar/animation stacking context. */
-export default function AdminConfirmDialog({ title, children, onCancel, onConfirm,confirmLabel='Удалить',pendingLabel='Удаление…' }: {
+export default function AdminConfirmDialog({ title, children, onCancel, onConfirm,dismissDisabled=false,confirmLabel='Удалить',pendingLabel='Удаление…' }: {
   title: string;
   children: ReactNode;
   onCancel: () => void;
   onConfirm?: () => Promise<void>;
   confirmLabel?:string;
   pendingLabel?:string;
+  dismissDisabled?:boolean;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const cancel = useRef<HTMLButtonElement>(null);
@@ -83,16 +84,17 @@ export default function AdminConfirmDialog({ title, children, onCancel, onConfir
   return createPortal(
     <dialog ref={dialog} tabIndex={-1} className={`admin-confirm-dialog ${onConfirm ? "" : "admin-content admin-modal-general"}`} role={onConfirm ? "alertdialog" : "dialog"} aria-modal="true"
       aria-label={onConfirm ? undefined : title} aria-labelledby={onConfirm ? titleId : undefined} aria-describedby={onConfirm ? descriptionId : undefined} aria-busy={busy}
+      style={onConfirm ? undefined : { flexDirection: "column", gap: 8 }}
       onKeyDown={event => {
         if (event.key !== "Tab") return;
         const buttons = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href], [tabindex="0"]')).filter(el => el.getClientRects().length > 0);
         const first = buttons[0];
         const last = buttons[buttons.length - 1];
         if (!first) { event.preventDefault(); return; }
-        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
-        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+        if (event.shiftKey && (document.activeElement === first || !buttons.includes(document.activeElement as HTMLElement))) { event.preventDefault(); last.focus(); }
+        else if (!event.shiftKey && (document.activeElement === last || !buttons.includes(document.activeElement as HTMLElement))) { event.preventDefault(); first.focus(); }
       }}
-      onCancel={event => { event.preventDefault(); if (!pending.current) onCancelRef.current(); }}>
+      onCancel={event => { event.preventDefault(); if (!pending.current && !dismissDisabled) onCancelRef.current(); }}>
       {onConfirm ? <section className="admin-confirm-panel">
         <header><h2 id={titleId}>{title}</h2></header>
         <div className="admin-confirm-body">
@@ -103,11 +105,15 @@ export default function AdminConfirmDialog({ title, children, onCancel, onConfir
           <button ref={cancel} type="button" disabled={busy} onClick={() => { if (!pending.current) onCancelRef.current(); }}>Отмена</button>
           <button type="button" className="admin-confirm-danger" disabled={busy} onClick={() => void confirm()}>{busy ? pendingLabel : confirmLabel}</button>
         </footer>
-      </section> : children}
+      </section> : <>
+        <button ref={cancel} type="button" disabled={dismissDisabled} className="shrink-0 self-center rounded-xl border px-4 py-2 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+          onClick={() => { if (!dismissDisabled) onCancelRef.current(); }}>Закрыть</button>
+        {children}
+      </>}
     </dialog>, document.body,
   );
 }
 
-export function AdminModal({ title, children, onCancel }: { title: string; children: ReactNode; onCancel: () => void }) {
-  return <AdminConfirmDialog title={title} onCancel={onCancel}>{children}</AdminConfirmDialog>;
+export function AdminModal({ title, children, onCancel, dismissDisabled=false }: { title: string; children: ReactNode; onCancel: () => void; dismissDisabled?:boolean }) {
+  return <AdminConfirmDialog title={title} onCancel={onCancel} dismissDisabled={dismissDisabled}>{children}</AdminConfirmDialog>;
 }

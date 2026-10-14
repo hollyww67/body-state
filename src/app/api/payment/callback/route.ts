@@ -156,19 +156,22 @@ export async function POST(request: NextRequest) {
     }
 
     if (order.status === nextStatus) {
+      if (["failed", "cancelled"].includes(nextStatus)) {
+        await settleBookingPayments(order.items || [], "cancelled", orderId);
+      }
       return new NextResponse("OK", { status: 200 });
     }
 
     const allowedFrom = nextStatus === "refunded" ? ["pending", "paid", "shipped", "delivered", "failed", "cancelled"] : ["pending"];
-    const transition = await transitionOrderState(String(orderId), nextStatus, {
+    await transitionOrderState(String(orderId), nextStatus, {
       allowedFrom,
       releaseStock: !["shipped", "delivered"].includes(order.status),
       paymentData,
     });
-    if (!transition.changed) return new NextResponse("OK", { status: 200 });
-
     if (["failed", "cancelled"].includes(nextStatus)) {
-      await settleBookingPayments(order.items || [], "cancelled");
+      // Even unchanged/conflicting transitions reconcile under the current order
+      // row lock. Paid/refunded orders are never cancelled by a stale notification.
+      await settleBookingPayments(order.items || [], "cancelled", orderId);
     }
 
     return new NextResponse("OK", { status: 200 });
