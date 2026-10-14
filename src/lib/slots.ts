@@ -295,7 +295,7 @@ export async function cancelUnpaidHold(bookingId: string, serviceType: ServiceTy
     if (!booking || String(booking.client_phone).replace(/\D/g,'').slice(-10) !== phone.replace(/\D/g,'').slice(-10)) return { ok: false, status: 404, error: 'Запись не найдена' };
     if (booking.status !== 'pending') return { ok: false, status: 409, error: 'Запись уже обработана' };
     const payment = await client.query(`SELECT 1 FROM orders o, jsonb_array_elements(o.items) item
-      WHERE item->>'bookingId'=$1 AND item->>'bookingType'=$2 AND o.status IN ('pending','paid','shipped','delivered') LIMIT 1`, [bookingId,serviceType]);
+      WHERE lower(item->>'bookingId')=lower($1) AND item->>'bookingType'=$2 AND o.status IN ('pending','paid','shipped','delivered') LIMIT 1`, [bookingId,serviceType]);
     if (payment.rowCount) return { ok: false, status: 409, error: 'Для записи уже создан платёж' };
     await client.query(`UPDATE ${table} SET status='cancelled', updated_at=now() WHERE id=$1`, [bookingId]);
     await invalidateAppointmentNotifications(client,serviceType,bookingId);

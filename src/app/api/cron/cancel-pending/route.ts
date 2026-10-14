@@ -95,7 +95,7 @@ export async function GET(request: NextRequest) {
            WHERE status='pending' AND COALESCE(hold_expires_at,created_at+interval '10 minutes')<=now()
              AND NOT EXISTS (
                SELECT 1 FROM orders o, jsonb_array_elements(o.items) item
-                WHERE item->>'bookingId'=b.id::text AND item->>'bookingType'=$1
+                WHERE lower(item->>'bookingId')=b.id::text AND item->>'bookingType'=$1
                   AND o.status IN ('pending','paid','shipped','delivered')
              ) RETURNING id`, [service]);
         for(const b of result.rows){await invalidateAppointmentNotifications(client,service,b.id);await enqueueAppointment(client,service,b.id,'cancelled');}

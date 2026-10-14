@@ -42,7 +42,7 @@ const mocks = {
   '@/lib/service-prices': {},
   '@/lib/booking-payments': { isPayableBookingType: x => x === 'bfm' },
   '@/lib/promo-codes': { normalizePromoCode: x => x || '', validatePromoCode: async () => ({ discount: 2700, promo: { id: 'test-promo', code: 'TEST90' } }) },
-  '@/lib/booking-journey': { loadJourney: async () => booking, matchesAccessToken: () => false },
+  '@/lib/booking-journey': { loadJourney: async () => booking, matchesAccessToken: () => false, validBookingId: value => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value) },
   '@/lib/payment-cases': { openPaymentCase: async () => { cases++; } },
   '@/lib/tbank-transport': { ...transport, requestTbank: async (_url, payload) => {
     assert.equal(payload.Amount, 30000); assert.equal(payload.Receipt.Items[0].Amount, 30000);

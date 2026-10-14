@@ -14,6 +14,6 @@ export async function reviewPaymentCase(id:string,status:string,result:string,co
   });
 }
 export async function findBookingPaymentCases(bookingId:string,service:string,client:Pick<PoolClient,'query'>=pool) {
-  const r=await client.query(`SELECT o.id FROM orders o,jsonb_array_elements(o.items) item WHERE item->>'bookingId'=$1 AND item->>'bookingType'=$2 AND o.status IN ('paid','shipped','delivered')`,[bookingId,service]);
+  const r=await client.query(`SELECT o.id FROM orders o,jsonb_array_elements(o.items) item WHERE lower(item->>'bookingId')=lower($1) AND item->>'bookingType'=$2 AND o.status IN ('paid','shipped','delivered')`,[bookingId,service]);
   for(const order of r.rows)await openPaymentCase(client,order.id,'paid_cancelled_booking',bookingId,service);
 }

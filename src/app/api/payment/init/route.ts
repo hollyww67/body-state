@@ -8,7 +8,7 @@ import { getAccountSession } from "@/lib/account-auth";
 import { getServicePrice } from "@/lib/service-prices";
 import { isPayableBookingType } from "@/lib/booking-payments";
 import { normalizePromoCode, type PromoServiceCode, validatePromoCode } from "@/lib/promo-codes";
-import { loadJourney, matchesAccessToken, type JourneySnapshot } from '@/lib/booking-journey';
+import { loadJourney, matchesAccessToken, validBookingId, type JourneySnapshot } from '@/lib/booking-journey';
 import { openPaymentCase } from '@/lib/payment-cases';
 import { requestTbank, paymentId, paymentErrorCode } from '@/lib/tbank-transport';
 
@@ -22,6 +22,23 @@ type PaymentItem = {
   bookingType?: unknown;
   serviceCode?: unknown;
 };
+
+type NormalizedPaymentItem = Omit<PaymentItem, "productId" | "bookingId" | "bookingType"> & {
+  productId: string;
+  bookingId: string;
+  bookingType: string;
+};
+
+function normalizePaymentItem(value: unknown): NormalizedPaymentItem {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Некорректная позиция заказа");
+  const item = value as PaymentItem;
+  return {
+    ...item,
+    productId: cleanText(item.productId, 64),
+    bookingId: cleanText(item.bookingId, 64).toLowerCase(),
+    bookingType: cleanText(item.bookingType, 20),
+  };
+}
 
 type ResolvedItem = OrderItem & {
   name: string;
@@ -44,13 +61,13 @@ function quantityOf(value: unknown) {
   return quantity;
 }
 
-async function resolveItemsFromDb(items: PaymentItem[]): Promise<ResolvedItem[]> {
+async function resolveItemsFromDb(items: NormalizedPaymentItem[]): Promise<ResolvedItem[]> {
   if (items.length > 30) throw new Error("Слишком много позиций");
   const resolved: ResolvedItem[] = [];
 
   for (const item of items) {
     const quantity = quantityOf(item.quantity);
-    const productId = cleanText(item.productId, 64);
+    const productId = item.productId;
 
     if (productId) {
       const { data: product } = await db.from("products").select("id, name, price, stock").eq("id", productId).eq("is_active", true).maybeSingle();
@@ -62,8 +79,7 @@ async function resolveItemsFromDb(items: PaymentItem[]): Promise<ResolvedItem[]>
       continue;
     }
 
-    const bookingId = cleanText(item.bookingId, 64);
-    const bookingType = cleanText(item.bookingType, 20);
+    const { bookingId, bookingType } = item;
     if (bookingId && isPayableBookingType(bookingType)) {
       const table = bookingType === "bfm" ? "bfm_bookings" : bookingType === "brt" ? "brt_bookings" : "psychology_bookings";
       const fields = bookingType === "psychology" ? "id, status, program_id, journey_snapshot" : "id, status, journey_snapshot";
@@ -130,23 +146,31 @@ export async function POST(request: NextRequest) {
     if (!/^[a-zA-Z0-9:_-]{8,128}$/.test(externalOrderId)) return NextResponse.json({ success: false, error: "Некорректный идентификатор заказа" }, { status: 400 });
     if (!Array.isArray(body.items) || body.items.length === 0) return NextResponse.json({ success: false, error: "Заказ пуст" }, { status: 400 });
 
+    let items: NormalizedPaymentItem[];
+    try {
+      if (body.items.length > 30) throw new Error("Слишком много позиций");
+      items = body.items.map(normalizePaymentItem);
+    } catch (error) {
+      return NextResponse.json({ success: false, error: error instanceof Error ? error.message : "Ошибка состава заказа" }, { status: 400 });
+    }
+
     let email = normalizeEmail(body.customerEmail);
     let phone = normalizePhone(body.customerPhone);
     const accountSession = await getAccountSession(request);
-    for(const item of body.items as PaymentItem[]) {
-      if(isPayableBookingType(item.bookingType)&&typeof item.bookingId==='string') {
-        if(!/^[0-9a-f-]{36}$/i.test(item.bookingId))return NextResponse.json({error:'Запись недоступна'},{status:400});
+    for(const item of items) {
+      if(isPayableBookingType(item.bookingType)) {
+        if(!validBookingId(item.bookingId))return NextResponse.json({error:'Запись недоступна'},{status:400});
         const b=await loadJourney(item.bookingType,item.bookingId);
         if(!b || !(accountSession?.userId && b.account_user_id===accountSession.userId) && !matchesAccessToken(String(body.bookingAccessToken||''),b.access_hash))return NextResponse.json({error:'Требуется доступ к записи'},{status:403});
         if(b.hold_expires_at && new Date(b.hold_expires_at)<=new Date())return NextResponse.json({error:'Срок временной брони истёк'},{status:409});
-        if(body.items.length===1){email=normalizeEmail(b.client_email);phone=normalizePhone(b.client_phone);body.customerName=b.client_name;}
+        if(items.length===1){email=normalizeEmail(b.client_email);phone=normalizePhone(b.client_phone);body.customerName=b.client_name;}
       }
     }
     if (!email && !phone) return NextResponse.json({ success: false, error: "Укажите email или телефон для чека" }, { status: 400 });
 
     let resolved: ResolvedItem[];
     try {
-      resolved = await resolveItemsFromDb(body.items as PaymentItem[]);
+      resolved = await resolveItemsFromDb(items);
     } catch (error) {
       return NextResponse.json({ success: false, error: error instanceof Error ? error.message : "Ошибка состава заказа" }, { status: 400 });
     }
@@ -171,7 +195,7 @@ export async function POST(request: NextRequest) {
     for(const item of resolved){if(item.bookingId && isPayableBookingType(item.bookingType)){
       const b=await loadJourney(item.bookingType,item.bookingId),snapshot=b?.journey_snapshot as JourneySnapshot|null;
       if(snapshot && (snapshot.total!==totalRubles || (snapshot.promoCode||'')!==promoCode))return NextResponse.json({error:'Условия сохранённой записи отличаются. Используйте её итоговую стоимость и промокод.'},{status:409});
-      const existing=await pool.query(`SELECT id,payment_url,status FROM orders o WHERE EXISTS(SELECT 1 FROM jsonb_array_elements(o.items) i WHERE i->>'bookingId'=$1 AND i->>'bookingType'=$2) AND status='pending' ORDER BY created_at DESC LIMIT 1`,[item.bookingId,item.bookingType]);
+      const existing=await pool.query(`SELECT id,payment_url,status FROM orders o WHERE EXISTS(SELECT 1 FROM jsonb_array_elements(o.items) i WHERE lower(i->>'bookingId')=$1 AND i->>'bookingType'=$2) AND status='pending' ORDER BY created_at DESC LIMIT 1`,[item.bookingId,item.bookingType]);
       if(existing.rows[0])return existing.rows[0].payment_url?NextResponse.json({success:true,paymentUrl:existing.rows[0].payment_url,orderId:existing.rows[0].id}):NextResponse.json({error:'Платёж создаётся или требует проверки. Не создавайте новую запись.'},{status:409});
     }}
     const displayedAmount = Number(body.amount);

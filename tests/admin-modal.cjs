@@ -37,5 +37,11 @@ function render(props) {
   assert(failed.states.includes('Synthetic API error'));
   failed.tree.props.onCancel({ preventDefault() {} });
   assert.equal(closed, 1, 'Escape cancels after error');
+  closed = 0;
+  const externallyBusy = render({ title:'Saving', children:'Form', dismissDisabled:true, onCancel:()=>closed++ });
+  externallyBusy.tree.props.onCancel({ preventDefault() {} });
+  externallyBusy.tree.props.children.props.children[0].props.onClick();
+  assert.equal(externallyBusy.tree.props.children.props.children[0].props.disabled,true);
+  assert.equal(closed,0,'in-flight form cannot dismiss via Escape or close button');
   console.log('PASS modal event regressions: duplicate, busy cancellation, success, error persistence, error message, Escape');
 })().catch(error => { console.error(error); process.exitCode = 1; });

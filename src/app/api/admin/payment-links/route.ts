@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, pool } from "@/lib/db";
 import { CONSENT_VERSION } from "@/lib/legal";
-import { createPendingOrderWithReservation, transitionOrderState } from "@/lib/order-stock";
+import { transitionOrderState } from "@/lib/order-stock";
+import { claimManualPaymentLink, manualPaymentRequestKey, manualPaymentFingerprint, ManualPaymentConflict } from "@/lib/manual-payment-links";
 import { cleanText, enforceRateLimit, normalizeEmail, normalizePhone, readJsonObject } from "@/lib/request";
 import {
   createPaymentStatusToken,
@@ -105,6 +106,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const requestKey = manualPaymentRequestKey(body.requestKey);
+    if (!requestKey) {
+      return NextResponse.json({ error: "Для создания ссылки нужен ключ операции", code: "MANUAL_REQUEST_KEY_REQUIRED" }, { status: 400 });
+    }
     const name = cleanText(body.name, 128);
     const email = normalizeEmail(body.email);
     const phone = normalizePhone(body.phone);
@@ -138,8 +143,9 @@ export async function POST(request: NextRequest) {
       "SELECT id::text FROM account_users WHERE disabled_at IS NULL AND lower(email)=$1 AND regexp_replace(COALESCE(phone,''), '\\D', '', 'g')=$2 LIMIT 1",
       [email, phone.replace(/\D/g, "")],
     );
-    const order = await createPendingOrderWithReservation({
-      external_order_id: `manual-${crypto.randomUUID()}`,
+    const claimed = await claimManualPaymentLink(requestKey, manualPaymentFingerprint({
+      name, kopecks: amount.kopecks, email, phone, serviceCode, lifetimeDays,
+    }), {
       client_name: "Плательщик по ссылке",
       client_phone: phone || "Не указан",
       address: "Не требуется",
@@ -154,7 +160,11 @@ export async function POST(request: NextRequest) {
       loyalty_client_phone: phone || null,
       loyalty_service_code: serviceCode || null,
       counts_as_visit: Boolean(serviceCode && phone),
-    }, [{ name, price: amount.rubles, quantity: 1 }]);
+    }, { name, price: amount.rubles, quantity: 1 });
+    if (!claimed.created) {
+      return NextResponse.json({ success: true, link: publicOrder(claimed.order) });
+    }
+    const order = claimed.order;
     internalOrderId = String(order.id);
 
     const siteUrl = new URL(SITE_URL);
@@ -224,6 +234,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, link: publicOrder(updated) });
   } catch (error) {
+    if (error instanceof ManualPaymentConflict) {
+      return NextResponse.json({ error: error.message, code: error.code }, { status: 409 });
+    }
     console.error("[Admin payment links] Init error:", { code: paymentErrorCode(error), orderId: internalOrderId });
     if (internalOrderId) {
       await openPaymentCase(pool, internalOrderId, 'payment_init_uncertain').catch(() => null);

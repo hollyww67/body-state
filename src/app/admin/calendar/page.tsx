@@ -335,11 +335,11 @@ export default function AdminCalendarPage() {
       {breakDetails&&<AdminModal title="Детали ограничения" onCancel={()=>setBreakDetails(null)}><div className="max-w-md rounded-2xl bg-white p-5"><h3 className="font-semibold">{breakDetails.reason||'Перерыв'}</h3><p className="mt-2 text-sm">{format(breakDetails.starts_at,'dd.MM.yyyy HH:mm')} — {format(breakDetails.ends_at,'dd.MM.yyyy HH:mm')} МСК</p>{(!breakDetails.source_type||breakDetails.source_type==='manual')?<button disabled={!!deletingBreakId} className="mt-4 min-h-11 rounded-xl border px-4 text-sm" onClick={async()=>{await handleDeleteBreak(breakDetails.id);setBreakDetails(null);}}>Снять перерыв</button>:<p className="mt-3 text-xs">Ограничение управляется шаблоном, исключением или закрытием окна. Измените соответствующее правило в разделе «Время для записи».</p>}</div></AdminModal>}
       {statusConfirmation&&<AdminConfirmDialog title={statusConfirmation.status==='cancelled'?'Отменить запись?':'Подтвердить посещение?'} onCancel={()=>setStatusConfirmation(null)} onConfirm={()=>handleStatusChange(statusConfirmation.id,statusConfirmation.status)}><p>{statusConfirmation.name}</p><p className="mt-2 text-sm">{statusConfirmation.status==='cancelled'?'История сохраняется. Освободится только время, не заблокированное другими приёмами или перерывами. Банковский возврат не выполняется.':'Подтвердите фактически состоявшийся приём. Оплата учитывается отдельно.'}</p></AdminConfirmDialog>}
       {showAddModal && (
-        <AdminModal title="Новая запись" onCancel={() => {setShowAddModal(false);setNewSlotId(null);setNewConsent(false);setNewAccountId(null);setNewIdentity(false);}}>
+        <AdminModal title="Новая запись" dismissDisabled={adding} onCancel={() => {setShowAddModal(false);setNewSlotId(null);setNewConsent(false);setNewAccountId(null);setNewIdentity(false);}}>
           <div className="w-full max-w-md rounded-[32px] bg-white shadow-2xl overflow-hidden">
             <div className="flex items-center justify-between p-6 border-b border-gray-100">
               <div><h3 className="text-lg font-semibold text-[#111827]">Новая запись</h3><p className="text-sm text-[#6B7280] mt-1">{format(selectedDay, "d MMMM yyyy", { locale: ru })}</p></div>
-              <button type="button" aria-label="Закрыть" onClick={() => setShowAddModal(false)} className="w-10 h-10 rounded-2xl hover:bg-gray-100 flex items-center justify-center transition-all"><X className="w-5 h-5 text-[#6B7280]" /></button>
+              <button type="button" disabled={adding} aria-label="Закрыть" onClick={() => setShowAddModal(false)} className="w-10 h-10 rounded-2xl hover:bg-gray-100 flex items-center justify-center transition-all"><X className="w-5 h-5 text-[#6B7280]" /></button>
             </div>
             <form onSubmit={handleAddBooking} className="p-6 space-y-4">
               <SchedulingClientPicker onSelect={c=>{setNewAccountId(c?.id??null);setNewIdentity(false);if(c){setNewName(c.display_name??'');setNewPhone(formatRussianPhoneInput(c.phone??''));}}}/>
@@ -347,8 +347,8 @@ export default function AdminCalendarPage() {
               <label className="block text-xs">Имя клиента<input required value={newName} onChange={(e) => setNewName(e.target.value)} className="mt-1 w-full h-12 rounded-2xl border border-gray-200 px-4 text-sm outline-none focus:ring-4 focus:ring-teal-500/10 focus:border-teal-500 transition-all" /></label>
               <label className="block text-xs">Телефон клиента<input required type="tel" inputMode="tel" placeholder="+7 (___) ___-__-__" value={newPhone} onChange={(e) => setNewPhone(formatRussianPhoneInput(e.target.value))} className="mt-1 w-full h-12 rounded-2xl border border-gray-200 px-4 text-sm outline-none focus:ring-4 focus:ring-teal-500/10 focus:border-teal-500 transition-all" /></label>
               <div className="grid grid-cols-2 gap-3">
-                <select value={newService} onChange={(e) => {setNewService(e.target.value as ServiceType);setNewSlotId(null);}} className="h-12 rounded-2xl border border-gray-200 px-4 text-sm outline-none focus:ring-4 focus:ring-teal-500/10 focus:border-teal-500 transition-all bg-white">{SERVICE_TYPES.map((s) => (<option key={s.value} value={s.value}>{s.label}</option>))}</select>
-                <input type="time" value={newTime} onChange={(e) => {setNewTime(e.target.value);setNewSlotId(null);}} className="h-12 rounded-2xl border border-gray-200 px-4 text-sm outline-none focus:ring-4 focus:ring-teal-500/10 focus:border-teal-500 transition-all" />
+                <label className="block min-w-0 text-xs">Услуга<select value={newService} onChange={(e) => {setNewService(e.target.value as ServiceType);setNewSlotId(null);}} className="mt-1 w-full h-12 rounded-2xl border border-gray-200 px-4 text-sm outline-none focus:ring-4 focus:ring-teal-500/10 focus:border-teal-500 transition-all bg-white">{SERVICE_TYPES.map((s) => (<option key={s.value} value={s.value}>{s.label}</option>))}</select></label>
+                <label className="block min-w-0 text-xs">Время (МСК)<input type="time" value={newTime} onChange={(e) => {setNewTime(e.target.value);setNewSlotId(null);}} className="mt-1 w-full h-12 rounded-2xl border border-gray-200 px-4 text-sm outline-none focus:ring-4 focus:ring-teal-500/10 focus:border-teal-500 transition-all" /></label>
               </div>
               <label className="flex items-start gap-3 text-xs text-gray-700"><input type="checkbox" required checked={newConsent} onChange={e=>setNewConsent(e.target.checked)}/>Клиент дал согласие на обработку данных и запись на услугу.</label>
               <button type="button" disabled={adding} onClick={addWindowOnly} className="min-h-11 w-full rounded-xl border px-3 text-sm disabled:opacity-50">Добавить только доступное окно, без клиента</button>
@@ -359,11 +359,11 @@ export default function AdminCalendarPage() {
       )}
 
       {showBreakModal && (
-        <AdminModal title="Новый перерыв" onCancel={() => setShowBreakModal(false)}>
+        <AdminModal title="Новый перерыв" dismissDisabled={savingBreak} onCancel={() => setShowBreakModal(false)}>
           <div className="w-full max-w-md rounded-[32px] bg-white shadow-2xl overflow-hidden">
             <div className="flex items-center justify-between p-6 border-b border-gray-100">
               <div><h3 className="text-lg font-semibold text-[#111827]">Новый перерыв</h3><p className="text-sm text-[#6B7280] mt-1">{format(selectedDay, "d MMMM yyyy", { locale: ru })}</p></div>
-              <button onClick={() => setShowBreakModal(false)} className="w-10 h-10 rounded-2xl hover:bg-gray-100 flex items-center justify-center transition-all" aria-label="Закрыть"><X className="w-5 h-5 text-[#6B7280]" /></button>
+              <button disabled={savingBreak} onClick={() => setShowBreakModal(false)} className="w-10 h-10 rounded-2xl hover:bg-gray-100 flex items-center justify-center transition-all" aria-label="Закрыть"><X className="w-5 h-5 text-[#6B7280]" /></button>
             </div>
             <form onSubmit={handleAddBreak} className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-3">

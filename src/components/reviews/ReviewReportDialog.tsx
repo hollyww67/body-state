@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { CheckCircle2, Flag, X } from "lucide-react";
 
@@ -22,6 +22,9 @@ const reasons = [
 
 export default function ReviewReportDialog({ reviewId, reviewAuthor, onClose }: Props) {
   const titleId = useId();
+  const dialog = useRef<HTMLDialogElement>(null);
+  const closeButton = useRef<HTMLButtonElement>(null);
+  const onCloseRef = useRef(onClose);
   const [reason, setReason] = useState("");
   const [details, setDetails] = useState("");
   const [email, setEmail] = useState("");
@@ -30,13 +33,24 @@ export default function ReviewReportDialog({ reviewId, reviewAuthor, onClose }: 
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
 
+  useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
   useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+    const element = dialog.current;
+    if (!element) return;
+    const trigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const bodyStyle = document.body.style.cssText;
+    const scrollY = window.scrollY;
+    Object.assign(document.body.style, { position: "fixed", top: `-${scrollY}px`, width: "100%", overflow: "hidden" });
+    element.showModal();
+    closeButton.current?.focus();
+    return () => {
+      element.close();
+      document.body.style.cssText = bodyStyle;
+      window.scrollTo(0, scrollY);
+      if (trigger?.isConnected) trigger.focus({ preventScroll: true });
     };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
+  }, []);
+  useEffect(() => { if (sent) closeButton.current?.focus(); }, [sent]);
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -62,15 +76,25 @@ export default function ReviewReportDialog({ reviewId, reviewAuthor, onClose }: 
   };
 
   return createPortal(
+    <dialog ref={dialog} tabIndex={-1} aria-modal="true" aria-labelledby={titleId}
+      style={{ position: "fixed", inset: 0, margin: 0, width: "100%", maxWidth: "none", height: "100%", maxHeight: "none", padding: 0, border: 0, background: "transparent", color: "inherit" }}
+      onCancel={event => { event.preventDefault(); onCloseRef.current(); }}
+      onKeyDown={event => {
+        if (event.key !== "Tab") return;
+        const controls = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href], [tabindex="0"]')).filter(element => element.getClientRects().length > 0);
+        const first = controls[0];
+        const last = controls[controls.length - 1];
+        if (!first) { event.preventDefault(); return; }
+        if (event.shiftKey && (document.activeElement === first || !controls.includes(document.activeElement as HTMLElement))) { event.preventDefault(); last.focus(); }
+        else if (!event.shiftKey && (document.activeElement === last || !controls.includes(document.activeElement as HTMLElement))) { event.preventDefault(); first.focus(); }
+      }}
+    >
     <div
-      className="fixed inset-0 z-[100] grid place-items-center bg-slate-950/45 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-[100] grid place-items-center overflow-y-auto bg-slate-950/45 p-4 backdrop-blur-sm"
       role="presentation"
       onMouseDown={(event) => event.target === event.currentTarget && onClose()}
     >
       <section
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
         className="w-full max-w-lg rounded-[28px] border p-6 shadow-2xl md:p-8"
         style={{ background: "var(--surface-elevated)", borderColor: "var(--glass-border)", color: "var(--foreground)" }}
       >
@@ -84,7 +108,7 @@ export default function ReviewReportDialog({ reviewId, reviewAuthor, onClose }: 
               <p className="mt-1 text-sm" style={{ color: "var(--foreground-secondary)" }}>Автор: {reviewAuthor}</p>
             </div>
           </div>
-          <button type="button" onClick={onClose} className="nav-icon grid h-10 w-10 shrink-0 place-items-center rounded-2xl border" style={{ borderColor: "var(--glass-border)" }} aria-label="Закрыть">
+          <button ref={closeButton} type="button" onClick={onClose} className="nav-icon grid h-10 w-10 shrink-0 place-items-center rounded-2xl border" style={{ borderColor: "var(--glass-border)" }} aria-label="Закрыть">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -127,7 +151,8 @@ export default function ReviewReportDialog({ reviewId, reviewAuthor, onClose }: 
           </form>
         )}
       </section>
-    </div>,
+    </div>
+    </dialog>,
     document.body,
   );
 }
