@@ -164,8 +164,8 @@ type TransitionOptions = {
   paymentData?: unknown;
 };
 
-export async function transitionOrderState(orderId: string, nextStatus: string, options: TransitionOptions = {}) {
-  return db.transaction(async (client) => {
+export async function transitionOrderState(orderId: string, nextStatus: string, options: TransitionOptions = {}, transactionClient?: PoolClient) {
+  const transition = async (client: PoolClient) => {
     const found = await client.query<LockedOrder>(
       "SELECT id, status, items, stock_released_at FROM orders WHERE id = $1 FOR UPDATE",
       [orderId],
@@ -223,5 +223,6 @@ export async function transitionOrderState(orderId: string, nextStatus: string, 
     }
 
     return { changed: true, reason: "updated" as const, order, inventoryIssue };
-  });
+  };
+  return transactionClient ? transition(transactionClient) : db.transaction(transition);
 }
