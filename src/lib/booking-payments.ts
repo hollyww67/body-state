@@ -48,7 +48,7 @@ export async function settleBookingPayments(items: OrderItem[], outcome: "paid" 
       await client.query('SELECT pg_advisory_xact_lock($1)',[913202609]);
       const found = await client.query(`SELECT * FROM ${table} WHERE id=$1 FOR UPDATE`, [item.bookingId]);
       const current = found.rows[0];
-      if (!current) return null;
+      if (!current) throw new Error("BOOKING_SETTLEMENT_NOT_FOUND");
       // A late bank callback must record the money even after manual confirmation
       // or cancellation, without resurrecting a cancelled appointment.
       const nextStatus = current.status === "pending" ? "confirmed" : current.status;

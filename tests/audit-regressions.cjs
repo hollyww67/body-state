@@ -395,6 +395,24 @@ const baseOrder = () => ({ external_order_id: crypto.randomUUID(), client_name: 
     return require('node:crypto').createHash('sha256').update(pairs.sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0).map(([, v]) => String(v)).join(''), 'utf8').digest('hex');
   };
   const signedCallback = body => callback.POST(request('/api/payment/callback', { ...body, Token: signIndependent(body) }, 'POST'));
+  await test('Closure paid/delivered order deletion and missing linked settlement fail closed', async () => {
+    const adminOrders = require('../src/app/api/admin/orders/route.js');
+    const order = await createPendingOrderWithReservation(baseOrder(),[]);
+    await pool.query("UPDATE orders SET status='delivered',payment_id='closure-delivered',paid_at=now(),amount_paid=1000 WHERE id=$1",[order.id]);
+    assert.equal((await adminOrders.DELETE(request('/api/admin/orders?id='+order.id,undefined,'DELETE'))).status,409);
+    assert.equal((await pool.query('SELECT count(*)::int n FROM orders WHERE id=$1',[order.id])).rows[0].n,1);
+    await pool.query("UPDATE orders SET status='cancelled' WHERE id=$1",[order.id]);
+    assert.equal((await adminOrders.DELETE(request('/api/admin/orders?id='+order.id,undefined,'DELETE'))).status,409);
+    const unpaid = await createPendingOrderWithReservation(baseOrder(),[]);
+    await pool.query("UPDATE orders SET status='cancelled' WHERE id=$1",[unpaid.id]);
+    assert.equal((await adminOrders.DELETE(request('/api/admin/orders?id='+unpaid.id,undefined,'DELETE'))).status,200);
+    const orphan = await createPendingOrderWithReservation(baseOrder(),[]),missing = require('node:crypto').randomUUID();
+    await pool.query("UPDATE orders SET payment_id='closure-missing-booking',items=$2::jsonb WHERE id=$1",[orphan.id,JSON.stringify([{bookingType:'bfm',bookingId:missing}])]);
+    const response = await signedCallback({TerminalKey:'audit-terminal',PaymentId:'closure-missing-booking',OrderId:orphan.id,Status:'CONFIRMED',Success:true,Amount:100000});
+    assert.equal(response.status,500);
+    assert.equal((await pool.query('SELECT status FROM orders WHERE id=$1',[orphan.id])).rows[0].status,'paid');
+    assert.equal((await signedCallback({TerminalKey:'audit-terminal',PaymentId:'closure-missing-booking',OrderId:orphan.id,Status:'CONFIRMED',Success:true,Amount:100000})).status,500);
+  });
 
   await test('Closure monetary orphan/missing identifier is not ACKed; early Init linkage and nonmoney callbacks remain valid', async () => {
     const crypto = require('node:crypto');
