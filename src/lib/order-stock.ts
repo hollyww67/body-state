@@ -59,6 +59,12 @@ export async function createPendingOrderWithReservation(
   order: Record<string, unknown>,
   items: OrderItem[],
 ) {
+  // UUID identity must match PostgreSQL equality, including historical JSON casing.
+  items = items.map((item) => {
+    if (!item.bookingId) return item;
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(item.bookingId)) throw new Error("BOOKING_UNAVAILABLE");
+    return { ...item, bookingId: item.bookingId.toLowerCase() };
+  });
   return db.transaction(async (client) => {
     const bookingItems = items.filter((item) => item.bookingId);
     if (bookingItems.length) {
@@ -73,7 +79,7 @@ export async function createPendingOrderWithReservation(
         if (booking.rows[0]?.status !== "pending") throw new Error("BOOKING_UNAVAILABLE");
         if(booking.rows[0].hold_expires_at && new Date(booking.rows[0].hold_expires_at)<=new Date())throw new Error('BOOKING_UNAVAILABLE');
         const existing = await client.query(`SELECT 1 FROM orders o, jsonb_array_elements(o.items) item
-          WHERE item->>'bookingId'=$1 AND item->>'bookingType'=$2
+          WHERE lower(item->>'bookingId')=$1 AND item->>'bookingType'=$2
             AND o.status IN ('pending','paid','shipped','delivered') LIMIT 1`, [item.bookingId, item.bookingType]);
         if (existing.rowCount) throw new Error("BOOKING_ALREADY_PAYABLE");
       }
@@ -158,8 +164,8 @@ type TransitionOptions = {
   paymentData?: unknown;
 };
 
-export async function transitionOrderState(orderId: string, nextStatus: string, options: TransitionOptions = {}) {
-  return db.transaction(async (client) => {
+export async function transitionOrderState(orderId: string, nextStatus: string, options: TransitionOptions = {}, transactionClient?: PoolClient) {
+  const transition = async (client: PoolClient) => {
     const found = await client.query<LockedOrder>(
       "SELECT id, status, items, stock_released_at FROM orders WHERE id = $1 FOR UPDATE",
       [orderId],
@@ -217,5 +223,6 @@ export async function transitionOrderState(orderId: string, nextStatus: string, 
     }
 
     return { changed: true, reason: "updated" as const, order, inventoryIssue };
-  });
+  };
+  return transactionClient ? transition(transactionClient) : db.transaction(transition);
 }

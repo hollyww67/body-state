@@ -38,7 +38,7 @@ const mocks = {
   '@/lib/telegram': { sendTelegram: async () => true },
   '@/lib/push': { sendPushToAdmin:async()=>{adminPushAttempts++;throw new Error('Synthetic push failure');} },
   '@/lib/notifications': { sendEmail: async () => true, deliverEmail: async () => ({ status: 'not_configured' }) },
-  '@/lib/redis': { cacheGet: async () => null, cacheSet: async () => undefined, cacheDelete: async () => undefined, cacheIncrement: async () => 1 },
+  '@/lib/redis': { getRedis:async()=>({eval:async()=>1}),cacheGet: async () => null, cacheSet: async () => undefined, cacheDelete: async () => undefined, cacheIncrement: async () => 1 },
 };
 const originalLoad = Module._load;
 Module._load = function(request, parent, isMain) {
@@ -395,6 +395,63 @@ const baseOrder = () => ({ external_order_id: crypto.randomUUID(), client_name: 
     return require('node:crypto').createHash('sha256').update(pairs.sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0).map(([, v]) => String(v)).join(''), 'utf8').digest('hex');
   };
   const signedCallback = body => callback.POST(request('/api/payment/callback', { ...body, Token: signIndependent(body) }, 'POST'));
+  await test('Closure paid/delivered order deletion and missing linked settlement fail closed', async () => {
+    const adminOrders = require('../src/app/api/admin/orders/route.js');
+    const order = await createPendingOrderWithReservation(baseOrder(),[]);
+    await pool.query("UPDATE orders SET status='delivered',payment_id='closure-delivered',paid_at=now(),amount_paid=1000 WHERE id=$1",[order.id]);
+    assert.equal((await adminOrders.DELETE(request('/api/admin/orders?id='+order.id,undefined,'DELETE'))).status,409);
+    assert.equal((await pool.query('SELECT count(*)::int n FROM orders WHERE id=$1',[order.id])).rows[0].n,1);
+    await pool.query("UPDATE orders SET status='cancelled' WHERE id=$1",[order.id]);
+    assert.equal((await adminOrders.DELETE(request('/api/admin/orders?id='+order.id,undefined,'DELETE'))).status,409);
+    const unpaid = await createPendingOrderWithReservation(baseOrder(),[]);
+    await pool.query("UPDATE orders SET status='cancelled' WHERE id=$1",[unpaid.id]);
+    assert.equal((await adminOrders.DELETE(request('/api/admin/orders?id='+unpaid.id,undefined,'DELETE'))).status,200);
+    const orphan = await createPendingOrderWithReservation(baseOrder(),[]),missing = require('node:crypto').randomUUID();
+    await pool.query("UPDATE orders SET payment_id='closure-missing-booking',items=$2::jsonb WHERE id=$1",[orphan.id,JSON.stringify([{bookingType:'bfm',bookingId:missing}])]);
+    const response = await signedCallback({TerminalKey:'audit-terminal',PaymentId:'closure-missing-booking',OrderId:orphan.id,Status:'CONFIRMED',Success:true,Amount:100000});
+    assert.equal(response.status,500);
+    assert.equal((await pool.query('SELECT status FROM orders WHERE id=$1',[orphan.id])).rows[0].status,'paid');
+    assert.equal((await signedCallback({TerminalKey:'audit-terminal',PaymentId:'closure-missing-booking',OrderId:orphan.id,Status:'CONFIRMED',Success:true,Amount:100000})).status,500);
+  });
+
+  await test('Closure monetary orphan/missing identifier is not ACKed; early Init linkage and nonmoney callbacks remain valid', async () => {
+    const crypto = require('node:crypto');
+    for (const Status of ['CONFIRMED','REFUNDED','PARTIAL_REFUNDED']) {
+      const body = {TerminalKey:'audit-terminal',PaymentId:'closure-orphan-'+Status,OrderId:crypto.randomUUID(),Status,Success:true,Amount:100000};
+      assert.equal((await signedCallback(body)).status,503);
+      for(const PaymentId of [undefined,null,'']) assert.equal((await signedCallback({...body,PaymentId})).status,503);
+    }
+    assert.equal((await signedCallback({TerminalKey:'audit-terminal',PaymentId:'closure-unknown-cancel',OrderId:crypto.randomUUID(),Status:'CANCELED',Success:true})).status,200);
+    const visit = await claimSlot(await slot('2142-01-01T09:30:00+03:00'),'bfm',fields());
+    const order = await createPendingOrderWithReservation(baseOrder(),[{bookingId:visit.booking.id,bookingType:'bfm'}]);
+    const body = {TerminalKey:'audit-terminal',PaymentId:'closure-early-init',OrderId:order.id,Status:'CONFIRMED',Success:true,Amount:100000};
+    assert.equal((await signedCallback(body)).status,200);
+    assert.equal((await pool.query('SELECT payment_id,status FROM orders WHERE id=$1',[order.id])).rows[0].payment_id,body.PaymentId);
+    assert.equal((await pool.query('SELECT payment_status FROM bfm_bookings WHERE id=$1',[visit.booking.id])).rows[0].payment_status,'paid');
+    assert.equal((await signedCallback({...body,OrderId:undefined})).status,200);
+    assert.equal((await pool.query("SELECT count(*)::int n FROM booking_events WHERE booking_id=$1 AND new_status='confirmed'",[visit.booking.id])).rows[0].n,1);
+  });
+  await test('Closure concurrent CONFIRMED with stale pending snapshot repairs settlement before ACK', async () => {
+    const visit = await claimSlot(await slot('2142-02-01T09:30:00+03:00'),'bfm',fields());
+    const order = await createPendingOrderWithReservation(baseOrder(),[{bookingId:visit.booking.id,bookingType:'bfm'}]);
+    await pool.query("UPDATE orders SET payment_id='closure-concurrent-confirmed' WHERE id=$1",[order.id]);
+    const settlementModule = require('../src/lib/booking-payments.js');
+    const originalSettlement=settlementModule.settleBookingPayments;
+    let settles=0,releaseFirst,startedFirst;
+    const firstStarted=new Promise(resolve=>{startedFirst=resolve;}),firstSettlement=new Promise(resolve=>{releaseFirst=resolve;});
+    settlementModule.settleBookingPayments=async (...args)=>{if(++settles===1){startedFirst();await firstSettlement;}return originalSettlement(...args);};
+    const body={TerminalKey:'audit-terminal',PaymentId:'closure-concurrent-confirmed',OrderId:order.id,Status:'CONFIRMED',Success:true,Amount:100000};
+    const one=signedCallback(body);await firstStarted;
+    let acknowledged=false;const two=signedCallback(body).then(r=>{acknowledged=true;return r;});
+    try {
+      await new Promise(resolve=>setTimeout(resolve,50));assert.equal(acknowledged,false);
+      assert.equal((await pool.query('SELECT status FROM orders WHERE id=$1',[order.id])).rows[0].status,'pending');
+      releaseFirst();
+      assert.equal((await one).status,200);assert.equal((await two).status,200);
+      assert.equal((await pool.query('SELECT payment_status FROM bfm_bookings WHERE id=$1',[visit.booking.id])).rows[0].payment_status,'paid');
+    } finally {releaseFirst();await Promise.allSettled([one,two]);settlementModule.settleBookingPayments=originalSettlement;}
+    assert.equal((await pool.query("SELECT count(*)::int n FROM booking_events WHERE booking_id=$1 AND new_status='confirmed'",[visit.booking.id])).rows[0].n,1);
+  });
   await test('A01 forged Password and absent/wrong terminal have zero order/booking/queue side effects', async () => {
     const booking = await claimSlot(await slot('2099-08-01T09:30:00+03:00'), 'bfm', fields());
     const order = await createPendingOrderWithReservation(baseOrder(), [{ bookingId: booking.booking.id, bookingType: 'bfm' }]);
@@ -461,7 +518,7 @@ const baseOrder = () => ({ external_order_id: crypto.randomUUID(), client_name: 
     settlement.settleBookingPayments = async () => { throw new Error('Synthetic settlement interruption'); };
     try { assert.equal((await signedCallback(body)).status, 500); }
     finally { settlement.settleBookingPayments = saved; }
-    assert.equal((await pool.query('SELECT status FROM orders WHERE id=$1', [order.id])).rows[0].status, 'paid');
+    assert.equal((await pool.query('SELECT status FROM orders WHERE id=$1', [order.id])).rows[0].status, 'pending');
     assert.equal((await pool.query('SELECT status FROM bfm_bookings WHERE id=$1', [booking.booking.id])).rows[0].status, 'pending');
     assert.equal((await signedCallback(body)).status, 200);
     assert.deepEqual((await pool.query('SELECT status,payment_status FROM bfm_bookings WHERE id=$1', [booking.booking.id])).rows[0], { status: 'confirmed', payment_status: 'paid' });
@@ -586,6 +643,57 @@ const baseOrder = () => ({ external_order_id: crypto.randomUUID(), client_name: 
     } finally {
       mocks['@/lib/admin-auth'] = savedAdminMock; mocks['@/lib/redis'] = savedRedisMock; await client.quit();
     }
+  });
+  await test('FIX01 partial refund repairs paid gap and preserves durable refund history on replay', async () => {
+    const visit=await claimSlot(await slot('2145-03-01T09:30:00+03:00'),'bfm',fields());
+    const order=await createPendingOrderWithReservation(baseOrder(),[{bookingId:visit.booking.id,bookingType:'bfm'}]);
+    await pool.query("UPDATE orders SET payment_id='lifecycle-partial',status='paid',paid_at=now(),amount_paid=total WHERE id=$1",[order.id]);
+    const body={TerminalKey:'audit-terminal',PaymentId:'lifecycle-partial',OrderId:order.id,Status:'PARTIAL_REFUNDED',Success:true,Amount:30000};
+    assert.equal((await signedCallback(body)).status,200);
+    assert.deepEqual((await pool.query('SELECT status,payment_status FROM bfm_bookings WHERE id=$1',[visit.booking.id])).rows[0],{status:'confirmed',payment_status:'paid'});
+    const rows=await pool.query("SELECT h.id FROM payment_case_history h JOIN payment_cases c ON c.id=h.case_id WHERE c.order_id=$1",[order.id]);
+    assert.equal(rows.rowCount,1);assert.equal((await signedCallback(body)).status,200);
+    assert.equal((await pool.query("SELECT h.id FROM payment_case_history h JOIN payment_cases c ON c.id=h.case_id WHERE c.order_id=$1",[order.id])).rowCount,1);
+    assert.equal((await signedCallback({...body,Amount:20000})).status,200);
+    const latestPayload=(await pool.query("SELECT payment_data FROM orders WHERE id=$1",[order.id])).rows[0].payment_data;
+    assert.equal((await signedCallback({...body,UnsignedObject:{nonce:'partial-retry'}})).status,200);
+    assert.deepEqual((await pool.query("SELECT payment_data FROM orders WHERE id=$1",[order.id])).rows[0].payment_data,latestPayload);
+    assert.equal((await pool.query("SELECT h.id FROM payment_case_history h JOIN payment_cases c ON c.id=h.case_id WHERE c.order_id=$1",[order.id])).rowCount,2);
+  });
+  await test('FIX02 refunded order does not confirm pending booking and retains an explicit manual review case', async () => {
+    const visit=await claimSlot(await slot('2145-03-02T09:30:00+03:00'),'bfm',fields());
+    const order=await createPendingOrderWithReservation(baseOrder(),[{bookingId:visit.booking.id,bookingType:'bfm'}]);
+    await pool.query("UPDATE orders SET payment_id='lifecycle-refund',status='paid',paid_at=now(),amount_paid=total WHERE id=$1",[order.id]);
+    const body={TerminalKey:'audit-terminal',PaymentId:'lifecycle-refund',OrderId:order.id,Status:'REFUNDED',Success:true,Amount:100000};
+    assert.equal((await signedCallback(body)).status,200);
+    assert.equal((await signedCallback({...body,Status:'CONFIRMED'})).status,200);
+    assert.deepEqual((await pool.query('SELECT status,payment_status FROM bfm_bookings WHERE id=$1',[visit.booking.id])).rows[0],{status:'pending',payment_status:'pending'});
+    assert.equal((await pool.query('SELECT status FROM orders WHERE id=$1',[order.id])).rows[0].status,'refunded');
+    assert.equal((await pool.query("SELECT id FROM payment_cases WHERE order_id=$1 AND reason='full_refund_service_review' AND status='open'",[order.id])).rowCount,1);
+    const paymentCases=require('../src/lib/payment-cases.js');
+    const current=(await pool.query("SELECT id FROM payment_cases WHERE order_id=$1 AND reason='full_refund_service_review'",[order.id])).rows[0];
+    await paymentCases.reviewPaymentCase(current.id,'resolved','no_action_required','Owner-approved service preserved');
+    const historyCount=(await pool.query("SELECT count(*)::int n FROM payment_case_history WHERE case_id=$1",[current.id])).rows[0].n;
+    assert.equal((await signedCallback({...body,UnsignedObject:{nonce:'1'}})).status,200);
+    assert.equal((await pool.query("SELECT status FROM payment_cases WHERE id=$1",[current.id])).rows[0].status,'resolved');
+    assert.equal((await pool.query("SELECT count(*)::int n FROM payment_case_history WHERE case_id=$1",[current.id])).rows[0].n,historyCount);
+    const staleVisit=await claimSlot(await slot('2145-03-03T09:30:00+03:00'),'bfm',fields());
+    const staleOrder=await createPendingOrderWithReservation(baseOrder(),[{bookingId:staleVisit.booking.id,bookingType:'bfm'}]);
+    await pool.query("UPDATE orders SET payment_id='lifecycle-stale-state',created_at=now()-interval '20 minutes',counts_as_visit=true,loyalty_client_phone='+79990000001',loyalty_service_code='bfm' WHERE id=$1",[staleOrder.id]);
+    await pool.query("UPDATE bfm_bookings SET hold_expires_at=now()-interval '1 minute' WHERE id=$1",[staleVisit.booking.id]);
+    const bank=require('../src/lib/tbank.js'),savedState=bank.getPaymentState;
+    let releaseState,requestedState;
+    const stateRequested=new Promise(resolve=>{requestedState=resolve;}),stateGate=new Promise(resolve=>{releaseState=resolve;});
+    bank.getPaymentState=async pid=>{if(pid!=='lifecycle-stale-state')return {Success:false};requestedState();await stateGate;return {Success:true,Status:'CONFIRMED',Amount:100000};};
+    const cronPending=require('../src/app/api/cron/cancel-pending/route.js');
+    const running=cronPending.GET(request('/api/cron/cancel-pending'));
+    try {
+      await stateRequested;
+      assert.equal((await signedCallback({...body,PaymentId:'lifecycle-stale-state',OrderId:staleOrder.id})).status,200);
+      releaseState();assert.equal((await running).status,200);
+      assert.deepEqual((await pool.query('SELECT status,payment_status FROM bfm_bookings WHERE id=$1',[staleVisit.booking.id])).rows[0],{status:'pending',payment_status:'pending'});
+      assert.equal((await pool.query('SELECT id FROM client_visits WHERE order_id=$1',[staleOrder.id])).rowCount,0);
+    } finally {releaseState();await running;bank.getPaymentState=savedState;}
   });
   console.log(JSON.stringify({passed:results.length,tests:results}));
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(()=>pool.end());

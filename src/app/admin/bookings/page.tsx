@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useCallback,useRef } from "react";
-import { formatMoscow as format, isMoscowToday as isToday, isMoscowTomorrow as isTomorrow, isThisMoscowWeek as isThisWeek, moscowInputToISO } from "@/lib/moscow-time";
+import { formatMoscow as format, isMoscowToday as isToday, isMoscowTomorrow as isTomorrow, moscowInputToISO } from "@/lib/moscow-time";
 import { ru } from "date-fns/locale";
 import {
   Check, X, RefreshCw, Video, Search, Phone, CalendarDays, Clock3,
@@ -14,8 +14,11 @@ import type { Booking, BookingStatus, ServiceType } from "@/lib/api/bookings";
 import { getBookings, patchBooking, TYPE_LABELS } from "@/lib/api/bookings";
 import { formatRussianPhoneInput } from "@/lib/phone";
 import AdminConfirmDialog, { AdminModal } from "@/components/admin/AdminConfirmDialog";
+import BookingHistory from '@/components/admin/BookingHistory';
+import SchedulingClientPicker from '@/components/admin/SchedulingClientPicker';
 
 const STATUS_CONFIG: Record<BookingStatus, { label: string; className: string; icon: any }> = {
+  new: {label:'Новая заявка',className:'bg-slate-100 text-slate-700 border border-slate-200',icon:AlertCircle},
   pending: { label: "Ожидает оплаты", className: "bg-amber-50 text-amber-700 border border-amber-200", icon: AlertCircle },
   confirmed: { label: "Подтверждена", className: "bg-emerald-50 text-emerald-700 border border-emerald-200", icon: CheckCircle2 },
   cancelled: { label: "Отменена", className: "bg-rose-50 text-rose-700 border border-rose-200", icon: XCircle },
@@ -39,26 +42,45 @@ export default function AdminBookingsPage() {
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const router = useRouter();
   const openedLink=useRef(false);
-  useEffect(()=>{if(openedLink.current||!bookings.length)return;const id=new URLSearchParams(window.location.search).get('booking');const b=bookings.find(b=>b.id===id);if(b){setSelectedBooking(b);openedLink.current=true;}},[bookings]);
+  const loadedOnce=useRef(false),loadSequence=useRef(0),loadAbort=useRef<AbortController|null>(null);
+  const [historyRevision,setHistoryRevision]=useState(0);
+  const [includeArchived,setIncludeArchived]=useState(false),[pageOffset,setPageOffset]=useState(0),[nextOffset,setNextOffset]=useState<number|null>(null);
+  const [counts,setCounts]=useState({total:0,pending:0,today:0,week:0,online:0});
+  const [serverSearch,setServerSearch]=useState('');
+  const activeCard=useRef<Booking|null>(null);
+  useEffect(()=>{activeCard.current=selectedBooking;},[selectedBooking]);
+  useEffect(()=>{const timer=setTimeout(()=>{setServerSearch(search.trim());setPageOffset(0);},250);return()=>clearTimeout(timer);},[search]);
+  const [actionConfirm,setActionConfirm]=useState<{id:string;status:BookingStatus|'no_show';name:string}|null>(null);
+  useEffect(()=>{if(openedLink.current||loading||loadError)return;const id=new URLSearchParams(window.location.search).get('booking');if(!id)return;const b=bookings.find(b=>b.id===id);if(b){setSelectedBooking(b);openedLink.current=true;return;}const abort=new AbortController();getBookings(abort.signal,`id=${encodeURIComponent(id)}&archived=true`).then(data=>{if(!abort.signal.aborted){openedLink.current=true;if(data[0])setSelectedBooking(data[0]);else toast.error('Запись не найдена');}}).catch(()=>{if(!abort.signal.aborted)toast.error('Не удалось открыть запись');});return()=>abort.abort();},[bookings,loading,loadError]);
 
   // Add form
   const [showAddForm, setShowAddForm] = useState(false);
   useEffect(() => { if (new URLSearchParams(window.location.search).get("create") === "1") setShowAddForm(true); }, []);
   const [newName, setNewName] = useState(""); const [newPhone, setNewPhone] = useState("");
   const [consentConfirmed, setConsentConfirmed] = useState(false);
+  const [newAccountId,setNewAccountId]=useState<string|null>(null),[newIdentity,setNewIdentity]=useState(false);
   const [newService, setNewService] = useState<ServiceType>("bfm");
   const [newDate, setNewDate] = useState(""); const [newTime, setNewTime] = useState("10:00");
   const [adding, setAdding] = useState(false); const [addError, setAddError] = useState("");
+  const createRequest=useRef({signature:'',key:''});
   const [rescheduling, setRescheduling] = useState(false);
   const [rescheduleSlots, setRescheduleSlots] = useState<Array<{ id: string; slot_time: string }>>([]);
   const [rescheduleSlotId, setRescheduleSlotId] = useState("");
+  const [rescheduleReason,setRescheduleReason]=useState('');
   const [linkEmail, setLinkEmail] = useState("");
   const [linkReason, setLinkReason] = useState("");
   const [identityConfirmed, setIdentityConfirmed] = useState(false);
-  useEffect(() => { setLinkEmail(""); setLinkReason(""); setIdentityConfirmed(false); }, [selectedBooking?.id]);
+  useEffect(() => { setLinkEmail(""); setLinkReason(""); setIdentityConfirmed(false);setRescheduling(false);setRescheduleSlots([]);setRescheduleSlotId(''); }, [selectedBooking?.id]);
 
   const fetchBookings = useCallback(async () => {
-    try { setLoading(true); setLoadError(false); const data = await getBookings();
+    const seq=++loadSequence.current;loadAbort.current?.abort();const abort=new AbortController();loadAbort.current=abort;
+    try {if(!loadedOnce.current)setLoading(true);
+      const params=new URLSearchParams({limit:'100',offset:String(pageOffset),archived:String(includeArchived)});if(filter!=='all')params.set('status',filter);if(serverSearch)params.set('q',serverSearch);
+      const response=await fetch(`/api/admin/bookings?${params}`,{signal:abort.signal,cache:'no-store'});const result=await response.json();if(!response.ok)throw Error(result.error);
+      const data:Booking[]=result.bookings;
+      const card=activeCard.current;
+      const refreshedCard=card&&!data.some(b=>b.id===card.id)?(await getBookings(abort.signal,`id=${encodeURIComponent(card.id)}&archived=true`))[0]:null;
+      if(seq!==loadSequence.current)return;
       // Сортировка: ожидающие оплаты сначала, затем по времени слота.
       data.sort((a, b) => {
         if (a.status === "pending" && b.status !== "pending") return -1;
@@ -68,19 +90,22 @@ export default function AdminBookingsPage() {
         return tA - tB;
       });
       setBookings(data);
-    } catch { setLoadError(true); toast.error("Не удалось загрузить записи"); } finally { setLoading(false); }
-  }, []);
+      setCounts(result.counts);setNextOffset(result.next_offset);
+      setSelectedBooking(p=>p?(data.find(b=>b.id===p.id)??(refreshedCard?.id===p.id?refreshedCard:p)):p);loadedOnce.current=true;setLoadError(false);
+    } catch {if(!abort.signal.aborted&&seq===loadSequence.current){setLoadError(true);toast.error("Не удалось загрузить записи");}} finally {if(seq===loadSequence.current)setLoading(false);}
+  }, [filter,includeArchived,pageOffset,serverSearch]);
 
-  useEffect(() => { fetchBookings(); const i = setInterval(fetchBookings, 30000); return () => clearInterval(i); }, [fetchBookings]);
+  useEffect(() => { fetchBookings(); const i = setInterval(fetchBookings, 30000); return () => {clearInterval(i);loadAbort.current?.abort();}; }, [fetchBookings]);
 
   const updateStatus = async (id: string, status: BookingStatus) => {
+    if(updatingId)return;
     setUpdatingId(id); const prev = bookings;
     setBookings((p) => p.map((b) => b.id === id ? { ...b, status } : b));
     try {
       await patchBooking(id, status);
-      setSelectedBooking(p => p?.id === id ? { ...p, status } : p);
+      await fetchBookings();setHistoryRevision(r=>r+1);
       toast.success(status === "completed" ? "Посещение засчитано" : "Статус обновлён");
-    } catch (error) { setBookings(prev); toast.error(error instanceof Error ? error.message : "Не удалось обновить запись"); }
+    } catch (error) { setBookings(prev); toast.error(error instanceof Error ? error.message : "Не удалось обновить запись");throw error; }
     finally { setUpdatingId(null); }
   };
 
@@ -95,7 +120,7 @@ export default function AdminBookingsPage() {
       setSelectedBooking(p => p ? { ...p, account_user_id: result.booking.account_user_id, status: result.booking.status, attendance: result.booking.attendance } : p);
       await fetchBookings();
       toast.success(action === 'link_account' ? 'Запись привязана к личному кабинету' : 'Неявка отмечена. Бонусы не начислены.');
-    } catch (error) { toast.error(error instanceof Error ? error.message : 'Ошибка сохранения'); }
+    } catch (error) { toast.error(error instanceof Error ? error.message : 'Ошибка сохранения');if(action==='no_show')throw error; }
     finally { setUpdatingId(null); }
   };
 
@@ -104,28 +129,32 @@ export default function AdminBookingsPage() {
     const res = await fetch("/api/admin/bookings", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: deleteTarget.id }) });
     if (!res.ok) { const data = await res.json().catch(() => ({})); throw new Error(data.error || "Не удалось удалить запись. Попробуйте ещё раз."); }
     setBookings(p => p.filter(b => b.id !== deleteTarget.id));
-    toast.success("Заявка удалена");
+    setSelectedBooking(p=>p?.id===deleteTarget.id?null:p);
+    toast.success("Запись архивирована. История сохранена.");
     void fetchBookings();
   };
 
   const handleAdd = async (e: React.FormEvent) => {
-    e.preventDefault(); setAddError("");
+    e.preventDefault();if(adding)return;setAddError("");
     if (!newName.trim() || !newPhone.trim() || !newDate || !consentConfirmed) return;
     setAdding(true);
     try {
     const slotTime = moscowInputToISO(newDate, newTime);
-    const bookingRes = await fetch("/api/admin/bookings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ service_type: newService, slot_time: slotTime, client_name: newName, client_phone: newPhone, consent_confirmed: consentConfirmed }) });
+    const payload={service_type: newService, slot_time: slotTime, client_name: newName, client_phone: newPhone, consent_confirmed: consentConfirmed,account_user_id:newAccountId,identity_confirmed:newIdentity};
+    const signature=JSON.stringify(payload);if(createRequest.current.signature!==signature)createRequest.current={signature,key:crypto.randomUUID()};
+    const bookingRes = await fetch("/api/admin/bookings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({...payload,request_key:createRequest.current.key}) });
     const bookingData = await bookingRes.json();
     if (!bookingRes.ok) { setAddError(bookingData.error || "Ошибка"); setAdding(false); return; }
-    setShowAddForm(false); setNewName(""); setNewPhone(""); setNewDate(""); setNewTime("10:00"); setConsentConfirmed(false); setAdding(false); fetchBookings();
+    setShowAddForm(false); setNewName(""); setNewPhone(""); setNewDate(""); setNewTime("10:00"); setConsentConfirmed(false);setNewAccountId(null);setNewIdentity(false); setAdding(false); fetchBookings();
     toast.success("Запись создана");
+    createRequest.current={signature:'',key:''};
     } catch { setAddError("Не удалось создать запись. Проверьте соединение."); }
     finally { setAdding(false); }
   };
 
   const openReschedule = async () => {
     if (!selectedBooking || !["bfm", "brt", "psychology"].includes(selectedBooking.service_type)) return;
-    setRescheduling(true); setRescheduleSlotId("");
+    setRescheduling(true); setRescheduleSlotId("");setRescheduleReason('');
     try {
       const response = await fetch(`/api/slots?service_type=${selectedBooking.service_type}`);
       const result = await response.json();
@@ -135,13 +164,13 @@ export default function AdminBookingsPage() {
   };
 
   const submitReschedule = async () => {
-    if (!selectedBooking || !rescheduleSlotId) return;
+    if (!selectedBooking || !rescheduleSlotId||updatingId) return;
     setUpdatingId(selectedBooking.id);
     try {
-      const response = await fetch("/api/admin/bookings", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: selectedBooking.id, service_type: selectedBooking.service_type, slot_id: rescheduleSlotId }) });
+      const response = await fetch("/api/admin/bookings", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: selectedBooking.id, service_type: selectedBooking.service_type, slot_id: rescheduleSlotId,reason:rescheduleReason }) });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Не удалось перенести запись");
-      toast.success("Запись перенесена"); setRescheduling(false); setSelectedBooking(null); await fetchBookings();
+      toast.success("Запись перенесена"); setRescheduling(false); await fetchBookings();setHistoryRevision(r=>r+1);
     } catch (error) { toast.error(error instanceof Error ? error.message : "Не удалось перенести запись"); }
     finally { setUpdatingId(null); }
   };
@@ -166,12 +195,7 @@ export default function AdminBookingsPage() {
     return groups;
   }, [filtered]);
 
-  const stats = {
-    pending: bookings.filter((b) => b.status === "pending").length,
-    today: bookings.filter((b) => b.slot_time && isToday(new Date(b.slot_time))).length,
-    week: bookings.filter((b) => b.slot_time && isThisWeek(new Date(b.slot_time))).length,
-    online: bookings.filter((b) => b.booking_type === "online" && b.status === "confirmed").length,
-  };
+  const stats = counts;
 
   const getInitials = (name: string) => name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2) || "?";
 
@@ -183,7 +207,7 @@ export default function AdminBookingsPage() {
           <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 mb-6">
             <div><h2 className="text-xl font-semibold tracking-tight text-slate-900">Найти запись</h2><p className="text-sm text-slate-500 mt-1">Откройте карточку клиента для переноса, отмены и отметки посещения · Московское время</p></div>
             <div className="grid grid-cols-2 items-center gap-2 sm:flex">
-              <button onClick={() => setShowAddForm(true)} className="h-11 px-4 rounded-2xl bg-slate-900 text-white shadow-lg shadow-slate-900/10 flex items-center gap-2 text-sm font-medium hover:bg-black transition-all"><Plus className="w-4 h-4" /> Новая запись</button>
+              <button onClick={() => {setNewAccountId(null);setNewIdentity(false);setConsentConfirmed(false);setShowAddForm(true);}} className="h-11 px-4 rounded-2xl bg-slate-900 text-white shadow-lg shadow-slate-900/10 flex items-center gap-2 text-sm font-medium hover:bg-black transition-all"><Plus className="w-4 h-4" /> Новая запись</button>
               <button onClick={fetchBookings} className="h-11 px-4 rounded-2xl bg-white border border-slate-200 hover:border-slate-300 shadow-sm flex items-center gap-2 text-sm font-medium text-slate-700 transition-all"><RefreshCw className="w-4 h-4" /> Обновить</button>
             </div>
           </div>
@@ -208,7 +232,7 @@ export default function AdminBookingsPage() {
             <div className="relative flex-1"><Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" /><input type="search" aria-label="Поиск клиента по имени, телефону или email" placeholder="Имя, телефон или email" value={search} onChange={(e) => setSearch(e.target.value)} className="w-full h-11 pl-11 pr-4 rounded-2xl border border-slate-200 bg-white text-sm focus:outline-none focus:ring-4 focus:ring-teal-500/10 focus:border-teal-500 transition-all" /></div>
             <div className="flex flex-wrap gap-1 bg-white border border-slate-200 rounded-2xl p-1">
               {[{ key: "all", label: "Все" }, { key: "pending", label: "Ждут оплату" }, { key: "confirmed", label: "Подтверждены" }, { key: "cancelled", label: "Отменены" }, { key: "completed", label: "Завершены" }].map((item) => (
-                <button key={item.key} aria-pressed={filter === item.key} onClick={() => setFilter(item.key as any)}
+                <button key={item.key} aria-pressed={filter === item.key} onClick={() => {setFilter(item.key as BookingStatus|'all');setPageOffset(0);}}
                   className={`px-3 h-9 rounded-xl text-sm font-medium transition-all ${filter === item.key ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"}`}>{item.label}</button>
               ))}
             </div>
@@ -216,7 +240,7 @@ export default function AdminBookingsPage() {
         </div>
 
         {loadError && <div role="alert" className="admin-dashboard-error mb-4">Не удалось обновить записи. <button type="button" onClick={fetchBookings}>Повторить загрузку</button></div>}
-        {(search || filter !== "all") && <div className="mb-4 flex flex-wrap items-center gap-3 text-sm"><span>{loading ? "Поиск…" : `Найдено записей: ${filtered.length}`}</span><button type="button" className="admin-secondary-action" onClick={() => { setSearch(""); setFilter("all"); }}>Сбросить фильтры</button></div>}
+        <div className="mb-4 flex flex-wrap items-center gap-3 text-sm"><label className="flex min-h-11 items-center gap-2"><input type="checkbox" checked={includeArchived} onChange={e=>{setIncludeArchived(e.target.checked);setPageOffset(0);}}/>Включить архив</label><span>Всего по фильтру: {counts.total} · на странице: {bookings.length}</span><button disabled={pageOffset===0} onClick={()=>setPageOffset(Math.max(0,pageOffset-100))} className="min-h-11 rounded-xl border bg-white px-3 disabled:opacity-50">Предыдущие записи</button><button disabled={nextOffset===null} onClick={()=>nextOffset!==null&&setPageOffset(nextOffset)} className="min-h-11 rounded-xl border bg-white px-3 disabled:opacity-50">Следующие записи</button></div>
         {/* Add modal */}
         {showAddForm && (
           <AdminModal title="Новая запись" onCancel={() => setShowAddForm(false)}>
@@ -226,6 +250,8 @@ export default function AdminBookingsPage() {
                 <button type="button" aria-label="Закрыть форму новой записи" onClick={() => setShowAddForm(false)} className="w-10 h-10 rounded-2xl hover:bg-slate-100 flex items-center justify-center"><X className="w-5 h-5 text-slate-500" /></button>
               </div>
               <form onSubmit={handleAdd} className="p-6 space-y-4">
+                <SchedulingClientPicker onSelect={c=>{setNewAccountId(c?.id??null);setNewIdentity(false);if(c){setNewName(c.display_name??'');setNewPhone(formatRussianPhoneInput(c.phone??''));}}}/>
+                {newAccountId&&<label className="flex gap-3 text-xs"><input required type="checkbox" checked={newIdentity} onChange={e=>setNewIdentity(e.target.checked)}/>Личность клиента и принадлежность кабинета подтверждены</label>}
                 <div className="space-y-3">
                   <div><label className="block text-xs font-medium text-slate-500 mb-1">Имя клиента</label><input required placeholder="Анна Петрова" value={newName} onChange={(e) => setNewName(e.target.value)} className="w-full h-12 rounded-2xl border border-slate-200 px-4 text-sm focus:outline-none focus:ring-4 focus:ring-teal-500/10 focus:border-teal-500" /></div>
                   <div><label className="block text-xs font-medium text-slate-500 mb-1">Телефон</label><input required type="tel" placeholder="+7 (999) 123-45-67" value={newPhone} onChange={(e) => setNewPhone(formatRussianPhoneInput(e.target.value))} className="w-full h-12 rounded-2xl border border-slate-200 px-4 text-sm focus:outline-none focus:ring-4 focus:ring-teal-500/10 focus:border-teal-500" /></div>
@@ -252,6 +278,7 @@ export default function AdminBookingsPage() {
                 <button type="button" onClick={() => setSelectedBooking(null)} className="grid h-10 w-10 flex-none place-items-center rounded-2xl bg-slate-100 text-slate-600 hover:bg-slate-200" aria-label="Закрыть карточку"><X className="h-5 w-5" /></button>
               </header>
               <div className="grid gap-5 p-5 sm:grid-cols-2 sm:p-6">
+                <BookingHistory key={selectedBooking.id} id={selectedBooking.id} revision={`${selectedBooking.slot_time}:${selectedBooking.status}:${historyRevision}`}/>
                 <div className="rounded-2xl bg-slate-50 p-4"><p className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-400">Контакты</p><div className="space-y-3 text-sm"><a href={`tel:${selectedBooking.client_phone}`} className="flex items-center gap-2 font-medium text-slate-800 hover:text-teal-700"><Phone className="h-4 w-4" />{selectedBooking.client_phone}</a>{selectedBooking.client_email && <a href={`mailto:${selectedBooking.client_email}`} className="flex items-center gap-2 break-all text-slate-700 hover:text-teal-700"><Mail className="h-4 w-4 flex-none" />{selectedBooking.client_email}</a>}{selectedBooking.client_tg && <p className="flex items-center gap-2 text-slate-700"><MessageSquareText className="h-4 w-4" />{selectedBooking.client_tg}</p>}</div></div>
                 <div className="rounded-2xl bg-slate-50 p-4"><p className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-400">Услуга и статус</p><div className="space-y-2 text-sm"><p className="font-semibold text-slate-900">{TYPE_LABELS[selectedBooking.service_type] || selectedBooking.service_type}</p><p className="text-slate-600">{STATUS_CONFIG[selectedBooking.status]?.label || selectedBooking.status}</p><p className="text-slate-600">{selectedBooking.slot_time ? format(selectedBooking.slot_time, "dd.MM.yyyy, HH:mm") : "Время ещё не выбрано"}</p>{selectedBooking.booking_type && <p className="text-slate-600">Формат: {selectedBooking.booking_type === "online" ? "онлайн" : "очно"}</p>}</div></div>
                 <div className="rounded-2xl bg-slate-50 p-4 sm:col-span-2"><p className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-400">Запрос клиента</p><p className="whitespace-pre-wrap text-sm leading-6 text-slate-700">{selectedBooking.notes || "Комментарий не оставлен."}</p></div>
@@ -267,27 +294,28 @@ export default function AdminBookingsPage() {
                 {selectedBooking.room_id && <button type="button" onClick={() => { navigator.clipboard.writeText(selectedBooking.room_id!); toast.success("ID комнаты скопирован"); }} className="flex items-center justify-center gap-2 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-medium text-blue-700 sm:col-span-2"><Copy className="h-4 w-4" />Скопировать ID комнаты</button>}
                 {["bfm", "brt", "psychology"].includes(selectedBooking.service_type) && !["cancelled", "completed"].includes(selectedBooking.status) && (
                   <div className="rounded-2xl border border-slate-200 p-4 sm:col-span-2">
-                    {!rescheduling ? <button type="button" onClick={openReschedule} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-violet-50 px-4 py-3 text-sm font-semibold text-violet-700"><Calendar className="h-4 w-4" />Перенести запись</button> : <div className="space-y-3"><label className="block text-xs font-semibold uppercase tracking-wider text-slate-500">Новое свободное время</label><select value={rescheduleSlotId} onChange={(event) => setRescheduleSlotId(event.target.value)} className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm"><option value="">Выберите дату и время</option>{rescheduleSlots.map((slot) => <option key={slot.id} value={slot.id}>{format(slot.slot_time, "dd.MM.yyyy, HH:mm")}</option>)}</select><div className="flex gap-2"><button type="button" onClick={() => setRescheduling(false)} className="flex-1 rounded-2xl border border-slate-200 px-4 py-3 text-sm">Назад</button><button type="button" disabled={!rescheduleSlotId || updatingId === selectedBooking.id} onClick={submitReschedule} className="flex-1 rounded-2xl bg-violet-700 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50">Сохранить</button></div></div>}
+                    {!rescheduling ? <button type="button" onClick={openReschedule} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-violet-50 px-4 py-3 text-sm font-semibold text-violet-700"><Calendar className="h-4 w-4" />Перенести запись</button> : <div className="space-y-3"><p className="text-xs">Старое время: {selectedBooking.slot_time?format(selectedBooking.slot_time,'dd.MM.yyyy HH:mm'):'—'} МСК · {selectedBooking.duration_minutes} мин</p><label className="block text-xs font-semibold text-slate-500">Новое свободное время<select value={rescheduleSlotId} onChange={(event) => setRescheduleSlotId(event.target.value)} className="mt-1 h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm"><option value="">Выберите дату и время</option>{rescheduleSlots.map((slot) => <option key={slot.id} value={slot.id}>{format(slot.slot_time, "dd.MM.yyyy, HH:mm")}</option>)}</select></label><p className="text-xs text-slate-500">Длительность и условия оплаты сохраняются. Старые напоминания отменяются, новые формируются для выбранного времени. Сообщение, уже отправляемое провайдером, не всегда можно отозвать.</p><label className="block text-xs">Причина переноса<input value={rescheduleReason} maxLength={500} onChange={e=>setRescheduleReason(e.target.value)} className="mt-1 min-h-11 w-full rounded-xl border px-3"/></label><div className="flex gap-2"><button type="button" onClick={() => setRescheduling(false)} className="flex-1 rounded-2xl border border-slate-200 px-4 py-3 text-sm">Назад</button><button type="button" disabled={!rescheduleSlotId || updatingId === selectedBooking.id} onClick={submitReschedule} className="flex-1 rounded-2xl bg-violet-700 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50">Сохранить</button></div></div>}
                   </div>
                 )}
               </div>
               <footer className="sticky bottom-0 flex flex-wrap gap-2 border-t border-slate-100 bg-white/95 p-5 backdrop-blur-xl sm:p-6">
                 {selectedBooking.attendance === 'absent' && <p className="text-sm text-rose-700">Клиент не пришёл — посещение не засчитано.</p>}
-                {!['cancelled','completed'].includes(selectedBooking.status) && <button type="button" disabled={!!updatingId} onClick={() => updateStatus(selectedBooking.id, 'cancelled')} className="w-full rounded-2xl bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 disabled:opacity-50">Отменить запись</button>}
+                {!['cancelled','completed'].includes(selectedBooking.status) && <button type="button" disabled={!!updatingId} onClick={() => setActionConfirm({id:selectedBooking.id,status:'cancelled',name:selectedBooking.client_name})} className="w-full rounded-2xl bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 disabled:opacity-50">Отменить запись</button>}
                 {selectedBooking.status === 'confirmed' && <>
-                  <button type="button" disabled={!!updatingId} onClick={() => updateStatus(selectedBooking.id, 'completed')} className="w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50">Приём состоялся — засчитать посещение</button>
-                  <button type="button" disabled={!!updatingId} onClick={() => bookingAction('no_show')} className="w-full rounded-2xl border border-rose-200 px-4 py-3 text-sm font-semibold text-rose-700 disabled:opacity-50">Клиент не пришёл</button>
+                  <button type="button" disabled={!!updatingId||!!selectedBooking.slot_time&&Date.parse(selectedBooking.slot_time)>Date.now()} onClick={() => setActionConfirm({id:selectedBooking.id,status:'completed',name:selectedBooking.client_name})} className="w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50">Приём состоялся — засчитать посещение</button>
+                  <button type="button" disabled={!!updatingId||!!selectedBooking.slot_time&&Date.parse(selectedBooking.slot_time)>Date.now()} onClick={() => setActionConfirm({id:selectedBooking.id,status:'no_show',name:selectedBooking.client_name})} className="w-full rounded-2xl border border-rose-200 px-4 py-3 text-sm font-semibold text-rose-700 disabled:opacity-50">Клиент не пришёл</button>
                 </>}
               </footer>
             </motion.section>
           </AdminModal>
         )}
 
+        {actionConfirm&&<AdminConfirmDialog title={actionConfirm.status==='cancelled'?'Отменить запись?':actionConfirm.status==='no_show'?'Отметить неявку?':'Подтвердить посещение?'} confirmLabel="Подтвердить" pendingLabel="Сохранение…" onCancel={()=>setActionConfirm(null)} onConfirm={()=>actionConfirm.status==='no_show'?bookingAction('no_show'):updateStatus(actionConfirm.id,actionConfirm.status)}><p>{actionConfirm.name}</p><p>{actionConfirm.status==='cancelled'?'Запись и история сохранятся. Освободится только время, не занятое другими записями и перерывами. Возврат оплаты не выполняется автоматически.':actionConfirm.status==='no_show'?'Запись закроется как неявка. Посещение и бонусы не засчитываются. Факты оплаты сохраняются.':'Посещение будет засчитано в программе лояльности. Сам факт оплаты не изменяется.'}</p></AdminConfirmDialog>}
         {/* Delete modal */}
         {deleteTarget && (
-          <AdminConfirmDialog title="Удалить запись?" onCancel={() => setDeleteTarget(null)} onConfirm={confirmDelete}>
+          <AdminConfirmDialog title="Архивировать запись?" onCancel={() => setDeleteTarget(null)} onConfirm={confirmDelete} confirmLabel="Архивировать" pendingLabel="Архивирование…">
             <p>{deleteTarget.client_name} • {deleteTarget.slot_time ? format(new Date(deleteTarget.slot_time), "d MMM, HH:mm", { locale: ru }) : ""}</p>
-            <p>Вы действительно хотите удалить эту запись? Это действие может быть необратимым.</p>
+            <p>Запись исчезнет из рабочего списка. Данные клиента, время и история событий сохранятся.</p>
           </AdminConfirmDialog>
         )}
 
@@ -354,12 +382,12 @@ export default function AdminBookingsPage() {
                               {b.status === "confirmed" && b.booking_type === "online" && b.room_id && (
                                 <button onClick={(event) => { event.stopPropagation(); router.push(`/psychology/room?id=${b.room_id}&role=doctor`); }} className="h-10 px-4 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-all flex items-center gap-2"><Video className="w-4 h-4" />Войти</button>
                               )}
-                              {b.status === "pending" && <button onClick={(event) => { event.stopPropagation(); updateStatus(b.id, "cancelled"); }} disabled={updatingId === b.id} className="h-10 px-4 rounded-2xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-sm font-medium transition-all border border-rose-200 flex items-center gap-2"><X className="w-4 h-4" />Отменить</button>}
+                              {b.status === "pending" && <button onClick={(event) => { event.stopPropagation();setActionConfirm({id:b.id,status:'cancelled',name:b.client_name}); }} disabled={updatingId === b.id} className="h-10 px-4 rounded-2xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-sm font-medium transition-all border border-rose-200 flex items-center gap-2"><X className="w-4 h-4" />Отменить</button>}
                               {b.status === "confirmed" && (
-                                <button disabled={!!updatingId} onClick={(event) => { event.stopPropagation(); updateStatus(b.id, "completed"); }} className="min-h-11 px-4 rounded-2xl bg-slate-900 hover:bg-black text-white text-sm font-medium transition-all disabled:opacity-50">Приём состоялся</button>
+                                <button disabled={!!updatingId||!!b.slot_time&&Date.parse(b.slot_time)>Date.now()} onClick={(event) => { event.stopPropagation();setActionConfirm({id:b.id,status:'completed',name:b.client_name}); }} className="min-h-11 px-4 rounded-2xl bg-slate-900 hover:bg-black text-white text-sm font-medium transition-all disabled:opacity-50">Приём состоялся</button>
                               )}
                               {canDelete && (
-                                <button onClick={(event) => { event.stopPropagation(); setDeleteTarget(b); }} className="h-10 w-10 rounded-2xl bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-100 transition-all flex items-center justify-center" title="Удалить"><X className="w-4 h-4" /></button>
+                                <button onClick={(event) => { event.stopPropagation(); setDeleteTarget(b); }} className="h-11 w-11 rounded-2xl bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-100 transition-all flex items-center justify-center" aria-label="Архивировать запись" title="Архивировать"><X className="w-4 h-4" /></button>
                               )}
                             </div>
                           </div>

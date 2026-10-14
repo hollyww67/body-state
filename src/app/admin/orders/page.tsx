@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import AdminConfirmDialog, { AdminModal } from "@/components/admin/AdminConfirmDialog";
 
 interface OrderItem { name: string; quantity: number; price: number; }
-interface Order { id: string; client_name: string; client_phone: string; address: string; delivery: string; items: OrderItem[]; total: number; status: string; created_at: string; }
+interface Order { id: string; client_name: string; client_phone: string; address: string; delivery: string; items: OrderItem[]; total: number; status: string; created_at: string; payment_id?: string | null; paid_at?: string | null; amount_paid?: number | string | null; }
 
 const STATUS_CONFIG: Record<string, { label: string; badge: string }> = {
   pending: { label: "Ожидает оплаты", badge: "bg-amber-100 text-amber-700" },
@@ -22,10 +22,11 @@ const STATUS_CONFIG: Record<string, { label: string; badge: string }> = {
 };
 
 const ACTIVE_COLUMNS = ["pending", "paid", "shipped", "delivered"];
+const canDeleteOrder = (order: Order) => order.status === "cancelled" && !order.payment_id && !order.paid_at && Number(order.amount_paid || 0) === 0;
 
 function OrderCard({ order, onOpen, onDelete }: { order: Order; onOpen: (o: Order) => void; onDelete?: (id: string) => void }) {
   const isOverdue = order.status === "pending" && (Date.now() - new Date(order.created_at).getTime()) > 30 * 60 * 1000;
-  const canDelete = order.status === "delivered" || order.status === "cancelled";
+  const canDelete = canDeleteOrder(order);
 
   return (
     <div className={`bg-white rounded-2xl border p-4 transition-all duration-200 hover:shadow-md shadow-sm ${isOverdue ? "border-l-2 border-l-red-400" : "border-gray-100"}`}>
@@ -145,16 +146,16 @@ export default function AdminOrdersPage() {
               <div className="space-y-2">
                 {historyOrders.map(order => (
                   <div key={order.id} className="flex items-center justify-between p-3 rounded-2xl hover:bg-gray-50 transition-colors border border-gray-100">
-                    <div className="flex items-center gap-3 cursor-pointer" onClick={() => setDrawerOrder(order)}>
+                    <button type="button" className="flex min-h-11 items-center gap-3 rounded-lg text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" aria-label={`Открыть заказ ${order.id.slice(0, 8)} клиента ${order.client_name}`} onClick={() => setDrawerOrder(order)}>
                       <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${STATUS_CONFIG[order.status]?.badge}`}>{STATUS_CONFIG[order.status]?.label}</span>
-                      <div>
-                        <p className="font-medium text-sm text-[#111827]">{order.client_name}</p>
-                        <p className="text-xs text-[#6B7280]">{format(new Date(order.created_at), "d MMMM, HH:mm", { locale: ru })}</p>
-                      </div>
-                    </div>
+                      <span>
+                        <span className="block font-medium text-sm text-[#111827]">{order.client_name}</span>
+                        <span className="block text-xs text-[#6B7280]">{format(new Date(order.created_at), "d MMMM, HH:mm", { locale: ru })}</span>
+                      </span>
+                    </button>
                     <div className="flex items-center gap-2">
                       <span className="font-semibold text-sm text-[#111827]">{order.total} ₽</span>
-                      <button type="button" aria-label={`Удалить заказ ${order.id.slice(0, 8)}`} onClick={() => setShowDeleteConfirm(order.id)} className="min-h-11 min-w-11 p-1.5 rounded-lg text-red-400 hover:bg-red-50 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                      {canDeleteOrder(order) && <button type="button" aria-label={`Удалить заказ ${order.id.slice(0, 8)}`} onClick={() => setShowDeleteConfirm(order.id)} className="min-h-11 min-w-11 p-1.5 rounded-lg text-red-400 hover:bg-red-50 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>}
                     </div>
                   </div>
                 ))}

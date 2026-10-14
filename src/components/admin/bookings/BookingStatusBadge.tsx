@@ -2,6 +2,7 @@ import type { BookingStatus } from "@/lib/api/bookings";
 import { STATUS_LABELS } from "@/lib/api/bookings";
 
 const STATUS_COLORS: Record<BookingStatus, string> = {
+  new: 'bg-gray-100 text-gray-700',
   pending: "bg-yellow-100 text-yellow-700",
   confirmed: "bg-green-100 text-green-700",
   cancelled: "bg-red-100 text-red-700",

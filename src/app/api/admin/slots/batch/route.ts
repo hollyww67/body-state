@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { pool } from "@/lib/db";
-import { refreshScheduleOccupancy, SERVICE_DURATION_MINUTES, type ServiceType } from "@/lib/slots";
+import { db } from "@/lib/db";
+import { requireAdmin } from '@/lib/admin-auth';
+import {readJsonObject} from '@/lib/request';
+import { refreshSlotOccupancy, SERVICE_DURATION_MINUTES, type ServiceType } from "@/lib/slots";
 
 export async function POST(request: NextRequest) {
-  const { slots } = await request.json();
+  const unauthorized=await requireAdmin(request); if(unauthorized) return unauthorized;
+  let slots:unknown;
+  try {({slots}=await readJsonObject(request,1_048_576));} catch {return NextResponse.json({error:'Некорректный JSON или слишком большой запрос'},{status:400});}
 
   if (!slots || !Array.isArray(slots) || slots.length === 0) {
     return NextResponse.json({ error: "Нет слотов для добавления" }, { status: 400 });
@@ -14,7 +18,7 @@ export async function POST(request: NextRequest) {
   const normalized = slots.map((slot) => {
     const service = String(slot?.service_type || "") as ServiceType;
     const time = new Date(String(slot?.slot_time || ""));
-    if (!(service in SERVICE_DURATION_MINUTES) || Number.isNaN(time.getTime())) return null;
+    if (!['bfm','brt','psychology'].includes(service) || Number.isNaN(time.getTime()) || time<=new Date()) return null;
     return { service, time: time.toISOString(), duration: SERVICE_DURATION_MINUTES[service] };
   });
   if (normalized.some((slot) => !slot)) return NextResponse.json({ error: "В списке есть некорректные слоты" }, { status: 400 });
@@ -25,16 +29,22 @@ export async function POST(request: NextRequest) {
     return `($${values.length - 2}, $${values.length - 1}, $${values.length})`;
   });
   try {
-    const result = await pool.query(
+    const result = await db.transaction(async client=>{
+      await client.query('SELECT pg_advisory_xact_lock($1)',[913202609]);
+      const inserted=await client.query(
       `INSERT INTO slots (service_type, slot_time, duration_minutes)
        VALUES ${groups.join(",")}
-       ON CONFLICT (slot_time, service_type) DO UPDATE SET duration_minutes=EXCLUDED.duration_minutes
+       ON CONFLICT (slot_time, service_type) DO NOTHING
        RETURNING id::text, service_type, slot_time, duration_minutes, is_booked`,
       values,
     );
-    await refreshScheduleOccupancy();
+      await refreshSlotOccupancy(client);
+      const refreshed=inserted.rows.length?await client.query('SELECT id::text,service_type,slot_time,duration_minutes,is_booked FROM slots WHERE id=ANY($1::uuid[])',[inserted.rows.map(r=>r.id)]):inserted;
+      return {rowCount:inserted.rowCount,rows:refreshed.rows};
+    });
     return NextResponse.json({ ok: true, count: result.rowCount, slots: result.rows }, { status: 201 });
-  } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Не удалось создать слоты" }, { status: 500 });
+  } catch {
+    console.error('[Scheduling] Batch creation failed');
+    return NextResponse.json({ error: "Не удалось создать слоты" }, { status: 500 });
   }
 }

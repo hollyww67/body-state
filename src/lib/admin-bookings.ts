@@ -17,6 +17,7 @@ export async function updateAdminBooking(id: string, action: string, link?: { em
   if (!uuid.test(id) && !numericId) throw new BookingActionError('Некорректный ID', 400);
   return db.transaction(async client => {
     await client.query('SELECT pg_advisory_xact_lock($1)', [913202609]);
+    await client.query("SELECT set_config('body_state.actor','admin',true)");
     for (const table of TABLES) {
       if ((table === 'consultation_enrollments') !== numericId) continue;
       const found = await client.query(`SELECT * FROM ${table} WHERE id=$1 FOR UPDATE`, [id]);
@@ -24,6 +25,7 @@ export async function updateAdminBooking(id: string, action: string, link?: { em
       if (!booking) continue;
       if (action === 'link_account') {
         if (!link?.confirmed || !link.email || link.reason.trim().length < 5) throw new BookingActionError('Подтвердите личность клиента и укажите основание привязки', 400);
+        await client.query("SELECT set_config('body_state.reason',$1,true)",[link.reason.trim()]);
         const account = await client.query('SELECT id FROM account_users WHERE lower(email)=$1 AND disabled_at IS NULL', [link.email.toLowerCase().trim()]);
         if (!account.rows[0]) throw new BookingActionError('Аккаунт с таким email не найден', 404);
         const accountId = account.rows[0].id;

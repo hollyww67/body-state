@@ -1,4 +1,4 @@
-export type BookingStatus = "pending" | "confirmed" | "cancelled" | "completed";
+export type BookingStatus = "pending" | "confirmed" | "cancelled" | "completed" | "new";
 export type ServiceType = "bfm" | "brt" | "psychology" | "program" | "consultation";
 export type BookingType = "online" | "offline";
 
@@ -9,6 +9,8 @@ export interface Booking {
   client_email?: string;
   client_tg?: string;
   slot_time: string | null;
+  duration_minutes?: number;
+  archived_at?: string | null;
   service_type: ServiceType;
   status: BookingStatus;
   booking_type?: BookingType;
@@ -26,6 +28,7 @@ export interface Booking {
 }
 
 export const STATUS_LABELS: Record<string, string> = {
+  new:'Новая заявка',
   pending: "Ждёт оплаты",
   confirmed: "Подтверждена",
   cancelled: "Отмен.",
@@ -40,8 +43,8 @@ export const TYPE_LABELS: Record<string, string> = {
   consultation: "Консультация",
 };
 
-export async function getBookings(signal?: AbortSignal): Promise<Booking[]> {
-  const res = await fetch("/api/admin/bookings", { signal });
+export async function getBookings(signal?: AbortSignal,query=''): Promise<Booking[]> {
+  const res = await fetch(`/api/admin/bookings${query?`?${query}`:''}`, { signal,cache:'no-store' });
   if (!res.ok) throw new Error("Ошибка загрузки");
   const data = await res.json();
   return data.bookings || [];

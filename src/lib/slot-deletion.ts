@@ -18,6 +18,8 @@ export async function deleteUnreferencedSlots(input: unknown) {
         SELECT slot_id FROM bfm_bookings WHERE slot_id=ANY($1::uuid[])
         UNION ALL SELECT slot_id FROM brt_bookings WHERE slot_id=ANY($1::uuid[])
         UNION ALL SELECT slot_id FROM psychology_bookings WHERE slot_id=ANY($1::uuid[])
+        UNION ALL SELECT old_slot_id FROM booking_events WHERE old_slot_id=ANY($1::uuid[])
+        UNION ALL SELECT new_slot_id FROM booking_events WHERE new_slot_id=ANY($1::uuid[])
       ) protected LIMIT 1`, [ids]);
     if (references.rowCount) {
       return { ok: false as const, status: 409,

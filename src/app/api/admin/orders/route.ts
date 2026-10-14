@@ -50,14 +50,20 @@ export async function PATCH(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const id = searchParams.get("id");
-  if (!id) return NextResponse.json({ error: "ID обязателен" }, { status: 400 });
-
-  const { data: order } = await db.from("orders").select("status").eq("id", id).single();
-  if (!order) return NextResponse.json({ error: "Заказ не найден" }, { status: 404 });
-  if (order.status !== "delivered" && order.status !== "cancelled") {
-    return NextResponse.json({ error: "Можно удалять только доставленные или отменённые заказы" }, { status: 400 });
+  if (!id || !/^[0-9a-f-]{36}$/i.test(id)) return NextResponse.json({ error: "Некорректный ID" }, { status: 400 });
+  try {
+    return await db.transaction(async client => {
+      // Serialize the eligibility check and deletion with payment transitions.
+      const result = await client.query("SELECT status,payment_id,paid_at,amount_paid FROM orders WHERE id=$1 FOR UPDATE", [id]);
+      const order = result.rows[0];
+      if (!order) return NextResponse.json({ error: "Заказ не найден" }, { status: 404 });
+      if (order.status !== "cancelled" || order.payment_id || order.paid_at || Number(order.amount_paid || 0) !== 0) {
+        return NextResponse.json({ error: "История оплаты сохраняется. Можно удалить только отменённый заказ без платежа." }, { status: 409 });
+      }
+      await client.query("DELETE FROM orders WHERE id=$1", [id]);
+      return NextResponse.json({ ok: true });
+    });
+  } catch {
+    return NextResponse.json({ error: "Не удалось удалить заказ. Связанные данные сохранены." }, { status: 500 });
   }
-
-  await db.from("orders").delete().eq("id", id);
-  return NextResponse.json({ ok: true });
 }

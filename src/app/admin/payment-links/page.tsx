@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   BadgeRussianRuble,
   Ban,
@@ -67,6 +67,9 @@ export default function AdminPaymentLinksPage() {
   const [latestLink, setLatestLink] = useState<PaymentLink | null>(null);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const submitting = useRef(false);
+  const operation = useRef<{ requestKey: string; body: string } | null>(null);
+  const [operationPending, setOperationPending] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
 
@@ -96,18 +99,35 @@ export default function AdminPaymentLinksPage() {
 
   const createLink = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (submitting.current) return;
+    submitting.current = true;
     setCreating(true);
     try {
+      if (!operation.current) {
+        const requestKey = crypto.randomUUID();
+        operation.current = {
+          requestKey,
+          body: JSON.stringify({ requestKey, name, amount, email, phone, serviceCode, lifetimeDays: Number(lifetimeDays) }),
+        };
+      }
+      setOperationPending(true);
       const response = await fetch("/api/admin/payment-links", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, amount, email, phone, serviceCode, lifetimeDays: Number(lifetimeDays) }),
+        body: operation.current.body,
       });
       const data = await response.json().catch(() => ({}));
+      if (response.status === 400) {
+        // Validation failed before claiming an order: the form can be corrected.
+        operation.current = null;
+        setOperationPending(false);
+      }
       if (!response.ok || !data.link) throw new Error(data.error || "Не удалось сформировать ссылку");
 
       const created = data.link as PaymentLink;
       setLatestLink(created);
+      operation.current = null;
+      setOperationPending(false);
       setLinks((current) => [created, ...current.filter((item) => item.id !== created.id)]);
       setName("");
       setAmount("");
@@ -117,6 +137,7 @@ export default function AdminPaymentLinksPage() {
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Не удалось сформировать ссылку");
     } finally {
+      submitting.current = false;
       setCreating(false);
     }
   };
@@ -185,6 +206,7 @@ export default function AdminPaymentLinksPage() {
             <span>01</span>
           </header>
 
+          <fieldset disabled={creating || operationPending} style={{ display: "contents" }}>
           <div className="admin-payment-link-fields">
             <label>
               <span>Наименование</span>
@@ -280,11 +302,22 @@ export default function AdminPaymentLinksPage() {
               </div>
             </label>
           </div>
+          </fieldset>
 
           <button type="submit" className="admin-payment-create-button" disabled={creating}>
             {creating ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : <Link2 aria-hidden="true" />}
-            <span>{creating ? "Формируем ссылку…" : "Сформировать ссылку"}</span>
+            <span>{creating ? "Формируем ссылку…" : operationPending ? "Проверить результат операции" : "Сформировать ссылку"}</span>
           </button>
+          {operationPending && !creating && (
+            <div role="status">
+              <p>Результат ещё не подтверждён. Проверка использует прежнюю операцию. Новый платёж может создать отдельную ссылку.</p>
+              <button type="button" onClick={() => {
+                if (!window.confirm("Начать отдельный платёж? Предыдущая операция могла уже создать ссылку. Сначала проверьте историю.")) return;
+                operation.current = null;
+                setOperationPending(false);
+              }}>Начать новый платёж</button>
+            </div>
+          )}
         </form>
 
         <section className={`admin-payment-link-result ${latestLink ? "has-link" : ""}`} aria-live="polite">

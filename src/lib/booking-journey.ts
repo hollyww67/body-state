@@ -31,7 +31,7 @@ export async function createJourneySnapshot(service: JourneyService, fields: Rec
   return {title,duration,address: fields.booking_type==='online' ? null : legalDetails.address || null,preparation:null,subtotal,discount:applied?.discount||0,total:applied?.total??subtotal,promoCode,format:fields.booking_type==='online'?'online':'offline'};
 }
 export async function loadJourney(service: JourneyService,id: string, client: Pick<PoolClient,'query'> = pool) {
-  const r=await client.query(`SELECT b.*,s.slot_time,s.duration_minutes,EXISTS(SELECT 1 FROM orders o,jsonb_array_elements(o.items) i WHERE i->>'bookingId'=b.id::text AND i->>'bookingType'=$2 AND o.status='pending') AS payment_checking FROM ${service}_bookings b JOIN slots s ON s.id=b.slot_id WHERE b.id=$1`,[id,service]);
+  const r=await client.query(`SELECT b.*,s.slot_time,s.duration_minutes,EXISTS(SELECT 1 FROM orders o,jsonb_array_elements(o.items) i WHERE lower(i->>'bookingId')=b.id::text AND i->>'bookingType'=$2 AND o.status='pending') AS payment_checking FROM ${service}_bookings b JOIN slots s ON s.id=b.slot_id WHERE b.id=$1`,[id,service]);
   return r.rows[0] || null;
 }
 export function publicJourney(service:JourneyService, b: Record<string,unknown>): BookingJourney {
