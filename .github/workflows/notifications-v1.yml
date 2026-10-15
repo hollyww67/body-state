@@ -48,4 +48,5 @@ jobs:
       - run: node tests/payment-init.cjs
       - run: node tests/admin-modal.cjs
       - run: node tests/admin-pwa.cjs
+      - run: node tests/dependency-regressions.cjs
       - run: npm run build
