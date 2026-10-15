@@ -1,5 +1,5 @@
 import type { PoolClient } from 'pg';
-import { db, pool } from '@/lib/db';
+import { db } from '@/lib/db';
 import { loadJourney, type JourneyService } from '@/lib/booking-journey';
 import { deliverTransactionalEmail } from '@/lib/notifications';
 import { notificationTemplate } from '@/lib/notification-templates';
@@ -11,7 +11,7 @@ export const maxV1Enabled = () => process.env.NOTIFICATIONS_MAX_V1_ENABLED === '
 export type NotificationKind = 'created'|'confirmed'|'rescheduled'|'cancelled'|'paid'|'reminder_24h'|'reminder_2h'|'reset_requested'|'password_changed'|'delivery_alert';
 type Row = {id:string;booking_id:string|null;service_type:JourneyService|null;account_user_id:string|null;recipient_role:'client'|'admin';event_type:NotificationKind;revision:number;channel:'email'|'max';attempts:number;payload:Record<string,unknown>;scheduled_at:Date;created_at:Date};
 const isReminder = (kind:string) => kind === 'reminder_24h' || kind === 'reminder_2h';
-const errors = new Set(['channel_not_configured','contact_missing','provider_outcome_unknown','provider_rate_limited','provider_unavailable','provider_rejected','attempts_exhausted','worker_interrupted']);
+const errors = new Set(['channel_not_configured','contact_missing','provider_outcome_unknown','provider_rate_limited','provider_unavailable','provider_rejected','attempts_exhausted','worker_interrupted','smtp_budget_exhausted','smtp_budget_unavailable','smtp_budget_not_configured','smtp_budget_policy_mismatch']);
 
 async function channelBoundary(client:PoolClient,channel:'email'|'max'){
   const value=process.env[channel==='email'?'NOTIFICATIONS_EMAIL_V1_ACTIVE_SINCE':'NOTIFICATIONS_MAX_V1_ACTIVE_SINCE'];
@@ -144,16 +144,23 @@ async function resolvePayload(client:PoolClient,row:Row){
 export type V1Providers={email:typeof deliverTransactionalEmail;max:typeof deliverMax};
 export async function processV1Notifications(limit=20,providers:V1Providers={email:deliverTransactionalEmail,max:deliverMax},timeoutMs=15000,budgetMs=20000){
   if(!emailV1Enabled()&&!maxV1Enabled())return {processed:0};
-  await pool.query(`UPDATE appointment_notifications SET
+  const transaction = <T,>(fn:(client:PoolClient)=>Promise<T>)=>db.transaction(async client=>{
+    await client.query("SET LOCAL statement_timeout='3s'");
+    await client.query("SET LOCAL lock_timeout='1s'");
+    return fn(client);
+  });
+  await transaction(client=>client.query(`UPDATE appointment_notifications SET
     status=CASE WHEN send_started_at IS NOT NULL THEN 'uncertain' WHEN attempts>=4 THEN 'failed' ELSE 'retry' END,
     last_error=CASE WHEN send_started_at IS NOT NULL THEN 'worker_interrupted' WHEN attempts>=4 THEN 'attempts_exhausted' ELSE 'provider_unavailable' END,
     next_attempt_at=now()+interval '1 minute',updated_at=now()
-    WHERE engine='v1' AND status='processing' AND processing_at<now()-interval '5 minutes'`);
+    WHERE engine='v1' AND status='processing' AND processing_at<now()-interval '5 minutes'`));
   let processed=0;
   const deadline=Date.now()+budgetMs;
   for(let i=0;i<Math.min(Math.max(limit,0),50);i++){
-    if(Date.now()>=deadline)break;
-    const row=await db.transaction(async client=>{
+    // Leave enough time for a full transport timeout and durable ACK handling.
+    // A timed-out provider remains uncertain; Promise.race is not cancellation.
+    if(Date.now()+timeoutMs+1000>deadline)break;
+    const row=await transaction(async client=>{
       const r=await client.query<Row>(`SELECT * FROM appointment_notifications WHERE engine='v1' AND status IN ('queued','retry')
         AND scheduled_at<=now() AND next_attempt_at<=now() AND ((channel='email' AND $1) OR (channel='max' AND $2))
         ORDER BY next_attempt_at,id FOR UPDATE SKIP LOCKED LIMIT 1`,[emailV1Enabled(),maxV1Enabled()]);
@@ -163,34 +170,54 @@ export async function processV1Notifications(limit=20,providers:V1Providers={ema
     });
     if(!row)break;
     let payload:Awaited<ReturnType<typeof resolvePayload>>;
-    try{payload=await db.transaction(async client=>{
+    try{payload=await transaction(async client=>{
       await client.query('SELECT pg_advisory_xact_lock($1)',[913202609]);
       const current=await client.query('SELECT status FROM appointment_notifications WHERE id=$1 FOR UPDATE',[row.id]);
       if(current.rows[0]?.status!=='processing')return null;
       const payload=await resolvePayload(client,row);
       if(!payload){await client.query(`UPDATE appointment_notifications SET status='cancelled',updated_at=now() WHERE id=$1`,[row.id]);return null;}
+      if(Date.now()+timeoutMs+1000>deadline){
+        await client.query(`UPDATE appointment_notifications SET status='retry',attempts=GREATEST(0,attempts-1),
+          next_attempt_at=now()+interval '1 minute',updated_at=now() WHERE id=$1`,[row.id]);
+        return null;
+      }
       await client.query('UPDATE appointment_notifications SET send_started_at=now() WHERE id=$1',[row.id]);
       return payload;
     });}catch{
-      await pool.query(`UPDATE appointment_notifications SET status=CASE WHEN attempts>=4 THEN 'failed' ELSE 'retry' END,
+      await transaction(client=>client.query(`UPDATE appointment_notifications SET status=CASE WHEN attempts>=4 THEN 'failed' ELSE 'retry' END,
         last_error=CASE WHEN attempts>=4 THEN 'attempts_exhausted' ELSE 'provider_unavailable' END,
-        next_attempt_at=now()+$2*interval '1 second',updated_at=now() WHERE id=$1 AND status='processing' AND send_started_at IS NULL`,[row.id,60*2**(row.attempts-1)]);
+        next_attempt_at=now()+$2*interval '1 second',updated_at=now() WHERE id=$1 AND status='processing' AND send_started_at IS NULL`,[row.id,60*2**(row.attempts-1)]));
       processed++;continue;
     }
     if(!payload){processed++;continue;}
+    if(Date.now()+timeoutMs+1000>deadline){
+      await transaction(client=>client.query(`UPDATE appointment_notifications SET status='retry',send_started_at=NULL,
+        attempts=GREATEST(0,attempts-1),next_attempt_at=now()+interval '1 minute',updated_at=now()
+        WHERE id=$1 AND status='processing'`,[row.id]));
+      break;
+    }
     let timer:ReturnType<typeof setTimeout>|undefined;
     let result:ProviderResult;
     try{
       if(!payload.recipient)result={status:'failed',error:'contact_missing'};
       else result=await Promise.race([
-        row.channel==='email'?providers.email(payload.recipient,payload.message.subject,payload.message.html,payload.message.text):providers.max(payload.recipient,payload.message.text,payload.maxRecipient),
+        row.channel==='email'?providers.email(payload.recipient,payload.message.subject,payload.message.html,payload.message.text,{deadlineAt:Math.min(deadline-1000,Date.now()+timeoutMs)}):providers.max(payload.recipient,payload.message.text,payload.maxRecipient),
         new Promise<ProviderResult>(resolve=>{timer=setTimeout(()=>resolve({status:'uncertain',error:'provider_outcome_unknown'}),timeoutMs);})
       ]);
     }catch{result={status:'uncertain',error:'provider_outcome_unknown'};}
     finally{if(timer)clearTimeout(timer);}
+    // These local budget outcomes prove transport was never invoked. Do not
+    // exhaust provider attempts simply because the shared rolling quota is full.
+    if(row.channel==='email'&&['smtp_budget_exhausted','smtp_budget_unavailable'].includes(result.error||'')&&result.status==='retry'){
+      const wait=Number.isFinite(result.retryAfterSeconds)?Math.max(60,Math.min(86400,Math.ceil(result.retryAfterSeconds!))):60;
+      await transaction(client=>client.query(`UPDATE appointment_notifications SET status='retry',send_started_at=NULL,
+        attempts=GREATEST(0,attempts-1),last_error=$2,next_attempt_at=now()+$3*interval '1 second',updated_at=now()
+        WHERE id=$1 AND status='processing'`,[row.id,result.error,wait]));
+      processed++;break;
+    }
     const status=result.status==='retry'&&row.attempts>=4?'failed':result.status;
     const error=result.status==='retry'&&row.attempts>=4?'attempts_exhausted':errors.has(result.error||'')?result.error:null;
-    await db.transaction(async client=>{
+    await transaction(async client=>{
       await client.query('SELECT pg_advisory_xact_lock($1)',[913202609]);
       const current=(await client.query('SELECT status FROM appointment_notifications WHERE id=$1 FOR UPDATE',[row.id])).rows[0];
       const resolved=await resolvePayload(client,row);
@@ -203,7 +230,7 @@ export async function processV1Notifications(limit=20,providers:V1Providers={ema
       [row.id,status,error,result.id?.slice(0,128)||null,Math.min(3600,60*2**(row.attempts-1)),stale]);
     });
     if(status==='failed'&&row.attempts>=4&&row.event_type!=='delivery_alert'){
-      await db.transaction(client=>enqueueAdminNotification(client,'delivery_alert',`delivery-alert:${row.id}`));
+      await transaction(client=>enqueueAdminNotification(client,'delivery_alert',`delivery-alert:${row.id}`));
     }
     processed++;
   }

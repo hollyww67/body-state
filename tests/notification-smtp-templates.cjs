@@ -32,6 +32,7 @@ function smtp(overrides = {}, result = { accepted: ['client@example.invalid'], m
       } };
     } },
     '@/lib/notification-result': { providerFailure: () => { throw Error('Unexpected fallback'); } },
+    '@/lib/notification-smtp-budget': { reserveSmtpBudget: async () => null },
   });
   return { api, env, calls, send: (...args) => api.deliverTransactionalEmail(
     ...args.length ? args : ['client@example.invalid', 'Body State', '<p>Fixture</p>', 'Fixture']) };

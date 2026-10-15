@@ -53,7 +53,14 @@ if(value('NOTIFICATIONS_EMAIL_V1_ENABLED')==='true'){
   for(const name of ['SMTP_HOST','SMTP_USER','SMTP_PASSWORD','SMTP_FROM'])requireValue(name);
   requireValue('NOTIFICATION_RESET_KEY',32);
   if((value('SMTP_PORT')||'587')!=='587'||(value('SMTP_SECURE')&&value('SMTP_SECURE')!=='false'))errors.push('Notification SMTP requires STARTTLS on port 587');
+  if(value('SMTP_BUDGET_QUOTAS_CONFIRMED')!=='true')errors.push('SMTP aggregate tenant quotas and previous usage must be confirmed');
+  if(!/^[a-zA-Z0-9_-]{1,80}$/.test(value('SMTP_BUDGET_SCOPE')))errors.push('SMTP_BUDGET_SCOPE must be a stable shared scope');
+  for(const window of ['SECOND','DAY']){
+    const total=value(`SMTP_BUDGET_PER_${window}`),reserve=value(`SMTP_BUDGET_LEGACY_RESERVE_PER_${window}`);
+    if(!/^[1-9][0-9]*$/.test(total)||Number(total)>10000000||!/^(0|[1-9][0-9]*)$/.test(reserve)||Number(reserve)>=Number(total))errors.push(`SMTP ${window} quota/reserve must be explicit valid integers`);
+  }
 }
+if(value('NOTIFICATIONS_V1_SCHEDULER_ENABLED')&&!['true','false'].includes(value('NOTIFICATIONS_V1_SCHEDULER_ENABLED')))errors.push('NOTIFICATIONS_V1_SCHEDULER_ENABLED must be true or false');
 if(value('NOTIFICATIONS_MAX_V1_ENABLED')==='true'){
   requireValue('MAX_BOT_TOKEN');requireValue('MAX_WEBHOOK_SECRET',32);
   try{const bot=new URL(requireValue('MAX_BOT_URL'));if(bot.protocol!=='https:'||bot.hostname!=='max.ru'||bot.username||bot.password||bot.port||bot.search||bot.hash||!/^\/[A-Za-z0-9_-]+$/.test(bot.pathname))errors.push('MAX_BOT_URL must be an official HTTPS bot link');}

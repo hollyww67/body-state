@@ -1,5 +1,6 @@
 import nodemailer, { type Transporter } from "nodemailer";
-import { providerFailure, type ProviderResult } from '@/lib/notification-result';
+import { providerFailure } from '@/lib/notification-result';
+import { reserveSmtpBudget, type SmtpBudgetResult } from '@/lib/notification-smtp-budget';
 
 const EMAIL_API_KEY = process.env.EMAIL_API_KEY;
 const EMAIL_FROM = process.env.EMAIL_FROM || "noreply@yourdomain.ru";
@@ -45,11 +46,19 @@ function getSmtpTransport() {
   return smtpTransport;
 }
 
-export async function deliverEmail(to: string, subject: string, html: string): Promise<ProviderResult> {
+export async function deliverEmail(to: string, subject: string, html: string): Promise<SmtpBudgetResult> {
   if (!isEmailConfigured()) return {status:'not_configured',error:'channel_not_configured'};
 
   try {
     if (isSmtpConfigured()) {
+      // Quotas count recipients. Under the aggregate contract only one mailbox
+      // is allowed per call; V1 OFF preserves historical address-list behavior.
+      if (process.env.NOTIFICATIONS_EMAIL_V1_ENABLED === 'true' &&
+          !/^(?:[^<>\r\n,;]+<)?[^\s<>@,;]+@[^\s<>@,;]+\.[^\s<>@,;]+>?$/.test(to)) {
+        return { status: 'failed', error: 'provider_rejected' };
+      }
+      const budget = await reserveSmtpBudget('legacy');
+      if (budget) return budget;
       const info = await getSmtpTransport().sendMail({
         from: { name: EMAIL_FROM_NAME, address: EMAIL_FROM },
         replyTo: EMAIL_REPLY_TO,
@@ -90,7 +99,7 @@ export type TransactionalEmail = { to: string; subject: string; html: string; te
 
 // Release A is deliberately independent of legacy delivery and its Resend fallback.
 // Read the flag at dispatch time so disabling it also stops an existing worker.
-export async function deliverTransactionalEmail(to: string, subject: string, html: string, text: string): Promise<ProviderResult> {
+export async function deliverTransactionalEmail(to: string, subject: string, html: string, text: string, dispatch?: { deadlineAt: number }): Promise<SmtpBudgetResult> {
   if (process.env.NOTIFICATIONS_EMAIL_V1_ENABLED !== 'true') {
     return { status: 'not_configured', error: 'channel_not_configured' };
   }
@@ -118,6 +127,13 @@ export async function deliverTransactionalEmail(to: string, subject: string, htm
     return { status: 'failed', error: 'provider_rejected' };
   }
   try {
+    const budget = await reserveSmtpBudget('v1');
+    if (budget) return budget;
+    // A late SQL reservation remains spent; it must not start SMTP after the
+    // caller's deadline. This is checked again after quota admission, not before.
+    if (dispatch && (!Number.isFinite(dispatch.deadlineAt) || Date.now() >= dispatch.deadlineAt)) {
+      return { status: 'retry', error: 'smtp_budget_unavailable' };
+    }
     const transport = nodemailer.createTransport({
       host, port: 587, secure: false, requireTLS: true,
       ignoreTLS: false, opportunisticTLS: false,

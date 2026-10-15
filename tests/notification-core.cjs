@@ -259,6 +259,60 @@ async function main() {
     const missingId=await enqueue(missing);await core.processV1Notifications(1,providers(forbidden));
     assert.equal((await row(missingId)).last_error,'contact_missing');assert.equal((await row(missingId)).status,'failed');
   });
+  await test('SQL admission delay cannot start provider outside remaining deadline',async()=>{
+    const id=await enqueue(await booking());const blocker=await pool.connect();
+    await blocker.query('BEGIN');await blocker.query('SELECT pg_advisory_xact_lock(913202609)');
+    const pending=core.processV1Notifications(1,providers(forbidden),10,1100);
+    await new Promise(resolve=>setTimeout(resolve,250));await blocker.query('COMMIT');blocker.release();
+    await pending;const item=await row(id);assert.equal(item.status,'retry');assert.equal(item.attempts,0);assert.equal(item.send_started_at,null);
+  });
+  await test('quota deferrals preserve attempts and history; capacity recovery sends once',async()=>{
+    const id=await enqueue(await booking());let sends=0;
+    for(let i=0;i<5;i++){
+      await core.processV1Notifications(10,providers(async()=>({status:'retry',error:'smtp_budget_exhausted'})));
+      const item=await row(id);assert.equal(item.status,'retry');assert.equal(item.attempts,0);assert.equal(item.send_started_at,null);
+      assert.equal(item.last_error,'smtp_budget_exhausted');await pool.query('UPDATE appointment_notifications SET next_attempt_at=now() WHERE id=$1',[id]);
+    }
+    await core.processV1Notifications(10,providers(async()=>{sends++;return {status:'accepted'};}));
+    assert.equal(sends,1);assert.equal((await row(id)).status,'accepted');assert.equal((await row(id)).attempts,1);
+  });
+  await test('minute scheduler is isolated, one winner, durable duplicate and no catch-up',async()=>{
+    const scheduler=load('notification-scheduler');
+    env.NOTIFICATIONS_V1_SCHEDULER_ENABLED='true';
+    const minute=String((await pool.query('SELECT floor(extract(epoch FROM now())/60)::bigint m')).rows[0].m);
+    assert.equal((await scheduler.runNotificationMinute(minute,forbidden)).state,'paused');
+    await pool.query('UPDATE notification_worker_control SET paused=false');
+    assert.equal((await scheduler.runNotificationMinute(String(Number(minute)-1),forbidden)).state,'invalid');
+    let calls=0,release;const gate=new Promise(resolve=>{release=resolve;});
+    const first=scheduler.runNotificationMinute(minute,async()=>{calls++;await gate;return {processed:0};});
+    while(!calls)await new Promise(resolve=>setTimeout(resolve,5));
+    const rivals=await Promise.all(Array.from({length:20},()=>scheduler.runNotificationMinute(minute,forbidden)));
+    assert(rivals.every(result=>result.state==='blocked'));
+    release();assert.equal((await first).state,'done');assert.equal(calls,1);
+    delete mocks['@/lib/notification-scheduler']; // application restart, same DB
+    assert.equal((await load('notification-scheduler').runNotificationMinute(minute,forbidden)).state,'duplicate');
+    assert.equal((await pool.query('SELECT count(*)::int n FROM notification_worker_runs')).rows[0].n,1);
+    const daily=fs.readFileSync(path.join(root,'src/app/api/cron/reminders/route.ts'),'utf8');
+    assert(!daily.includes('processV1Notifications'));assert(daily.includes('syncReminders'));
+    const minuteRoute=fs.readFileSync(path.join(root,'src/app/api/cron/notifications-v1/route.ts'),'utf8');
+    assert(!minuteRoute.includes('syncReminders'));assert(!minuteRoute.includes('processNotificationQueue'));
+  });
+  await test('minute worker crash fails closed across restart; deadline leaves unclaimed work intact',async()=>{
+    const scheduler=load('notification-scheduler');
+    await pool.query('TRUNCATE notification_worker_runs');
+    await pool.query('UPDATE notification_worker_control SET paused=false,active_run=NULL,last_minute=NULL');
+    const minute=String((await pool.query('SELECT floor(extract(epoch FROM now())/60)::bigint m')).rows[0].m);
+    assert.equal((await scheduler.runNotificationMinute(minute,async()=>{throw Error('synthetic crash');})).state,'uncertain');
+    delete mocks['@/lib/notification-scheduler'];
+    assert.equal((await load('notification-scheduler').runNotificationMinute(minute,forbidden)).state,'paused');
+    const control=(await pool.query('SELECT * FROM notification_worker_control')).rows[0];assert(control.active_run);assert(control.paused);
+    assert.equal((await pool.query('SELECT status FROM notification_worker_runs')).rows[0].status,'uncertain');
+    const id=await enqueue(await booking());const before=await row(id);
+    assert.equal((await core.processV1Notifications(10,providers(forbidden),10000,1000)).processed,0);
+    assert.deepEqual(await row(id),before);
+    env.NOTIFICATIONS_V1_SCHEDULER_ENABLED='false';
+    assert.equal((await scheduler.runNotificationMinute(minute,forbidden)).state,'disabled');
+  });
   await test('no catch-up of old events and monotonic durable activation boundary',async()=>{
     const id=await enqueue(await booking());
     await pool.query("UPDATE appointment_notifications SET created_at=now()-interval '31 minutes' WHERE id=$1",[id]);

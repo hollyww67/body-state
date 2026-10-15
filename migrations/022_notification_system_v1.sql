@@ -27,6 +27,23 @@ CREATE TABLE notification_channel_activation (
  channel text PRIMARY KEY CHECK(channel IN ('email','max')),
  activated_at timestamptz NOT NULL
 );
+-- Independent minute worker; no changes to legacy daily occurrence accounting.
+-- Deployment must explicitly unpause after all channel/guard/quota gates pass.
+CREATE TABLE notification_worker_control (
+ singleton boolean PRIMARY KEY DEFAULT true CHECK(singleton),
+ paused boolean NOT NULL DEFAULT true,
+ last_minute bigint,
+ active_run uuid
+);
+INSERT INTO notification_worker_control(singleton) VALUES(true);
+CREATE TABLE notification_worker_runs (
+ occurrence_minute bigint PRIMARY KEY,
+ run_id uuid UNIQUE NOT NULL,
+ status text NOT NULL CHECK(status IN ('running','done','uncertain')),
+ started_at timestamptz NOT NULL DEFAULT now(),
+ finished_at timestamptz,
+ processed integer NOT NULL DEFAULT 0 CHECK(processed>=0)
+);
 CREATE TABLE account_notification_settings (
  account_user_id uuid PRIMARY KEY REFERENCES account_users(id) ON DELETE CASCADE,
  reminders_24h boolean NOT NULL DEFAULT true,
@@ -60,3 +77,18 @@ CREATE TABLE max_admin_binding (
  max_user_id text UNIQUE NOT NULL, max_chat_id text UNIQUE NOT NULL,
  confirmed_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- SMTP aggregate budget (Makar). Independent repeatable append; logged tables.
+CREATE TABLE IF NOT EXISTS public.notification_smtp_budget_scopes (
+ scope text PRIMARY KEY CHECK(scope ~ '^[a-zA-Z0-9_-]{1,80}$'),
+ policy text NOT NULL,
+ last_reserved_at timestamptz NOT NULL DEFAULT clock_timestamp()
+);
+CREATE TABLE IF NOT EXISTS public.notification_smtp_budget_reservations (
+ id uuid PRIMARY KEY,
+ scope text NOT NULL REFERENCES public.notification_smtp_budget_scopes(scope) ON DELETE RESTRICT,
+ reserved_at timestamptz NOT NULL
+);
+CREATE INDEX IF NOT EXISTS notification_smtp_budget_scope_time
+ ON public.notification_smtp_budget_reservations(scope,reserved_at DESC,id DESC);
+REVOKE ALL ON public.notification_smtp_budget_scopes, public.notification_smtp_budget_reservations FROM PUBLIC;
