@@ -8,6 +8,14 @@
 
 Ответственные: Петрович — интеграция/БД/финальные проверки; Макар — SMTP/шаблоны и backend MAX; Кузя (frontend-роль Петя) — настройки кабинета; Гриша — reset и scoped security review. Сеня подготовил изолированный QA harness; после ограничения доступности агента его проверки и расширение сценариев выполнил Петрович. Независимый финальный security sign-off после всех исправлений отдельно не заявляется.
 
+**Итог code delivery: PASS — IMPLEMENTED / ISOLATED QA VERIFIED. Активация production: BLOCKED до owner setup и отдельного разрешения.**
+
+Draft PR: https://github.com/hollyww67/body-state/pull/4 (base `feat/scheduling-v2`, PR #3 не merged). Проверенный code SHA: `900ff6f8a4641ea84a186e0e2d16bdedd3791881`. Hosted GitHub Actions run `38769649956`, job `116541800512`: SUCCESS всех этапов, включая real-PG suites, TypeScript, ESLint и штатный production build. Это подтверждённый hosted CI, отдельно от локальных результатов. Более поздний documentation-only commit необходимо сверять с отдельным CI run для его точного HEAD; данный run не выдаётся за проверку будущих коммитов.
+
+Финальный локальный Linux Docker artifact по code SHA900ff6f: image ID/index digest `sha256:3b0a781f52697a08f82c4dca8714b0d8b9f51ea9323d7a324dc647fc1796821f`; OCI platform manifest `sha256:3178d5856190ffabd27227e6f35385f664f53601b003bc1965f9b02804bd4d81`; revision label совпадает с code SHA. Это локальный QA image, не опубликованный production release image.
+
+HTTP/runtime QA этого image: отдельная синтетическая БД `notifications_runtime_20261015`, миграции001..022 PASS; app running/restarts0; `/api/health` HTTP200. Браузер: успешный admin login, журнал/отключённый admin MAX; customer login, настройки email/MAX при OFF; mobile viewport390×844 без горизонтального переполнения на проверенной странице. Физическая PWA/actual zoom200% этим не подтверждаются. Скриншоты `artifacts/notification-v1/admin-notifications.png`, `account-notifications-mobile.png` локальные, с синтетическим QA аккаунтом.
+
 ## Компактная карта интеграции
 
 | Точка | Существующее поведение → изменение |
@@ -53,8 +61,8 @@ Dedicated local Docker PG17 + Redis, loopback15435/16379, label `notifications-i
 | `node --test tests/max-notifications.cjs` | 13 fake-provider/security cases PASS; forged/duplicate/oversize/replay-related one-time binding, auth/origin, role/version transport contracts. |
 | `node tests/notification-smtp-templates.cjs` | SMTP mocks, десять шаблонов, HTML/text, MIME multipart в памяти, STARTTLS/certificate/header injection/privacy PASS. |
 | TypeScript / ESLint | Выполняются на итоговом дереве; без live credentials. |
-| Production build | Linux Docker штатный Turbopack build прошёл на промежуточном дереве; итоговый повтор и HTTP smoke должны быть подтверждены отдельно. Windows Turbopack отказал из-за внешнего node_modules junction; Windows webpack build прошёл. |
-| GitHub CI | Новый `notifications-v1.yml`, exact PR head checkout, isolated deps/tests/build, без deployment. Локальные результаты не выдаются за hosted CI. Фактический статус проверять для текущего PR SHA. |
+| Production build | Linux Docker штатный Turbopack build итогового code SHA900ff6f PASS; готовый image HTTP smoke PASS. Windows Turbopack отказал из-за внешнего node_modules junction; Windows webpack build прошёл. |
+| GitHub CI | `notifications-v1.yml`, exact PR head900ff6f checkout: run38769649956 SUCCESS; isolated deps/tests/build, без deployment. Локальные результаты не выдаются за hosted CI. Фактический статус проверять для текущего PR SHA. |
 
 Локальные generated логи: `artifacts/notification-v1/` (не коммитятся). Реальные inbox delivery, provider accepted/ACKlost fault injection на живых сервисах, физические iOS/Android PWA и actual200% zoom не проверялись. Fake/MIME тест не равен сетевому SMTP STARTTLS end-to-end тесту. Юридическая гарантия соответствия или актуальная проверка DNS не заявляются; действующие сервисные согласия и политика требуют owner/legal review перед MAX.
 

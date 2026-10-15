@@ -24,6 +24,8 @@
 
 Legacy `deliverEmail`/`sendEmail` сохраняют прежние `EMAIL_API_KEY`, `EMAIL_FROM`, `EMAIL_FROM_NAME`, `EMAIL_REPLY_TO`; новый entrypoint не переключается на Resend и требует `SMTP_FROM`. SMTP host/port/user/password общие с legacy: их замена способна изменить старую отправку даже при выключенном V1-флаге. Нужен preflight действующей конфигурации перед заменой; OFF — не изоляция legacy SMTP. Ключ восстановления не менять, пока действуют связанные reset-запросы: это нарушит проверку производных токенов; ротация требует отдельного плана.
 
+Существующий production ENV validator также требует `EMAIL_FROM` при настроенном SMTP. Сохранить/согласовать совместимый подтверждённый адрес для legacy-путей (отдельно от display-name формата `SMTP_FROM`), не удалять существующие EMAIL_* значения автоматически. Пустые или неподтверждённые legacy sender параметры — blocker preflight, а не причина отключать валидацию.
+
 | Переменная | Контракт Release B |
 | --- | --- |
 | `NOTIFICATIONS_MAX_V1_ENABLED` | По умолчанию OFF; включение только точным `true`, независимо от email. До допуска `false`. |
