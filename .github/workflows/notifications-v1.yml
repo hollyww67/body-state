@@ -30,6 +30,7 @@ jobs:
           for attempt in $(seq 1 30); do docker --context default exec body-state-notifications-qa-pg pg_isready -U notifications_qa && break; sleep 1; done
           docker --context default exec body-state-notifications-qa-pg pg_isready -U notifications_qa
       - run: node tests/notification-smtp-templates.cjs
+      - run: node tests/notification-email-design.cjs
       - run: node tests/notification-smtp-budget.cjs
       - run: node tests/notification-reset.cjs
       - run: node --test tests/max-notifications.cjs

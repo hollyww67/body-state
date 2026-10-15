@@ -96,7 +96,7 @@ async function main() {
     'reminder_24h', 'reminder_2h', 'reset_requested', 'password_changed', 'delivery_alert']) {
     const template = notificationTemplate(kind, data);
     assert(template.subject.startsWith('Body State')); assert(template.text); assert(template.html);
-    assert(template.html.includes('https://body-state.ru/logo.png'));
+    assert(template.html.includes('https://body-state.ru/admin-icons/192.png'));
     assert(template.html.includes('name="viewport"')); assert(!template.html.includes('<script>'));
     assert(!template.html.includes('<img onerror')); assert(!JSON.stringify(template).includes('MUST_NOT_APPEAR'));
   }
