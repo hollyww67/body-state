@@ -1,0 +1,10 @@
+FROM python:3.12.14-slim-trixie
+RUN apt-get update && apt-get install -y --no-install-recommends cron && rm -rf /var/lib/apt/lists/*
+RUN ln -s /usr/local/bin/python3 /usr/bin/python3
+COPY deploy/notification-scheduler/guard.py /usr/local/libexec/doctor-site-notifications-v1/guard.py
+COPY deploy/notification-scheduler/system.front.sh /usr/local/sbin/doctor-site-notifications-v1
+COPY deploy/notification-scheduler/notifications-v1.cron /etc/cron.d/notifications-v1
+COPY tests/notification-scheduler-cron.py /qa/notification-scheduler-cron.py
+RUN chmod 0700 /usr/local/libexec/doctor-site-notifications-v1 /usr/local/libexec/doctor-site-notifications-v1/guard.py /usr/local/sbin/doctor-site-notifications-v1 && chmod 0644 /etc/cron.d/notifications-v1 && sha256sum /usr/local/libexec/doctor-site-notifications-v1/guard.py /usr/local/sbin/doctor-site-notifications-v1 /etc/cron.d/notifications-v1 > /etc/notification-scheduler-qa.sha256 && chmod 0600 /etc/notification-scheduler-qa.sha256
+ENV TZ=UTC
+CMD ["python3","-u","/qa/notification-scheduler-cron.py"]

@@ -1,0 +1,53 @@
+name: Notifications V1 isolated gate (no deployment)
+on:
+  pull_request:
+    branches: [feat/scheduling-v2]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  notifications:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+      NOTIFICATIONS_EMAIL_V1_ENABLED: 'false'
+      NOTIFICATIONS_MAX_V1_ENABLED: 'false'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: git rev-parse HEAD
+      - run: npm ci --no-audit --no-fund
+      - name: Start synthetic isolated dependencies
+        run: |
+          docker --context default run -d --name body-state-notifications-qa-pg --label purpose=notifications-isolated-qa -e POSTGRES_USER=notifications_qa -e POSTGRES_PASSWORD=synthetic_notifications_qa -e POSTGRES_DB=notifications_qa -p 127.0.0.1:15435:5432 postgres:17-alpine
+          docker --context default run -d --name body-state-notifications-qa-redis --label purpose=notifications-isolated-qa -p 127.0.0.1:16379:6379 redis:8-alpine
+          for attempt in $(seq 1 30); do docker --context default exec body-state-notifications-qa-pg pg_isready -U notifications_qa && break; sleep 1; done
+          docker --context default exec body-state-notifications-qa-pg pg_isready -U notifications_qa
+      - run: node tests/notification-smtp-templates.cjs
+      - run: node tests/notification-email-design.cjs
+      - run: node tests/notification-smtp-budget.cjs
+      - run: node tests/notification-reset.cjs
+      - run: node --test tests/max-notifications.cjs
+      - run: node tests/notification-core.cjs
+      - run: node tests/notification-core-harness.cjs
+      - name: Real Linux guard processes and durable restart
+        run: |
+          docker --context default run -d --name notification-scheduler-pr4-qa --network none --mount type=bind,source="$PWD",target=/input,readonly python:3.12.14-slim-trixie sleep infinity
+          docker --context default exec notification-scheduler-pr4-qa python /input/tests/notification-scheduler-guard.py
+          docker --context default restart notification-scheduler-pr4-qa
+          docker --context default exec notification-scheduler-pr4-qa python /input/tests/notification-scheduler-guard-restart.py
+      - name: Actual cron daemon two natural UTC minutes (fake loopback only)
+        run: sh deploy/notification-scheduler/run-cron-qa.sh
+      - run: npx tsc --noEmit
+      - run: npm run lint
+      - run: node tests/payment-init.cjs
+      - run: node tests/admin-modal.cjs
+      - run: node tests/admin-pwa.cjs
+      - run: node tests/dependency-regressions.cjs
+      - run: npm run build
