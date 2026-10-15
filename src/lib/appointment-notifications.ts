@@ -3,6 +3,7 @@ import { db, pool } from '@/lib/db';
 import { deliverEmail } from '@/lib/notifications';
 import { deliverSMS } from '@/lib/sms';
 import type { ProviderResult } from '@/lib/notification-result';
+import { emailV1Enabled, enqueueBookingNotification, scheduleV1Reminders, retryV1Notification } from '@/lib/notification-core';
 import { JOURNEY_SERVICES, loadJourney, type JourneyService } from '@/lib/booking-journey';
 
 type EventType='created'|'confirmed'|'rescheduled'|'cancelled'|'reminder';
@@ -20,19 +21,24 @@ export function appointmentMessage(kind:EventType, b:Record<string,unknown>) {
 export async function enqueueAppointment(client:PoolClient,service:JourneyService,id:string,kind:EventType, scheduledAt?:Date) {
   const b=await loadJourney(service,id,client); if(!b)return;
   const planned=scheduledAt||new Date();
-  for(const channel of ['sms','email']) await client.query(`INSERT INTO appointment_notifications(booking_id,service_type,event_type,revision,channel,scheduled_at,next_attempt_at)
+  if(kind!=='reminder'){
+    const previous=kind==='rescheduled'?(await client.query(`SELECT old_time FROM booking_events WHERE booking_id=$1 AND service_type=$2 AND event_type='rescheduled' ORDER BY id DESC LIMIT 1`,[id,service])).rows[0]?.old_time:null;
+    await enqueueBookingNotification(client,service,id,kind,{at:planned,payload:previous?{oldTime:new Date(previous).toISOString()}:undefined});
+  }
+  for(const channel of emailV1Enabled()?['sms']:['sms','email']) await client.query(`INSERT INTO appointment_notifications(booking_id,service_type,event_type,revision,channel,scheduled_at,next_attempt_at)
     VALUES($1,$2,$3,$4,$5,$6,$6) ON CONFLICT DO NOTHING`,[id,service,kind,b.notification_revision,channel,planned]);
 }
 export async function invalidateAppointmentNotifications(client:PoolClient,service:JourneyService,id:string) {
   await client.query(`UPDATE appointment_notifications SET
     status=CASE WHEN status='processing' AND send_started_at IS NOT NULL THEN 'uncertain' ELSE 'cancelled' END,
     last_error=CASE WHEN status='processing' AND send_started_at IS NOT NULL THEN 'provider_outcome_unknown' ELSE last_error END,
-    updated_at=now() WHERE booking_id=$1 AND service_type=$2 AND status IN ('queued','retry','processing','failed','not_configured')`,[id,service]);
+    updated_at=now() WHERE booking_id=$1 AND service_type=$2 AND event_type<>'paid' AND status IN ('queued','retry','processing','failed','not_configured')`,[id,service]);
   await client.query(`UPDATE ${service}_bookings SET notification_revision=notification_revision+1 WHERE id=$1`,[id]);
 }
 export async function scheduleReminder(client:PoolClient,service:JourneyService,id:string) {
   const b=await loadJourney(service,id,client);
   if(!b || b.status!=='confirmed' || new Date(b.slot_time)<=new Date())return;
+  await scheduleV1Reminders(client,service,id);
   const at=new Date(Math.max(Date.now(),new Date(b.slot_time).getTime()-24*3600000));
   await enqueueAppointment(client,service,id,'reminder',at);
 }
@@ -57,11 +63,11 @@ function isCurrent(row:NotificationRow,b:Record<string,unknown>|null){
 }
 export async function processNotificationQueue(limit=20,providers:NotificationProviders={sms:deliverSMS,email:deliverEmail},providerTimeoutMs=15_000) {
   // An interrupted send can have been accepted remotely. Never automatically resend it.
-  await pool.query(`UPDATE appointment_notifications SET status='uncertain',last_error='worker_interrupted',updated_at=now() WHERE status='processing' AND processing_at<now()-interval '5 minutes'`);
+  await pool.query(`UPDATE appointment_notifications SET status='uncertain',last_error='worker_interrupted',updated_at=now() WHERE engine='legacy' AND status='processing' AND processing_at<now()-interval '5 minutes'`);
   let processed=0;
   for(let n=0;n<Math.min(limit,50);n++) {
     const row=await db.transaction(async client=>{
-      const r=await client.query<NotificationRow>(`SELECT * FROM appointment_notifications WHERE status IN ('queued','retry') AND scheduled_at<=now() AND next_attempt_at<=now() ORDER BY next_attempt_at,id FOR UPDATE SKIP LOCKED LIMIT 1`);
+      const r=await client.query<NotificationRow>(`SELECT * FROM appointment_notifications WHERE engine='legacy' AND status IN ('queued','retry') AND scheduled_at<=now() AND next_attempt_at<=now() ORDER BY next_attempt_at,id FOR UPDATE SKIP LOCKED LIMIT 1`);
       if(!r.rows[0])return null;
       await client.query(`UPDATE appointment_notifications SET status='processing',processing_at=now(),send_started_at=NULL,attempts=attempts+1,updated_at=now() WHERE id=$1`,[r.rows[0].id]);
       return {...r.rows[0],attempts:r.rows[0].attempts+1};
@@ -108,6 +114,8 @@ export async function processNotificationQueue(limit=20,providers:NotificationPr
   return {processed};
 }
 export async function requeueNotification(id:string) {
+  const engine=await pool.query('SELECT engine FROM appointment_notifications WHERE id=$1',[id]);
+  if(engine.rows[0]?.engine==='v1')return retryV1Notification(id);
   return db.transaction(async client=>{
     await client.query('SELECT pg_advisory_xact_lock($1)',[913202609]);
     const r=await client.query<NotificationRow & {status:string}>(`SELECT * FROM appointment_notifications WHERE id=$1 FOR UPDATE`,[id]);

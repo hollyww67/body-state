@@ -41,6 +41,25 @@ if (value("SMTP_PORT") && (!Number.isInteger(Number(value("SMTP_PORT"))) || Numb
 }
 if (!!value("SMSAERO_EMAIL") !== !!value("SMSAERO_API_KEY")) errors.push("SMSAERO_EMAIL and SMSAERO_API_KEY must be configured together");
 
+for(const channel of ['EMAIL','MAX']){
+  const flag=`NOTIFICATIONS_${channel}_V1_ENABLED`;
+  if(value(flag)&&!['true','false'].includes(value(flag)))errors.push(`${flag} must be true or false`);
+  if(value(flag)==='true'){
+    const name=`NOTIFICATIONS_${channel}_V1_ACTIVE_SINCE`,timestamp=requireValue(name);
+    if(!/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d{3})?Z$/.test(timestamp)||!Number.isFinite(Date.parse(timestamp))||Date.parse(timestamp)>Date.now()+60000)errors.push(`${name} must be a current UTC activation boundary`);
+  }
+}
+if(value('NOTIFICATIONS_EMAIL_V1_ENABLED')==='true'){
+  for(const name of ['SMTP_HOST','SMTP_USER','SMTP_PASSWORD','SMTP_FROM'])requireValue(name);
+  requireValue('NOTIFICATION_RESET_KEY',32);
+  if((value('SMTP_PORT')||'587')!=='587'||(value('SMTP_SECURE')&&value('SMTP_SECURE')!=='false'))errors.push('Notification SMTP requires STARTTLS on port 587');
+}
+if(value('NOTIFICATIONS_MAX_V1_ENABLED')==='true'){
+  requireValue('MAX_BOT_TOKEN');requireValue('MAX_WEBHOOK_SECRET',32);
+  try{const bot=new URL(requireValue('MAX_BOT_URL'));if(bot.protocol!=='https:'||bot.hostname!=='max.ru'||bot.username||bot.password||bot.port||bot.search||bot.hash||!/^\/[A-Za-z0-9_-]+$/.test(bot.pathname))errors.push('MAX_BOT_URL must be an official HTTPS bot link');}
+  catch{errors.push('MAX_BOT_URL must be an official HTTPS bot link');}
+}
+
 if (errors.length) {
   console.error("Production environment validation failed:");
   for (const error of errors) console.error(`- ${error}`);

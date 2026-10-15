@@ -5,6 +5,7 @@ import { refreshSlotOccupancy, type ServiceType } from "@/lib/slots";
 import type { OrderItem } from "@/lib/order-stock";
 import { enqueueAppointment, invalidateAppointmentNotifications, scheduleReminder } from '@/lib/appointment-notifications';
 import { findBookingPaymentCases } from '@/lib/payment-cases';
+import { enqueueBookingNotification } from '@/lib/notification-core';
 
 const BOOKING_TABLES: Record<ServiceType, string> = {
   bfm: "bfm_bookings",
@@ -84,6 +85,10 @@ export async function settleBookingPayments(items: OrderItem[], outcome: "paid" 
         await enqueueAppointment(client,service,item.bookingId!,'confirmed');
         await scheduleReminder(client,service,item.bookingId!);
       }
+      // Inside the same committed settlement transaction; never emitted by Init.
+      await enqueueBookingNotification(client,service,item.bookingId!,'paid',{
+        key:`paid:${service}:${item.bookingId}:${orderId||'legacy'}`,
+      });
       return current.status === "pending" ? current : null;
     });
   }

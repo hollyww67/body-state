@@ -6,6 +6,8 @@ import { ACCOUNT_COOKIE } from "@/lib/account-auth";
 import { validatePassword } from "@/lib/account-credentials";
 import { db } from "@/lib/db";
 import { enforceRateLimit, readJsonObject } from "@/lib/request";
+import { resetNotificationsEnabled } from "@/lib/notification-reset";
+import { enqueueAccountNotification } from "@/lib/notification-core";
 
 function digest(value: string) {
   return crypto.createHash("sha256").update(value).digest("hex");
@@ -31,6 +33,12 @@ export async function POST(request: NextRequest) {
 
   const passwordHash = await bcrypt.hash(password, 12);
   const changed = await db.transaction(async (client) => {
+    const owner = await client.query<{ account_user_id: string }>(
+      "SELECT account_user_id::text FROM account_password_reset_tokens WHERE token_hash=$1", [digest(token)],
+    );
+    if (!owner.rows[0]) return false;
+    const account = await client.query("SELECT id FROM account_users WHERE id=$1 AND disabled_at IS NULL FOR UPDATE", [owner.rows[0].account_user_id]);
+    if (!account.rowCount) return false;
     const found = await client.query<{ id: string; account_user_id: string }>(
       `SELECT id::text, account_user_id::text
          FROM account_password_reset_tokens
@@ -48,6 +56,9 @@ export async function POST(request: NextRequest) {
     );
     if (updated.rowCount !== 1) return false;
     await client.query("UPDATE account_password_reset_tokens SET used_at=now() WHERE account_user_id=$1 AND used_at IS NULL", [reset.account_user_id]);
+    if (resetNotificationsEnabled()) {
+      await enqueueAccountNotification(client, reset.account_user_id, "password_changed", `password_changed:${reset.id}`, {});
+    }
     return true;
   });
 

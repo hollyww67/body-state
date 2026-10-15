@@ -85,3 +85,71 @@ export async function deliverEmail(to: string, subject: string, html: string): P
 export async function sendEmail(to:string, subject:string, html:string):Promise<boolean> {
   const r=await deliverEmail(to,subject,html); return r.status==='accepted'||r.status==='delivered';
 }
+
+export type TransactionalEmail = { to: string; subject: string; html: string; text: string };
+
+// Release A is deliberately independent of legacy delivery and its Resend fallback.
+// Read the flag at dispatch time so disabling it also stops an existing worker.
+export async function deliverTransactionalEmail(to: string, subject: string, html: string, text: string): Promise<ProviderResult> {
+  if (process.env.NOTIFICATIONS_EMAIL_V1_ENABLED !== 'true') {
+    return { status: 'not_configured', error: 'channel_not_configured' };
+  }
+  const host = process.env.SMTP_HOST;
+  const from = process.env.SMTP_FROM;
+  const replyTo = process.env.SMTP_REPLY_TO;
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASSWORD;
+  const message: TransactionalEmail = { to, subject, html, text };
+  const headerSafe = (value: string) => !/[\r\n\0]/.test(value);
+  const mailbox = (value: string) => headerSafe(value) &&
+    /^(?:[^<>]+<)?[^\s<>@,;]+@[^\s<>@,;]+\.[^\s<>@,;]+>?$/.test(value) &&
+    (value.includes('<') === value.endsWith('>'));
+  if (!host || !headerSafe(host) || !user || !pass || !from || !mailbox(from) ||
+      (replyTo !== undefined && !mailbox(replyTo)) ||
+      (process.env.SMTP_PORT || '587') !== '587' ||
+      ![undefined, 'false'].includes(process.env.SMTP_SECURE)) {
+    return { status: 'not_configured', error: 'channel_not_configured' };
+  }
+  if (!message || typeof message.to !== 'string' || !mailbox(message.to) ||
+      message.to.includes('<') || typeof message.subject !== 'string' ||
+      !message.subject.trim() || !headerSafe(message.subject) ||
+      typeof message.html !== 'string' || !message.html.trim() ||
+      typeof message.text !== 'string' || !message.text.trim()) {
+    return { status: 'failed', error: 'provider_rejected' };
+  }
+  try {
+    const transport = nodemailer.createTransport({
+      host, port: 587, secure: false, requireTLS: true,
+      ignoreTLS: false, opportunisticTLS: false,
+      tls: { rejectUnauthorized: true, minVersion: 'TLSv1.2', servername: host },
+      auth: { user, pass },
+      connectionTimeout: 10_000, greetingTimeout: 10_000,
+      socketTimeout: 15_000, dnsTimeout: 10_000,
+      logger: false, debug: false,
+      disableFileAccess: true, disableUrlAccess: true,
+    });
+    const info = await transport.sendMail({
+      from, replyTo, to: message.to, subject: message.subject,
+      html: message.html, text: message.text,
+    });
+    if (!Array.isArray(info.accepted) || info.accepted.length !== 1) {
+      if (Array.isArray(info.rejected) && info.rejected.length > 0) {
+        return { status: 'failed', error: 'provider_rejected' };
+      }
+      return { status: 'uncertain', error: 'provider_outcome_unknown' };
+    }
+    return { status: 'accepted', id: typeof info.messageId === 'string' ? info.messageId : undefined };
+  } catch (error: unknown) {
+    // Never return/log response text: it can contain credentials, recipient or reset URL.
+    const failure = error as { responseCode?: unknown; code?: unknown } | null;
+    const status = failure?.responseCode;
+    if (typeof status === 'number' && status >= 400 && status < 600) {
+      return { status: status < 500 ? 'retry' : 'failed',
+        error: status < 500 ? 'provider_unavailable' : 'provider_rejected' };
+    }
+    if (failure?.code === 'EAUTH' || failure?.code === 'ETLS') {
+      return { status: 'failed', error: 'provider_rejected' };
+    }
+    return { status: 'uncertain', error: 'provider_outcome_unknown' };
+  }
+}
