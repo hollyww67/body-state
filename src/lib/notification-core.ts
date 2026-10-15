@@ -77,14 +77,14 @@ async function resolvePayload(client:PoolClient,row:Row){
   if(boundary===null||new Date(row.created_at).getTime()<boundary)return null;
   if(!isReminder(row.event_type)&&Date.now()-new Date(row.created_at).getTime()>30*60000)return null;
   if(row.recipient_role==='admin'){
-    const binding=(await client.query('SELECT max_chat_id,confirmed_at FROM max_admin_binding')).rows[0];
+    const binding=(await client.query('SELECT max_chat_id,confirmed_at::text AS binding_version FROM max_admin_binding')).rows[0];
     if(!binding)return null;
     const message=notificationTemplate('delivery_alert',{accountUrl:'https://body-state.ru/admin/notifications'});
     if(row.event_type!=='delivery_alert'){
       const labels:Partial<Record<NotificationKind,string>>={created:'Новая запись',confirmed:'Новая запись',cancelled:'Отмена записи',rescheduled:'Перенос записи',paid:'Оплата подтверждена'};
       message.text=`Body State: ${labels[row.event_type]||'Событие записи'}. Подробности — https://body-state.ru/admin/bookings`;
     }
-    return {recipient:binding.max_chat_id,message,maxRecipient:{role:'admin',boundAt:new Date(binding.confirmed_at).toISOString()} as MaxRecipient};
+    return {recipient:binding.max_chat_id,message,maxRecipient:{role:'admin',boundAt:binding.binding_version} as MaxRecipient};
   }
   let booking:Record<string,unknown>|null=null;
   if(row.booking_id&&row.service_type){
@@ -114,9 +114,9 @@ async function resolvePayload(client:PoolClient,row:Row){
   let recipient=String(user?.email||booking?.client_email||order?.receipt_email||'');
   let maxRecipient:MaxRecipient|undefined;
   if(row.channel==='max'){
-    const binding=userId?(await client.query('SELECT max_chat_id,created_at FROM max_account_bindings WHERE account_user_id=$1',[userId])).rows[0]:null;
+    const binding=userId?(await client.query('SELECT max_chat_id,created_at::text AS binding_version FROM max_account_bindings WHERE account_user_id=$1',[userId])).rows[0]:null;
     recipient=binding?.max_chat_id||'';
-    if(binding)maxRecipient={role:'client',accountUserId:String(userId),boundAt:new Date(binding.created_at).toISOString()};
+    if(binding)maxRecipient={role:'client',accountUserId:String(userId),boundAt:binding.binding_version};
   }
   const data:Record<string,unknown>={name:user?.display_name||booking?.client_name,slotTime:booking?.slot_time?new Date(String(booking.slot_time)).toISOString():undefined,
     serviceTitle:({bfm:'Физическая реабилитация',brt:'БРТ',psychology:'Психологическая реабилитация'} as Record<string,string>)[row.service_type||''],
@@ -193,7 +193,9 @@ export async function processV1Notifications(limit=20,providers:V1Providers={ema
     await db.transaction(async client=>{
       await client.query('SELECT pg_advisory_xact_lock($1)',[913202609]);
       const current=(await client.query('SELECT status FROM appointment_notifications WHERE id=$1 FOR UPDATE',[row.id])).rows[0];
-      const stale=current?.status!=='processing'||!await resolvePayload(client,row);
+      const resolved=await resolvePayload(client,row);
+      const stale=current?.status!=='processing'||!resolved||
+        (row.channel==='max'&&(resolved.recipient!==payload.recipient||resolved.maxRecipient?.boundAt!==payload.maxRecipient?.boundAt));
       await client.query(`UPDATE appointment_notifications SET status=CASE WHEN status<>'processing' OR $6 THEN 'uncertain' ELSE $2 END,
       last_error=CASE WHEN status<>'processing' OR $6 THEN 'provider_outcome_unknown' ELSE $3 END,
       provider_message_id=$4,accepted_at=CASE WHEN $2 IN ('accepted','delivered') THEN now() ELSE accepted_at END,

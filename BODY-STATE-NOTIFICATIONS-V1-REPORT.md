@@ -55,7 +55,7 @@ Dedicated local Docker PG17 + Redis, loopback15435/16379, label `notifications-i
 
 | Проверка | Результат |
 | --- | --- |
-| `node tests/notification-core.cjs` | 15 real-PG групп: atomic rollback,20 workers, paid dedup, revisions, no catch-up, retry/dead-letter, uncertain, pre-send crash recovery, legacy coverage, concurrent real reset consume, durable MAX/admin binding. |
+| `node tests/notification-core.cjs` | 16 real-PG групп: atomic rollback,20 workers, paid dedup, revisions, no catch-up, retry/dead-letter, uncertain, pre-send crash recovery, legacy coverage, concurrent real reset consume, durable MAX/admin binding и transport, in-flight stale ACK, missing email. |
 | `node tests/notification-core-harness.cjs` | 53 integration cases,9 pool10 stress groups,21 Scheduling V2 cases; nested checkouts0. |
 | `node tests/notification-reset.cjs` | Offline rate-limit/neutral response/TTL/reuse/session invalidation/rollback contracts PASS; real concurrency дополнительно проверена core suite. |
 | `node --test tests/max-notifications.cjs` | 13 fake-provider/security cases PASS; forged/duplicate/oversize/replay-related one-time binding, auth/origin, role/version transport contracts. |
@@ -67,6 +67,8 @@ Dedicated local Docker PG17 + Redis, loopback15435/16379, label `notifications-i
 Локальные generated логи: `artifacts/notification-v1/` (не коммитятся). Реальные inbox delivery, provider accepted/ACKlost fault injection на живых сервисах, физические iOS/Android PWA и actual200% zoom не проверялись. Fake/MIME тест не равен сетевому SMTP STARTTLS end-to-end тесту. Юридическая гарантия соответствия или актуальная проверка DNS не заявляются; действующие сервисные согласия и политика требуют owner/legal review перед MAX.
 
 ## Раздельные поставки
+
+После SHA900ff6f добавлен точечный correctness patch: версия MAX binding передаётся как PostgreSQL timestamp text без потери микросекунд через JavaScript Date; ACK проверяет неизменность получателя/версии. Real-PG тесты transport с fake fetch проходят для обеих ролей, неверная роль отклоняется без send. Указанный выше image900ff6f и CI run38769649956 — историческое evidence до этого патча, не проверка нового HEAD. Актуальный exact-HEAD CI и повторный Docker/runtime evidence публикуются в PR #4; локальные логи остаются в artifacts/notification-v1.
 
 **A — Postbox:** core+SMTP+templates+recovery+booking/order paid emails+settings+monitoring реализованы. MAX flag может оставаться OFF. Активация BLOCKED до Postbox/cron/preflight/разрешения.
 

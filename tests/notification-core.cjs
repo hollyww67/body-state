@@ -23,6 +23,7 @@ const env = { NOTIFICATIONS_EMAIL_V1_ENABLED: 'true', NOTIFICATIONS_MAX_V1_ENABL
 let pool, core, db, protectedRows;
 const results = [];
 const forbidden = () => { throw Error('External provider/network forbidden'); };
+let providerFetch=forbidden;
 const mocks = {
   '@/lib/notifications': { deliverTransactionalEmail: forbidden },
   '@/lib/max-notifications': { deliverMax: forbidden },
@@ -40,8 +41,8 @@ function load(name) {
   const compiled = path.join(temp, `${name}.cjs`);
   fs.writeFileSync(compiled, output.outputText);
   const exports = {};
-  vm.runInNewContext(fs.readFileSync(compiled, 'utf8'), { exports, process: { env }, Buffer, URL, Date, console,
-    setTimeout, clearTimeout, fetch: forbidden,
+  vm.runInNewContext(fs.readFileSync(compiled, 'utf8'), { exports, process: { env }, Buffer, URL, Date, console,AbortSignal,
+    setTimeout, clearTimeout, fetch: (...args)=>providerFetch(...args),
     require: key => key.startsWith('@/lib/') ? load(key.slice(6)) : ['node:crypto','crypto'].includes(key) ? require(key) : (() => { throw Error(`Unexpected import ${key}`); })(),
   }, { filename: compiled });
   mocks[alias] = exports;
@@ -235,9 +236,28 @@ async function main() {
     assert.equal(await adminBinding.confirmMaxAdminBinding('wrong','987'),false);
     assert.equal(await adminBinding.confirmMaxAdminBinding('789','987'),true);
     assert.equal(await adminBinding.confirmMaxAdminBinding('789','987'),false);
+    env.MAX_BOT_TOKEN='synthetic-fake-token';
+    let sends=0;providerFetch=async()=>{sends++;return new Response(JSON.stringify({message:{body:{mid:'synthetic-accepted'}}}));};
+    // Keep full PostgreSQL microseconds: JavaScript Date roundtrip loses binding identity.
+    const clientVersion=(await pool.query('SELECT created_at::text AS version FROM max_account_bindings WHERE account_user_id=$1',[user])).rows[0].version;
+    assert.equal((await max.deliverMax('456','test',{role:'client',accountUserId:user,boundAt:clientVersion})).status,'accepted');
+    const adminVersion=(await pool.query('SELECT confirmed_at::text AS version FROM max_admin_binding')).rows[0].version;
+    assert.equal((await max.deliverMax('987','test',{role:'admin',boundAt:adminVersion})).status,'accepted');assert.equal(sends,2);
+    assert.equal((await max.deliverMax('987','test',{role:'client',accountUserId:user,boundAt:clientVersion})).status,'failed');assert.equal(sends,2);
+    providerFetch=forbidden;
     await adminBinding.revokeMaxAdminBinding();await max.unlinkMax(user);
     assert.equal((await pool.query('SELECT * FROM max_account_bindings WHERE account_user_id=$1',[user])).rowCount,0);
     env.NOTIFICATIONS_MAX_V1_ENABLED='false';
+  });
+  await test('V1 in-flight revision change is uncertain, missing email is a safe failure',async()=>{
+    const bookingId=await booking();const id=await enqueue(bookingId);
+    await core.processV1Notifications(1,providers(async()=>{
+      await pool.query('UPDATE bfm_bookings SET notification_revision=notification_revision+1 WHERE id=$1',[bookingId]);
+      return {status:'accepted'};
+    }));assert.equal((await row(id)).status,'uncertain');assert.equal(await core.retryV1Notification(id),false);
+    const missing=await booking();await pool.query('UPDATE bfm_bookings SET client_email=NULL WHERE id=$1',[missing]);
+    const missingId=await enqueue(missing);await core.processV1Notifications(1,providers(forbidden));
+    assert.equal((await row(missingId)).last_error,'contact_missing');assert.equal((await row(missingId)).status,'failed');
   });
   await test('no catch-up of old events and monotonic durable activation boundary',async()=>{
     const id=await enqueue(await booking());
