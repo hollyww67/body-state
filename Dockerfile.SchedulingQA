@@ -4,7 +4,8 @@ WORKDIR /app
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build -- --webpack \
-  && cp -r public .next/standalone/public \
-  && cp -r .next/static .next/standalone/.next/static
+  && mkdir -p .next/standalone/public .next/standalone/.next/static \
+  && cp -r public/. .next/standalone/public/ \
+  && cp -r .next/static/. .next/standalone/.next/static/
 ENV HOSTNAME=0.0.0.0 PORT=3000 NODE_ENV=production
 CMD ["node", ".next/standalone/server.js"]

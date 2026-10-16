@@ -31,11 +31,11 @@ export default function ScheduleTimeline({days,slots,bookings,breaks,rules,onSlo
   const minimumStep=starts.slice(1).reduce((n,m,i)=>Math.min(n,m-starts[i]),30);
   const scale=Math.max(1.4,44/minimumStep),height=(high-low)*scale;
   const label=(m:number)=>`${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;
-  return <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white" aria-label="Временная сетка расписания">
-    <div style={{minWidth:days.length>1?days.length*170+55:260}}>
-      <div className="grid sticky top-0 z-10 bg-white border-b" style={{gridTemplateColumns:`55px repeat(${days.length},minmax(0,1fr))`}}><span className="p-2 text-xs">МСК</span>{days.map(d=><div key={format(d,'yyyy-MM-dd')} className="p-2 text-center text-sm font-semibold">{format(d,'dd.MM EEE',{locale:ru})}</div>)}</div>
+  return <div className="bs-timeline" aria-label="Временная сетка расписания">
+    <div style={{minWidth:days.length>1?days.length*128+55:260}}>
+      <div className="bs-timeline-heading grid sticky top-0 z-10 border-b border-[var(--bs-border)]" style={{gridTemplateColumns:`55px repeat(${days.length},minmax(0,1fr))`}}><span className="p-2 text-xs">МСК</span>{days.map(d=><div key={format(d,'yyyy-MM-dd')} className="p-2 text-center text-sm font-semibold">{format(d,'dd.MM EEE',{locale:ru})}</div>)}</div>
       <div className="grid" style={{gridTemplateColumns:`55px repeat(${days.length},minmax(0,1fr))`}}>
-        <div className="relative text-xs text-gray-500" style={{height}}>{Array.from({length:Math.ceil((high-low)/60)},(_,i)=>low+i*60).map(m=><span key={m} className="absolute px-1" style={{top:(m-low)*scale}}>{label(m)}</span>)}</div>
+        <div className="relative text-xs text-[var(--bs-muted)]" style={{height}}>{Array.from({length:Math.ceil((high-low)/60)},(_,i)=>low+i*60).map(m=><span key={m} className="absolute px-1" style={{top:(m-low)*scale}}>{label(m)}</span>)}</div>
         {days.map(day=>{
           const key=format(day,'yyyy-MM-dd'),start=new Date(moscowInputToISO(key,'00:00')).getTime(),end=start+86400000;
           const daySlots=slots.filter(s=>sameMoscowDay(s.slot_time,day));
@@ -44,24 +44,24 @@ export default function ScheduleTimeline({days,slots,bookings,breaks,rules,onSlo
           const rule=rules.find(r=>r.day===key);
           const box=(a:number,z:number)=>({top:Math.max(0,(Math.max(0,(a-start)/60000)-low)*scale),height:Math.max(24,(Math.min(high,(z-start)/60000)-Math.max(low,(a-start)/60000))*scale)});
           const empty=!daySlots.length&&!dayBookings.length&&!dayBreaks.length;
-          return <div key={key} className="relative border-l bg-gray-50/30" style={{height}}>
-            {Array.from({length:Math.ceil((high-low)/30)},(_,i)=><div key={i} className="absolute w-full border-t border-gray-100" style={{top:i*30*scale}}/>)}
-            {rule?.mode==='closed'&&<div className="absolute inset-0 bg-gray-100/70"><p className="p-3 text-xs">Закрыто</p></div>}
-            {empty&&<p className="p-3 text-xs text-gray-500">{rule?.mode==='closed'?'Закрытый день':'Время не опубликовано'}</p>}
-            {dayBreaks.map(b=><button key={b.id} onClick={()=>onBreak(b)} className="absolute left-1 right-1 overflow-hidden rounded-xl border border-violet-300 bg-violet-100 text-left px-2 text-xs text-violet-900" style={box(Date.parse(b.starts_at),Date.parse(b.ends_at))}>{b.reason||'Перерыв'} · {format(b.starts_at,'HH:mm')}–{format(b.ends_at,'HH:mm')}</button>)}
+          return <div key={key} className="relative border-l border-[var(--bs-border)] bg-[var(--bs-surface-muted)]/30" style={{height}}>
+            {Array.from({length:Math.ceil((high-low)/30)},(_,i)=><div key={i} className="absolute w-full border-t border-[var(--bs-border)]" style={{top:i*30*scale}}/>)}
+            {rule?.mode==='closed'&&<div className="absolute inset-0 bg-[var(--bs-surface-muted)]/70 text-[var(--bs-muted)]"><p className="p-3 text-xs">Закрыто</p></div>}
+            {empty&&<p className="p-3 text-xs text-[var(--bs-muted)]">{rule?.mode==='closed'?'Закрытый день':'Время не опубликовано'}</p>}
+            {dayBreaks.map(b=><button key={b.id} onClick={()=>onBreak(b)} className="bs-calendar-break absolute left-1 right-1 overflow-hidden text-left px-2 text-xs" style={box(Date.parse(b.starts_at),Date.parse(b.ends_at))}>{b.reason||'Перерыв'} · {format(b.starts_at,'HH:mm')}–{format(b.ends_at,'HH:mm')}</button>)}
             {dayBookings.map(b=>{
               const a=Date.parse(b.slot_time!),z=a+(b.duration_minutes??90)*60000;
               const conflict=dayBookings.some(other=>other.id!==b.id&&Date.parse(other.slot_time!)<z&&Date.parse(other.slot_time!)+(other.duration_minutes??90)*60000>a)||dayBreaks.some(p=>Date.parse(p.starts_at)<z&&Date.parse(p.ends_at)>a);
-              return <Link key={b.id} href={`/admin/bookings?booking=${encodeURIComponent(b.id)}`} className={`absolute left-1 right-1 overflow-hidden rounded-xl border p-2 text-xs ${conflict?'border-red-400 bg-red-50 text-red-950':'border-teal-300 bg-teal-50 text-teal-950'}`} style={box(a,z)}><strong>{format(b.slot_time!,'HH:mm')} · {b.client_name}</strong><br/>{names[b.service_type]}<br/>{b.duration_minutes} мин · {conflict?'Конфликт':b.status==='pending'?'Ожидает оплаты':'Подтверждена'}</Link>;
+              return <Link key={b.id} href={`/admin/bookings?booking=${encodeURIComponent(b.id)}`} className={`bs-calendar-event absolute left-1 right-1 overflow-hidden p-2 text-xs ${conflict?'is-conflict':''}`} style={box(a,z)}><strong>{format(b.slot_time!,'HH:mm')} · {b.client_name}</strong><br/>{names[b.service_type]}<br/>{b.duration_minutes} мин · {conflict?'Конфликт':b.status==='pending'?'Ожидает оплаты':'Подтверждена'}</Link>;
             })}
             {daySlots.filter(s=>!s.is_booked).map(s=>{
               const same=daySlots.filter(a=>!a.is_booked&&a.slot_time===s.slot_time),column=same.findIndex(a=>a.id===s.id);
-              return <button key={s.id} onClick={()=>onSlot(s)} title={`${names[s.service_type]} · ${s.duration_minutes} мин`} className="absolute min-h-10 overflow-hidden rounded-lg border border-emerald-200 bg-white px-1 text-xs text-emerald-800 hover:bg-emerald-50 focus:ring-2 focus:ring-teal-500" style={{top:(minute(s.slot_time)-low)*scale,left:`${column*100/same.length}%`,width:`${100/same.length}%`,zIndex:2}}>{format(s.slot_time,'HH:mm')} {s.service_type==='bfm'?'Физ.':s.service_type==='brt'?'БРТ':'Псих.'}</button>;
+              return <button key={s.id} onClick={()=>onSlot(s)} title={`${names[s.service_type]} · ${s.duration_minutes} мин`} className="bs-time-slot absolute min-h-10 overflow-hidden px-1 text-xs hover:bg-[var(--bs-primary-soft)] focus:ring-2 focus:ring-[var(--bs-primary)]" style={{top:(minute(s.slot_time)-low)*scale,left:`${column*100/same.length}%`,width:`${100/same.length}%`,zIndex:2}}>{format(s.slot_time,'HH:mm')} {s.service_type==='bfm'?'Физ.':s.service_type==='brt'?'БРТ':'Псих.'}</button>;
             })}
           </div>;
         })}
       </div>
     </div>
-    <p className="border-t p-3 text-xs text-gray-500">Свободные начала — альтернативы. Пересекающиеся услуги нельзя записать одновременно. Высота занятого интервала соответствует длительности.</p>
+    <p className="border-t border-[var(--bs-border)] p-3 text-xs text-[var(--bs-muted)]">Свободные начала — альтернативы. Пересекающиеся услуги нельзя записать одновременно. Высота занятого интервала соответствует длительности.</p>
   </div>;
 }

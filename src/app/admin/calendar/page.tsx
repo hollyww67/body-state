@@ -1,5 +1,6 @@
 "use client";
 import AdminConfirmDialog, { AdminModal } from "@/components/admin/AdminConfirmDialog";
+import { AdminButton, AdminInput, AdminSelect, AdminField, AdminStatCard } from '@/components/admin/ui';
 
 import { useCallback, useEffect, useMemo, useRef,useState } from "react";
 import Link from 'next/link';
@@ -196,43 +197,42 @@ export default function AdminCalendarPage() {
   const weekDays = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
 
   return (
-    <div className="admin-calendar-page min-h-screen bg-[#F5F7FA]">
-      <div className="sticky top-0 z-50 backdrop-blur-xl bg-white/80 border-b border-gray-200">
+    <div className="admin-calendar-page min-h-screen bg-[var(--bs-background)]">
+      <div className="sticky top-0 z-50 backdrop-blur-xl bg-[var(--bs-surface)] border-b border-[var(--bs-border)]">
         <div className="max-w-[1600px] mx-auto px-4 py-4">
           <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
-            <div><h1 className="text-2xl font-semibold tracking-tight text-[#111827]">Календарь записей</h1><p className="text-sm text-[#6B7280] mt-1">Управление клиентскими записями · Московское время</p></div>
             <div className="admin-mobile-toolbar flex flex-wrap items-center gap-3">
-              <div className="relative w-full sm:w-[280px]"><Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#9CA3AF]" /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Поиск клиента..." className="w-full h-11 rounded-2xl border border-gray-200 bg-white pl-10 pr-4 text-sm outline-none focus:ring-4 focus:ring-teal-500/10 focus:border-teal-500 transition-all" /></div>
-              <div className="admin-mobile-scroll flex items-center gap-2 bg-white border border-gray-200 rounded-2xl p-1">
-                <button onClick={() => setSelectedType("all")} className={`px-3 h-9 rounded-xl text-sm font-medium transition-all ${selectedType === "all" ? "bg-[#111827] text-white" : "text-[#6B7280]"}`}>Все</button>
-                {SERVICE_TYPES.map((s) => (<button key={s.value} onClick={() => setSelectedType(s.value)} className={`px-3 h-9 rounded-xl text-sm font-medium transition-all ${selectedType === s.value ? "bg-[#111827] text-white" : "text-[#6B7280]"}`}>{s.label}</button>))}
+              <div className="relative w-full sm:w-[280px]"><Search aria-hidden="true" className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--admin-muted)]" /><AdminInput aria-label="Поиск клиента в календаре" type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Поиск клиента…" className="pl-10" /></div>
+              <div className="admin-mobile-scroll flex items-center gap-2 bg-[var(--bs-surface)] border border-[var(--bs-border)] rounded-[var(--bs-radius-control)] p-1" role="group" aria-label="Направление записи">
+                <AdminButton variant={selectedType === 'all' ? 'primary' : 'ghost'} aria-pressed={selectedType === 'all'} onClick={()=>setSelectedType('all')} size="sm">Все</AdminButton>
+                {SERVICE_TYPES.map(s=><AdminButton key={s.value} size="sm" variant={selectedType === s.value ? 'primary' : 'ghost'} aria-pressed={selectedType === s.value} onClick={()=>setSelectedType(s.value)}>{s.label}</AdminButton>)}
               </div>
-              <button onClick={fetchCalendar} className="h-11 px-4 rounded-2xl border border-gray-200 bg-white flex items-center gap-2 text-sm font-medium hover:bg-gray-50 transition-all"><RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />Обновить</button>
+              <AdminButton onClick={fetchCalendar} variant="outline" loading={loading}><RefreshCw className="w-4 h-4" aria-hidden="true" />Обновить</AdminButton>
             </div>
           </div>
           <div className="admin-mobile-stats grid grid-cols-2 xl:grid-cols-4 gap-3 mt-5">
-            <StatCard title="Сегодня" value={stats.today} /><StatCard title="На неделе" value={stats.week} /><StatCard title="Всего записей" value={stats.total} /><StatCard title="Завершено" value={stats.completed} />
+            <AdminStatCard title="Сегодня" value={stats.today} /><AdminStatCard title="На неделе" value={stats.week} /><AdminStatCard title="Всего записей" value={stats.total} /><AdminStatCard title="Завершено" value={stats.completed} />
           </div>
         </div>
       </div>
 
       <div className="max-w-[1600px] mx-auto p-4">
         {loadError&&<p role="alert" className="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{loadError} · Ранее загруженные данные могут быть устаревшими.</p>}
-        <div className="mb-4 flex flex-wrap gap-2" role="group" aria-label="Режим календаря">{(['month','week','day'] as const).map(mode=><button key={mode} aria-pressed={view===mode} onClick={()=>setView(mode)} className={`min-h-11 rounded-xl border px-4 text-sm ${view===mode?'bg-[#111827] text-white':'bg-white text-gray-700'}`}>{mode==='month'?'Месяц':mode==='week'?'Неделя':'День'}</button>)}</div>
-        <div className="grid grid-cols-1 xl:grid-cols-[1.2fr_420px] gap-6 items-start">
-          <div className="admin-calendar-grid-card bg-white rounded-[32px] border border-gray-100 shadow-sm overflow-hidden">
-            <div className="admin-calendar-header flex items-center justify-between p-6 border-b border-gray-100">
+        <div className="admin-calendar-modes" role="group" aria-label="Режим календаря">{(['month','week','day'] as const).map(mode=><AdminButton variant="ghost" key={mode} aria-pressed={view===mode} onClick={()=>setView(mode)}>{mode==='month'?'Месяц':mode==='week'?'Неделя':'День'}</AdminButton>)}</div>
+        <div className="admin-calendar-layout grid grid-cols-1 xl:grid-cols-[1.2fr_420px] gap-6 items-start" data-view={view}>
+          <div className="admin-calendar-grid-card bg-[var(--bs-surface)] rounded-[var(--bs-radius-card)] border border-[var(--bs-border)] shadow-sm overflow-hidden">
+            <div className="admin-calendar-header flex items-center justify-between p-6 border-b border-[var(--bs-border)]">
               <div className="flex items-center gap-3">
-                <button aria-label="Предыдущий период" onClick={() => view==='month'?setCurrentMonth((m) => subMonths(m, 1)):setSelectedDay(d=>addDays(d,view==='week'?-7:-1))} className="w-11 h-11 rounded-2xl border border-gray-200 hover:bg-gray-50 flex items-center justify-center transition-all"><ChevronLeft className="w-5 h-5 text-[#6B7280]" /></button>
-                <button aria-label="Следующий период" onClick={() => view==='month'?setCurrentMonth((m) => addMonths(m, 1)):setSelectedDay(d=>addDays(d,view==='week'?7:1))} className="w-11 h-11 rounded-2xl border border-gray-200 hover:bg-gray-50 flex items-center justify-center transition-all"><ChevronRight className="w-5 h-5 text-[#6B7280]" /></button>
+                <button aria-label="Предыдущий период" onClick={() => view==='month'?setCurrentMonth((m) => subMonths(m, 1)):setSelectedDay(d=>addDays(d,view==='week'?-7:-1))} className="w-11 h-11 rounded-[var(--bs-radius-control)] border border-[var(--bs-border)] hover:bg-gray-50 flex items-center justify-center transition-all"><ChevronLeft className="w-5 h-5 text-[var(--bs-muted)]" /></button>
+                <button aria-label="Следующий период" onClick={() => view==='month'?setCurrentMonth((m) => addMonths(m, 1)):setSelectedDay(d=>addDays(d,view==='week'?7:1))} className="w-11 h-11 rounded-[var(--bs-radius-control)] border border-[var(--bs-border)] hover:bg-gray-50 flex items-center justify-center transition-all"><ChevronRight className="w-5 h-5 text-[var(--bs-muted)]" /></button>
               </div>
-              <div className="text-center"><h2 className="text-xl font-semibold text-[#111827] capitalize">{view==='month'?format(currentMonth, "LLLL yyyy", { locale: ru }):view==='week'?`${format(rangeStart,'dd.MM')} — ${format(rangeEnd,'dd.MM.yyyy')}`:format(selectedDay,'dd MMMM yyyy',{locale:ru})}</h2><p className="text-sm text-[#6B7280] mt-1">{filteredBookings.length} записей</p></div>
-              <button onClick={() => { const today = moscowDate(); setCurrentMonth(today); setSelectedDay(today); }} className="h-11 px-4 rounded-2xl bg-[#111827] text-white text-sm font-medium hover:opacity-90 transition-all">Сегодня</button>
+              <div className="text-center"><h2 className="text-xl font-semibold text-[var(--bs-foreground)] capitalize">{view==='month'?format(currentMonth, "LLLL yyyy", { locale: ru }):view==='week'?`${format(rangeStart,'dd.MM')} — ${format(rangeEnd,'dd.MM.yyyy')}`:format(selectedDay,'dd MMMM yyyy',{locale:ru})}</h2><p className="text-sm text-[var(--bs-muted)] mt-1">{filteredBookings.length} записей</p></div>
+              <button onClick={() => { const today = moscowDate(); setCurrentMonth(today); setSelectedDay(today); }} className="h-11 px-4 rounded-[var(--bs-radius-control)] bg-[var(--bs-primary)] text-white text-sm font-medium hover:opacity-90 transition-all">Сегодня</button>
             </div>
             {loading?<div role="status" className="p-6 text-sm text-gray-600">Загрузка расписания…</div>:view!=='month'?<ScheduleTimeline days={Array.from({length:view==='week'?7:1},(_,i)=>addDays(rangeStart,i))} slots={slots.filter(s=>selectedType==='all'||s.service_type===selectedType)} bookings={filteredBookings} breaks={scheduleBreaks} rules={dayRules}
               onSlot={setSlotDetails}
               onBreak={setBreakDetails}/>:<>
-            <div className="grid grid-cols-7 px-4 pt-4">{weekDays.map((d) => (<div key={d} className="h-12 flex items-center justify-center text-sm font-medium text-[#6B7280]">{d}</div>))}</div>
+            <div className="grid grid-cols-7 px-4 pt-4">{weekDays.map((d) => (<div key={d} className="h-12 flex items-center justify-center text-sm font-medium text-[var(--bs-muted)]">{d}</div>))}</div>
             <div className="admin-calendar-days grid grid-cols-7 gap-2 p-4">
               {days.map((d) => {
                 const dayBookings = getDayBookings(d).filter(b=>!['cancelled','completed'].includes(b.status));
@@ -242,12 +242,12 @@ export default function AdminCalendarPage() {
                 const isToday = isSameDay(d, new Date());
                 const density = dayBookings.length >= 6 ? "bg-teal-100" : dayBookings.length >= 4 ? "bg-teal-50" : "";
                 return (
-                  <button key={d.toISOString()} onClick={() => setSelectedDay(d)}
-                    className={`admin-calendar-day relative min-h-[120px] rounded-3xl border p-3 text-left transition-all overflow-hidden ${!isCurrent ? "opacity-30" : "hover:shadow-lg hover:-translate-y-0.5"} ${isSelected ? "border-teal-300 bg-teal-50 ring-2 ring-teal-500/20 shadow-lg" : "border-gray-100 bg-white"} ${density}`}>
+                  <button key={d.toISOString()} aria-pressed={isSelected} aria-label={`${format(d, 'd MMMM yyyy', {locale:ru})}, записей: ${dayBookings.length}, перерывов: ${dayBreaks.length}`} onClick={() => setSelectedDay(d)}
+                    className={`admin-calendar-day relative min-h-[120px] rounded-[var(--bs-radius-card)] border p-3 text-left transition-all overflow-hidden ${!isCurrent ? "opacity-30" : "hover:shadow-lg hover:-translate-y-0.5"} ${isSelected ? "border-teal-300 bg-teal-50 ring-2 ring-teal-500/20 shadow-lg" : "border-[var(--bs-border)] bg-[var(--bs-surface)]"} ${density}`}>
                     {isToday && <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-teal-500 animate-pulse" />}
                     <div className="flex items-center justify-between mb-3">
-                      <span className={`text-sm font-semibold ${isToday ? "text-teal-700" : "text-[#111827]"}`}>{format(d, "d")}</span>
-                      {dayBookings.length > 0 && <div className="px-2 py-1 rounded-full bg-[#111827] text-white text-[11px] font-medium">{dayBookings.length}</div>}
+                      <span className={`text-sm font-semibold ${isToday ? "text-teal-700" : "text-[var(--bs-foreground)]"}`}>{format(d, "d")}</span>
+                      {dayBookings.length > 0 && <div className="px-2 py-1 rounded-full bg-[var(--bs-primary)] text-white text-[11px] font-medium">{dayBookings.length}</div>}
                     </div>
                     <div className="space-y-1.5">
                       <div className="text-[11px] text-emerald-700">Свободных начал: {slots.filter(s=>!s.is_booked&&isSameDay(s.slot_time,d)&&(selectedType==='all'||s.service_type===selectedType)).length}</div>
@@ -255,12 +255,12 @@ export default function AdminCalendarPage() {
                       {!slots.some(s=>isSameDay(s.slot_time,d))&&!dayBreaks.length&&!dayBookings.length&&<div className="text-[11px] text-gray-500">Не опубликовано</div>}
                       {dayBookings.slice(0, 3).map((b) => {
                         const service = SERVICE_TYPES.find((s) => s.value === b.service_type);
-                        return (<div key={b.id} className="flex items-center gap-1.5 text-[11px]"><div className={`w-1.5 h-1.5 rounded-full ${service?.color}`} /><span className="truncate text-[#374151]">{b.slot_time ? format(parseISO(b.slot_time), "HH:mm") : ""}</span></div>);
+                        return (<div key={b.id} className="flex items-center gap-1.5 text-[11px]"><div className={`w-1.5 h-1.5 rounded-full ${service?.color}`} /><span className="truncate text-[var(--bs-foreground)]">{b.slot_time ? format(parseISO(b.slot_time), "HH:mm") : ""}</span></div>);
                       })}
-                      {dayBookings.length > 3 && <div className="text-[11px] text-[#6B7280]">+{dayBookings.length - 3}</div>}
+                      {dayBookings.length > 3 && <div className="text-[11px] text-[var(--bs-muted)]">+{dayBookings.length - 3}</div>}
                       {dayBreaks.length > 0 && <div className="flex items-center gap-1.5 text-[11px] font-medium text-violet-700"><Coffee className="h-3 w-3" /><span className="truncate">{dayBreaks.length === 1 ? dayBreaks[0].reason || "Перерыв" : `Перерывов: ${dayBreaks.length}`}</span></div>}
                     </div>
-                    <span aria-hidden="true" className="absolute bottom-3 right-3 grid h-7 w-7 place-items-center rounded-xl border border-gray-200 bg-white shadow-sm"><Plus className="w-3.5 h-3.5" /></span>
+                    <span aria-hidden="true" className="absolute bottom-3 right-3 grid h-7 w-7 place-items-center rounded-xl border border-[var(--bs-border)] bg-[var(--bs-surface)] shadow-sm"><Plus className="w-3.5 h-3.5" /></span>
                   </button>
                 );
               })}
@@ -268,24 +268,24 @@ export default function AdminCalendarPage() {
           </div>
 
           <div className="admin-calendar-detail sticky top-28">
-            <div className="bg-white rounded-[32px] border border-gray-100 shadow-sm overflow-hidden">
-              <div className="p-6 border-b border-gray-100">
+            <div className="bg-[var(--bs-surface)] rounded-[var(--bs-radius-card)] border border-[var(--bs-border)] shadow-sm overflow-hidden">
+              <div className="p-6 border-b border-[var(--bs-border)]">
                 <div className="flex items-start justify-between gap-3">
-                  <div><h3 className="text-lg font-semibold text-[#111827]">{format(selectedDay, "d MMMM, EEEE", { locale: ru })}</h3><p className="text-sm text-[#6B7280] mt-1">{selectedBookings.length} записей · {selectedBreaks.length} перерывов</p></div>
-                  <div className="flex flex-wrap justify-end gap-2"><button onClick={() => setShowBreakModal(true)} className="h-11 px-3 rounded-2xl border border-violet-200 bg-violet-50 text-violet-700 flex items-center gap-2 text-sm font-medium hover:bg-violet-100 transition-all"><Coffee className="w-4 h-4" />Перерыв</button><button onClick={() => openNewBooking()} className="h-11 px-3 rounded-2xl bg-[#111827] text-white flex items-center gap-2 text-sm font-medium hover:opacity-90 transition-all"><Plus className="w-4 h-4" />Запись</button></div>
+                  <div><h3 className="text-lg font-semibold text-[var(--bs-foreground)]">{format(selectedDay, "d MMMM, EEEE", { locale: ru })}</h3><p className="text-sm text-[var(--bs-muted)] mt-1">{selectedBookings.length} записей · {selectedBreaks.length} перерывов</p></div>
+                  <div className="flex flex-wrap justify-end gap-2"><button onClick={() => setShowBreakModal(true)} className="h-11 px-3 rounded-[var(--bs-radius-control)] border border-violet-200 bg-violet-50 text-violet-700 flex items-center gap-2 text-sm font-medium hover:bg-violet-100 transition-all"><Coffee className="w-4 h-4" />Перерыв</button><button onClick={() => openNewBooking()} className="h-11 px-3 rounded-[var(--bs-radius-control)] bg-[var(--bs-primary)] text-white flex items-center gap-2 text-sm font-medium hover:opacity-90 transition-all"><Plus className="w-4 h-4" />Запись</button></div>
                 </div>
               </div>
               <div className="max-h-[760px] overflow-y-auto p-6">
                 {loading ? (
-                  <div className="space-y-3">{[...Array(6)].map((_, i) => (<div key={i} className="h-28 rounded-3xl bg-gray-100 animate-pulse" />))}</div>
+                  <div className="space-y-3">{[...Array(6)].map((_, i) => (<div key={i} className="h-28 rounded-[var(--bs-radius-card)] bg-gray-100 animate-pulse" />))}</div>
                 ) : selectedBookings.length === 0 && selectedBreaks.length === 0 ? (
-                  <div className="text-center py-20"><div className="w-16 h-16 rounded-3xl bg-gray-100 flex items-center justify-center mx-auto mb-4"><CalendarDays className="w-6 h-6 text-[#9CA3AF]" /></div><h4 className="font-semibold text-[#111827]">Нет событий</h4><p className="text-sm text-[#6B7280] mt-1">Добавьте запись или перерыв</p></div>
+                  <div className="text-center py-20"><div className="w-16 h-16 rounded-[var(--bs-radius-card)] bg-gray-100 flex items-center justify-center mx-auto mb-4"><CalendarDays className="w-6 h-6 text-[var(--bs-muted)]" /></div><h4 className="font-semibold text-[var(--bs-foreground)]">Нет событий</h4><p className="text-sm text-[var(--bs-muted)] mt-1">Добавьте запись или перерыв</p></div>
                 ) : (
                   <div className="space-y-4">
                     {selectedBreaks.map((item) => (
-                      <div key={item.id} className="rounded-3xl border border-violet-200 bg-violet-50 p-5 shadow-sm">
+                      <div key={item.id} className="rounded-[var(--bs-radius-card)] border border-violet-200 bg-violet-50 p-5 shadow-sm">
                         <div className="flex items-start gap-4">
-                          <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-violet-600 text-white"><Coffee className="h-5 w-5" /></div>
+                          <div className="grid h-14 w-14 shrink-0 place-items-center rounded-[var(--bs-radius-control)] bg-violet-600 text-white"><Coffee className="h-5 w-5" /></div>
                           <div className="min-w-0 flex-1">
                             <div className="flex items-start justify-between gap-3">
                               <div><h4 className="font-semibold text-violet-950">{item.reason || "Перерыв"}</h4><p className="mt-1 text-sm text-violet-700">{format(parseISO(item.starts_at), "d MMM, HH:mm", { locale: ru })} — {format(parseISO(item.ends_at), "d MMM, HH:mm", { locale: ru })}</p></div>
@@ -299,24 +299,24 @@ export default function AdminCalendarPage() {
                     {selectedBookings.map((booking) => {
                       const service = SERVICE_TYPES.find((s) => s.value === booking.service_type);
                       return (
-                        <div key={booking.id} className="relative rounded-3xl border border-gray-100 bg-white p-5 shadow-sm hover:shadow-lg transition-all">
+                        <div key={booking.id} className="relative rounded-[var(--bs-radius-card)] border border-[var(--bs-border)] bg-[var(--bs-surface)] p-5 shadow-sm hover:shadow-lg transition-all">
                           <div className="absolute left-8 top-0 bottom-0 w-px bg-gray-100" />
-                          <div className="relative flex gap-4">
+                          <div className="admin-calendar-appointment relative flex gap-4">
                             <div className="relative z-10 shrink-0">
-                              <div className={`w-16 h-16 rounded-2xl flex flex-col items-center justify-center text-white shadow-lg ${service?.color}`}><Clock3 className="w-4 h-4 mb-1" /><span className="text-xs font-semibold">{booking.slot_time ? format(parseISO(booking.slot_time), "HH:mm") : ""}</span></div>
+                              <div className={`w-16 h-16 rounded-[var(--bs-radius-control)] flex flex-col items-center justify-center text-white shadow-lg ${service?.color}`}><Clock3 className="w-4 h-4 mb-1" /><span className="text-xs font-semibold">{booking.slot_time ? format(parseISO(booking.slot_time), "HH:mm") : ""}</span></div>
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-start justify-between gap-3">
                                 <div>
-                                  <div className="flex items-center gap-2 flex-wrap"><h4 className="font-semibold text-[#111827]">{booking.client_name}</h4><span className={`px-2 py-1 rounded-full border text-[11px] font-medium ${service?.bg}`}>{TYPE_LABELS[booking.service_type]}</span></div>
-                                  <div className="flex items-center gap-2 mt-2 text-sm text-[#6B7280]"><Phone className="w-3.5 h-3.5" /><span>{booking.client_phone}</span></div>
+                                  <div className="flex items-center gap-2 flex-wrap"><h4 className="font-semibold text-[var(--bs-foreground)]">{booking.client_name}</h4><span className={`px-2 py-1 rounded-full border text-[11px] font-medium ${service?.bg}`}>{TYPE_LABELS[booking.service_type]}</span></div>
+                                  <div className="flex items-center gap-2 mt-2 text-sm text-[var(--bs-muted)]"><Phone className="w-3.5 h-3.5" /><span>{booking.client_phone}</span></div>
                                 </div>
                                 <div className="space-y-1"><BookingStatusBadge status={booking.status}/><p className="text-xs text-gray-600">{booking.payment_status==='paid'?'Оплачено':booking.payment_status==='due'?'Оплата на приёме':'Ожидает оплаты'}</p></div>
                               </div>
-                              <div className="flex items-center gap-2 mt-5">
+                              <div className="flex flex-wrap items-center gap-2 mt-5">
                                 <Link className="rounded-xl border px-3 py-2 text-sm" href={`/admin/bookings?booking=${encodeURIComponent(booking.id)}`}>Карточка</Link>
-                                {booking.status === "confirmed" && <button disabled={!!updatingId||!booking.slot_time||Date.parse(booking.slot_time)>Date.now()} onClick={() => setStatusConfirmation({id:booking.id,status:'completed',name:booking.client_name})} className="h-10 px-4 rounded-2xl bg-[#111827] text-white text-sm font-medium flex items-center gap-2 hover:opacity-90 transition-all disabled:opacity-50"><Check className="w-4 h-4" />Завершить</button>}
-                                {!['completed','cancelled'].includes(booking.status)&&<button disabled={!!updatingId} className="h-10 px-4 rounded-2xl border border-red-200 text-red-600 text-sm font-medium hover:bg-red-50 transition-all" onClick={() => setStatusConfirmation({id:booking.id,status:'cancelled',name:booking.client_name})}>Отмена</button>}
+                                {booking.status === "confirmed" && <button disabled={!!updatingId||!booking.slot_time||Date.parse(booking.slot_time)>Date.now()} onClick={() => setStatusConfirmation({id:booking.id,status:'completed',name:booking.client_name})} className="h-10 px-4 rounded-[var(--bs-radius-control)] bg-[var(--bs-primary)] text-white text-sm font-medium flex items-center gap-2 hover:opacity-90 transition-all disabled:opacity-50"><Check className="w-4 h-4" />Завершить</button>}
+                                {!['completed','cancelled'].includes(booking.status)&&<button disabled={!!updatingId} className="h-10 px-4 rounded-[var(--bs-radius-control)] border border-red-200 text-red-600 text-sm font-medium hover:bg-red-50 transition-all" onClick={() => setStatusConfirmation({id:booking.id,status:'cancelled',name:booking.client_name})}>Отмена</button>}
                               </div>
                             </div>
                           </div>
@@ -331,28 +331,28 @@ export default function AdminCalendarPage() {
         </div>
       </div>
 
-      {slotDetails&&<AdminModal title="Свободное окно" onCancel={()=>setSlotDetails(null)}><div className="max-w-md rounded-2xl bg-white p-5"><h3 className="font-semibold">Свободное окно</h3><p className="mt-2 text-sm">{TYPE_LABELS[slotDetails.service_type]} · {format(slotDetails.slot_time,'dd.MM.yyyy HH:mm')} МСК · {slotDetails.duration_minutes} мин</p><p className="mt-2 text-xs text-gray-500">Альтернативное начало, не отдельный ресурс. Закрытие заблокирует все пересекающиеся услуги.</p><div className="mt-4 flex flex-wrap gap-2"><button disabled={windowPending} className="min-h-11 rounded-xl bg-gray-900 px-4 text-sm text-white" onClick={()=>openNewBooking(slotDetails)}>Создать запись</button><button disabled={windowPending} className="min-h-11 rounded-xl border px-4 text-sm" onClick={closeWindow}>Закрыть окно</button><button disabled={windowPending} className="min-h-11 rounded-xl border px-4 text-sm" onClick={()=>{setSelectedDay(moscowDate(slotDetails.slot_time));setBreakFrom(format(slotDetails.slot_time,'HH:mm'));setSlotDetails(null);setShowBreakModal(true);}}>Добавить перерыв</button></div></div></AdminModal>}
-      {breakDetails&&<AdminModal title="Детали ограничения" onCancel={()=>setBreakDetails(null)}><div className="max-w-md rounded-2xl bg-white p-5"><h3 className="font-semibold">{breakDetails.reason||'Перерыв'}</h3><p className="mt-2 text-sm">{format(breakDetails.starts_at,'dd.MM.yyyy HH:mm')} — {format(breakDetails.ends_at,'dd.MM.yyyy HH:mm')} МСК</p>{(!breakDetails.source_type||breakDetails.source_type==='manual')?<button disabled={!!deletingBreakId} className="mt-4 min-h-11 rounded-xl border px-4 text-sm" onClick={async()=>{await handleDeleteBreak(breakDetails.id);setBreakDetails(null);}}>Снять перерыв</button>:<p className="mt-3 text-xs">Ограничение управляется шаблоном, исключением или закрытием окна. Измените соответствующее правило в разделе «Время для записи».</p>}</div></AdminModal>}
+      {slotDetails&&<AdminModal title="Свободное окно" onCancel={()=>setSlotDetails(null)}><div className="max-w-md rounded-[var(--bs-radius-control)] bg-[var(--bs-surface)] p-5"><h3 className="font-semibold">Свободное окно</h3><p className="mt-2 text-sm">{TYPE_LABELS[slotDetails.service_type]} · {format(slotDetails.slot_time,'dd.MM.yyyy HH:mm')} МСК · {slotDetails.duration_minutes} мин</p><p className="mt-2 text-xs text-gray-500">Альтернативное начало, не отдельный ресурс. Закрытие заблокирует все пересекающиеся услуги.</p><div className="mt-4 flex flex-wrap gap-2"><button disabled={windowPending} className="min-h-11 rounded-xl bg-gray-900 px-4 text-sm text-white" onClick={()=>openNewBooking(slotDetails)}>Создать запись</button><button disabled={windowPending} className="min-h-11 rounded-xl border px-4 text-sm" onClick={closeWindow}>Закрыть окно</button><button disabled={windowPending} className="min-h-11 rounded-xl border px-4 text-sm" onClick={()=>{setSelectedDay(moscowDate(slotDetails.slot_time));setBreakFrom(format(slotDetails.slot_time,'HH:mm'));setSlotDetails(null);setShowBreakModal(true);}}>Добавить перерыв</button></div></div></AdminModal>}
+      {breakDetails&&<AdminModal title="Детали ограничения" onCancel={()=>setBreakDetails(null)}><div className="max-w-md rounded-[var(--bs-radius-control)] bg-[var(--bs-surface)] p-5"><h3 className="font-semibold">{breakDetails.reason||'Перерыв'}</h3><p className="mt-2 text-sm">{format(breakDetails.starts_at,'dd.MM.yyyy HH:mm')} — {format(breakDetails.ends_at,'dd.MM.yyyy HH:mm')} МСК</p>{(!breakDetails.source_type||breakDetails.source_type==='manual')?<button disabled={!!deletingBreakId} className="mt-4 min-h-11 rounded-xl border px-4 text-sm" onClick={async()=>{await handleDeleteBreak(breakDetails.id);setBreakDetails(null);}}>Снять перерыв</button>:<p className="mt-3 text-xs">Ограничение управляется шаблоном, исключением или закрытием окна. Измените соответствующее правило в разделе «Время для записи».</p>}</div></AdminModal>}
       {statusConfirmation&&<AdminConfirmDialog title={statusConfirmation.status==='cancelled'?'Отменить запись?':'Подтвердить посещение?'} onCancel={()=>setStatusConfirmation(null)} onConfirm={()=>handleStatusChange(statusConfirmation.id,statusConfirmation.status)}><p>{statusConfirmation.name}</p><p className="mt-2 text-sm">{statusConfirmation.status==='cancelled'?'История сохраняется. Освободится только время, не заблокированное другими приёмами или перерывами. Банковский возврат не выполняется.':'Подтвердите фактически состоявшийся приём. Оплата учитывается отдельно.'}</p></AdminConfirmDialog>}
       {showAddModal && (
         <AdminModal title="Новая запись" dismissDisabled={adding} onCancel={() => {setShowAddModal(false);setNewSlotId(null);setNewConsent(false);setNewAccountId(null);setNewIdentity(false);}}>
-          <div className="w-full max-w-md rounded-[32px] bg-white shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between p-6 border-b border-gray-100">
-              <div><h3 className="text-lg font-semibold text-[#111827]">Новая запись</h3><p className="text-sm text-[#6B7280] mt-1">{format(selectedDay, "d MMMM yyyy", { locale: ru })}</p></div>
-              <button type="button" disabled={adding} aria-label="Закрыть" onClick={() => setShowAddModal(false)} className="w-10 h-10 rounded-2xl hover:bg-gray-100 flex items-center justify-center transition-all"><X className="w-5 h-5 text-[#6B7280]" /></button>
+          <div className="w-full max-w-md rounded-[var(--bs-radius-card)] bg-[var(--bs-surface)] shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between p-6 border-b border-[var(--bs-border)]">
+              <div><h3 className="text-lg font-semibold text-[var(--bs-foreground)]">Новая запись</h3><p className="text-sm text-[var(--bs-muted)] mt-1">{format(selectedDay, "d MMMM yyyy", { locale: ru })}</p></div>
+              <button type="button" disabled={adding} aria-label="Закрыть" onClick={() => setShowAddModal(false)} className="w-10 h-10 rounded-[var(--bs-radius-control)] hover:bg-gray-100 flex items-center justify-center transition-all"><X className="w-5 h-5 text-[var(--bs-muted)]" /></button>
             </div>
             <form onSubmit={handleAddBooking} className="p-6 space-y-4">
               <SchedulingClientPicker onSelect={c=>{setNewAccountId(c?.id??null);setNewIdentity(false);if(c){setNewName(c.display_name??'');setNewPhone(formatRussianPhoneInput(c.phone??''));}}}/>
               {newAccountId&&<label className="flex gap-3 text-xs"><input required type="checkbox" checked={newIdentity} onChange={e=>setNewIdentity(e.target.checked)}/>Личность клиента и принадлежность кабинета подтверждены</label>}
-              <label className="block text-xs">Имя клиента<input required value={newName} onChange={(e) => setNewName(e.target.value)} className="mt-1 w-full h-12 rounded-2xl border border-gray-200 px-4 text-sm outline-none focus:ring-4 focus:ring-teal-500/10 focus:border-teal-500 transition-all" /></label>
-              <label className="block text-xs">Телефон клиента<input required type="tel" inputMode="tel" placeholder="+7 (___) ___-__-__" value={newPhone} onChange={(e) => setNewPhone(formatRussianPhoneInput(e.target.value))} className="mt-1 w-full h-12 rounded-2xl border border-gray-200 px-4 text-sm outline-none focus:ring-4 focus:ring-teal-500/10 focus:border-teal-500 transition-all" /></label>
+              <AdminField id="booking-client-name" label="Имя клиента"><AdminInput id="booking-client-name" autoComplete="name" required value={newName} onChange={e=>setNewName(e.target.value)} /></AdminField>
+              <AdminField id="booking-client-phone" label="Телефон клиента"><AdminInput id="booking-client-phone" required type="tel" autoComplete="tel" inputMode="tel" placeholder="+7 (___) ___-__-__" value={newPhone} onChange={e=>setNewPhone(formatRussianPhoneInput(e.target.value))} /></AdminField>
               <div className="grid grid-cols-2 gap-3">
-                <label className="block min-w-0 text-xs">Услуга<select value={newService} onChange={(e) => {setNewService(e.target.value as ServiceType);setNewSlotId(null);}} className="mt-1 w-full h-12 rounded-2xl border border-gray-200 px-4 text-sm outline-none focus:ring-4 focus:ring-teal-500/10 focus:border-teal-500 transition-all bg-white">{SERVICE_TYPES.map((s) => (<option key={s.value} value={s.value}>{s.label}</option>))}</select></label>
-                <label className="block min-w-0 text-xs">Время (МСК)<input type="time" value={newTime} onChange={(e) => {setNewTime(e.target.value);setNewSlotId(null);}} className="mt-1 w-full h-12 rounded-2xl border border-gray-200 px-4 text-sm outline-none focus:ring-4 focus:ring-teal-500/10 focus:border-teal-500 transition-all" /></label>
+                <AdminField id="booking-service" label="Услуга"><AdminSelect id="booking-service" value={newService} onChange={e=>{setNewService(e.target.value as ServiceType);setNewSlotId(null);}}>{SERVICE_TYPES.map(s=><option key={s.value} value={s.value}>{s.label}</option>)}</AdminSelect></AdminField>
+                <AdminField id="booking-time" label="Время (МСК)"><AdminInput id="booking-time" type="time" value={newTime} onChange={e=>{setNewTime(e.target.value);setNewSlotId(null);}} /></AdminField>
               </div>
               <label className="flex items-start gap-3 text-xs text-gray-700"><input type="checkbox" required checked={newConsent} onChange={e=>setNewConsent(e.target.checked)}/>Клиент дал согласие на обработку данных и запись на услугу.</label>
-              <button type="button" disabled={adding} onClick={addWindowOnly} className="min-h-11 w-full rounded-xl border px-3 text-sm disabled:opacity-50">Добавить только доступное окно, без клиента</button>
-              <button type="submit" disabled={adding||!newConsent} className="w-full h-12 rounded-2xl bg-[#111827] text-white text-sm font-medium hover:opacity-90 transition-all disabled:opacity-50">{adding ? "Добавление..." : "Добавить запись"}</button>
+              <AdminButton variant="outline" disabled={adding} onClick={addWindowOnly} className="w-full">Добавить только окно, без клиента</AdminButton>
+              <AdminButton type="submit" loading={adding} disabled={!newConsent} className="w-full">{adding ? 'Добавление…' : 'Добавить запись'}</AdminButton>
             </form>
           </div>
         </AdminModal>
@@ -360,32 +360,23 @@ export default function AdminCalendarPage() {
 
       {showBreakModal && (
         <AdminModal title="Новый перерыв" dismissDisabled={savingBreak} onCancel={() => setShowBreakModal(false)}>
-          <div className="w-full max-w-md rounded-[32px] bg-white shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between p-6 border-b border-gray-100">
-              <div><h3 className="text-lg font-semibold text-[#111827]">Новый перерыв</h3><p className="text-sm text-[#6B7280] mt-1">{format(selectedDay, "d MMMM yyyy", { locale: ru })}</p></div>
-              <button disabled={savingBreak} onClick={() => setShowBreakModal(false)} className="w-10 h-10 rounded-2xl hover:bg-gray-100 flex items-center justify-center transition-all" aria-label="Закрыть"><X className="w-5 h-5 text-[#6B7280]" /></button>
+          <div className="w-full max-w-md rounded-[var(--bs-radius-card)] bg-[var(--bs-surface)] shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between p-6 border-b border-[var(--bs-border)]">
+              <div><h3 className="text-lg font-semibold text-[var(--bs-foreground)]">Новый перерыв</h3><p className="text-sm text-[var(--bs-muted)] mt-1">{format(selectedDay, "d MMMM yyyy", { locale: ru })}</p></div>
+              <button disabled={savingBreak} onClick={() => setShowBreakModal(false)} className="w-10 h-10 rounded-[var(--bs-radius-control)] hover:bg-gray-100 flex items-center justify-center transition-all" aria-label="Закрыть"><X className="w-5 h-5 text-[var(--bs-muted)]" /></button>
             </div>
             <form onSubmit={handleAddBreak} className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-3">
-                <label className="text-xs font-medium text-[#6B7280]">Начало<input required type="time" value={breakFrom} onChange={(e) => setBreakFrom(e.target.value)} className="mt-1 h-12 w-full rounded-2xl border border-gray-200 px-4 text-sm outline-none focus:border-violet-500 focus:ring-4 focus:ring-violet-500/10" /></label>
-                <label className="text-xs font-medium text-[#6B7280]">Окончание<input required type="time" value={breakTo} onChange={(e) => setBreakTo(e.target.value)} className="mt-1 h-12 w-full rounded-2xl border border-gray-200 px-4 text-sm outline-none focus:border-violet-500 focus:ring-4 focus:ring-violet-500/10" /></label>
+                <label className="text-xs font-medium text-[var(--bs-muted)]">Начало<input required type="time" value={breakFrom} onChange={(e) => setBreakFrom(e.target.value)} className="mt-1 h-12 w-full rounded-[var(--bs-radius-control)] border border-[var(--bs-border)] px-4 text-sm outline-none focus:border-violet-500 focus:ring-4 focus:ring-violet-500/10" /></label>
+                <label className="text-xs font-medium text-[var(--bs-muted)]">Окончание<input required type="time" value={breakTo} onChange={(e) => setBreakTo(e.target.value)} className="mt-1 h-12 w-full rounded-[var(--bs-radius-control)] border border-[var(--bs-border)] px-4 text-sm outline-none focus:border-violet-500 focus:ring-4 focus:ring-violet-500/10" /></label>
               </div>
-              <label className="block text-xs font-medium text-[#6B7280]">Причина<input value={breakReason} maxLength={200} onChange={(e) => setBreakReason(e.target.value)} placeholder="Например: стоматолог" className="mt-1 h-12 w-full rounded-2xl border border-gray-200 px-4 text-sm outline-none focus:border-violet-500 focus:ring-4 focus:ring-violet-500/10" /></label>
-              <p className="rounded-2xl bg-violet-50 p-4 text-xs leading-5 text-violet-700">Все пересекающиеся слоты автоматически станут недоступны для записи.</p>
-              <button type="submit" disabled={savingBreak} className="w-full h-12 rounded-2xl bg-violet-700 text-white text-sm font-medium hover:bg-violet-800 transition-all disabled:opacity-50">{savingBreak ? "Добавление..." : "Добавить перерыв"}</button>
+              <label className="block text-xs font-medium text-[var(--bs-muted)]">Причина<input value={breakReason} maxLength={200} onChange={(e) => setBreakReason(e.target.value)} placeholder="Например: стоматолог" className="mt-1 h-12 w-full rounded-[var(--bs-radius-control)] border border-[var(--bs-border)] px-4 text-sm outline-none focus:border-violet-500 focus:ring-4 focus:ring-violet-500/10" /></label>
+              <p className="rounded-[var(--bs-radius-control)] bg-violet-50 p-4 text-xs leading-5 text-violet-700">Все пересекающиеся слоты автоматически станут недоступны для записи.</p>
+              <button type="submit" disabled={savingBreak} className="w-full h-12 rounded-[var(--bs-radius-control)] bg-violet-700 text-white text-sm font-medium hover:bg-violet-800 transition-all disabled:opacity-50">{savingBreak ? "Добавление..." : "Добавить перерыв"}</button>
             </form>
           </div>
         </AdminModal>
       )}
-    </div>
-  );
-}
-
-function StatCard({ title, value }: { title: string; value: number }) {
-  return (
-    <div className="rounded-3xl bg-white border border-gray-100 p-4 shadow-sm">
-      <p className="text-xs text-[#6B7280]">{title}</p>
-      <h3 className="text-3xl font-bold tracking-tight text-[#111827] mt-2">{value}</h3>
     </div>
   );
 }

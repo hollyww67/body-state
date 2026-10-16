@@ -105,30 +105,21 @@ export default function AdminDashboard() {
   ];
 
   return (
-    <div className="admin-dashboard">
-      <section className="admin-quick-actions" aria-label="Быстрые действия">
-        <div><p className="admin-section-eyebrow">Каждый день</p><h3>Что нужно сделать?</h3></div>
-        <div className="admin-quick-action-list">
-          <Link href="/admin/bookings?create=1" className="admin-quick-action is-primary"><Plus className="h-4 w-4" /><span>Записать клиента</span></Link>
-          <Link href="/admin/bookings" className="admin-quick-action"><UserRound className="h-4 w-4" /><span>Найти клиента</span></Link>
-          <Link href="/admin/slots" className="admin-quick-action"><CalendarDays className="h-4 w-4" /><span>Настроить расписание</span></Link>
-          <Link href="/admin/payment-links" className="admin-quick-action"><ShoppingBag className="h-4 w-4" /><span>Создать ссылку на оплату</span></Link>
-        </div>
-      </section>
-      <AdminToday/>
-      <div className="admin-dashboard-intro">
+    <div className="admin-dashboard admin-dashboard-v2">
+      <header className="admin-dashboard-intro admin-dashboard-welcome">
         <div>
-          <h2>Общая сводка</h2>
-          <p>Заказы, остатки и последние обращения за всё время.</p>
+          <p className="admin-section-eyebrow">Body State · Панель управления</p>
+          <h2>Здравствуйте!</h2>
+          <p>Приёмы и задачи рабочего дня — рядом. Ниже — общая сводка за всё время.</p>
         </div>
         <button type="button" aria-label="Обновить общую сводку" onClick={() => loadData(true)} className="admin-dashboard-refresh" disabled={refreshing}>
           <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
           <span>Обновить</span>
         </button>
-      </div>
+      </header>
 
       {error && (
-        <div className="admin-dashboard-error">
+        <div className="admin-dashboard-error" role="alert">
           <AlertCircle className="h-4 w-4" /> Не удалось обновить сводку. Показатели могут быть устаревшими. Нажмите «Обновить» и попробуйте ещё раз.
         </div>
       )}
@@ -146,7 +137,13 @@ export default function AdminDashboard() {
         })}
       </section>
 
-      <section className="admin-dashboard-grid">
+      <div className="admin-dashboard-workspace">
+        <div className="admin-dashboard-main">
+          <div className="admin-dashboard-day">
+            <AdminToday />
+          </div>
+
+      <section className="admin-dashboard-grid admin-dashboard-recent" aria-label="Последние записи и заказы">
         <DashboardList title="Последние записи и обращения" href="/admin/bookings" empty={loading ? "Загружаем записи…" : error ? "Данные недоступны. Повторите обновление." : "Записей пока нет"}>
           {bookings.slice(0, 5).map((booking) => (
             <Link href={`/admin/bookings?booking=${booking.id}`} className="admin-activity-row" key={`${booking.service_type}-${booking.id}`}>
@@ -174,6 +171,19 @@ export default function AdminDashboard() {
         </DashboardList>
       </section>
 
+        </div>
+
+        <aside className="admin-dashboard-sidebar" aria-label="Действия и ближайшие приёмы">
+      <section className="admin-quick-actions admin-dashboard-actions" aria-label="Быстрые действия">
+        <div><p className="admin-section-eyebrow">Каждый день</p><h3>Быстрые действия</h3></div>
+        <div className="admin-quick-action-list">
+          <Link href="/admin/bookings?create=1" className="admin-quick-action is-primary"><Plus className="h-4 w-4" /><span>Записать клиента</span></Link>
+          <Link href="/admin/bookings" className="admin-quick-action"><UserRound className="h-4 w-4" /><span>Найти клиента</span></Link>
+          <Link href="/admin/slots" className="admin-quick-action"><CalendarDays className="h-4 w-4" /><span>Настроить расписание</span></Link>
+          <Link href="/admin/payment-links" className="admin-quick-action"><ShoppingBag className="h-4 w-4" /><span>Создать ссылку на оплату</span></Link>
+        </div>
+      </section>
+
       <section className="admin-next-card">
         <div className="admin-next-heading"><span className="admin-section-eyebrow">Ближайшие подтверждённые приёмы</span><Link href="/admin/calendar">Весь календарь <ArrowRight className="h-3.5 w-3.5" /></Link></div>
         {upcomingBookings.map((booking) => (
@@ -192,6 +202,8 @@ export default function AdminDashboard() {
         <div><p>Оплаченные заказы</p><strong>{loading || error ? "—" : `${stats.revenue.toLocaleString("ru-RU")} ₽`}</strong></div>
         <div className="admin-revenue-note"><Clock3 className="h-4 w-4" /> За всё время</div>
       </section>
+        </aside>
+      </div>
     </div>
   );
 }

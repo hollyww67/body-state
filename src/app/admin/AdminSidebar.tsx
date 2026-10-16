@@ -2,11 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import NextImage from 'next/image';
 import { usePathname } from "next/navigation";
 import {
   Calendar, CalendarDays, ChevronLeft, ChevronsLeft, ChevronsRight, Clock,
   FileText, HeartPulse, Image, LayoutDashboard, Menu, MessageSquare, Package,
-  Award, BadgeRussianRuble, Gift, Link2, Search, Settings, ShoppingBag, Sparkles, Star, TicketPercent, Video, X,
+  Award, BadgeRussianRuble, Gift, Link2, Search, Settings, ShoppingBag, Star, TicketPercent, Video, X,
 } from "lucide-react";
 
 const groups = [
@@ -152,8 +153,8 @@ export default function AdminSidebar() {
           <Menu className="h-5 w-5" />
         </button>
         <div className="admin-mobile-brand">
-          <span className="admin-brand-mark"><Sparkles className="h-4 w-4" /></span>
-          <span>Центр управления</span>
+          <span className="admin-brand-mark"><NextImage unoptimized src="/admin-icons/192.png" alt="" width={36} height={36} /></span>
+          <span>BODY STATE</span>
         </div>
       </div>
 
@@ -161,11 +162,11 @@ export default function AdminSidebar() {
 
       <aside ref={sidebarRef} id="admin-navigation" aria-label="Меню администратора" role={mobileOpen ? "dialog" : undefined} aria-modal={mobileOpen || undefined} className={`admin-sidebar ${collapsed ? "is-collapsed" : ""} ${mobileOpen ? "is-open" : ""}`}>
         <div className="admin-sidebar-brand">
-          <span className="admin-brand-mark"><Sparkles className="h-5 w-5" /></span>
+          <span className="admin-brand-mark"><NextImage unoptimized src="/admin-icons/192.png" alt="" width={36} height={36} /></span>
           {!collapsed && (
             <div className="admin-brand-copy">
-              <strong>Центр управления</strong>
-              <span>Практика и магазин</span>
+              <strong>BODY STATE</strong>
+              <span>Панель управления</span>
             </div>
           )}
           <button type="button" onClick={toggleCollapsed} className="admin-collapse-button" aria-label={collapsed ? "Развернуть меню" : "Свернуть меню"}>

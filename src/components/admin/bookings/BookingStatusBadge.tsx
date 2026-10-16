@@ -1,18 +1,15 @@
 import type { BookingStatus } from "@/lib/api/bookings";
 import { STATUS_LABELS } from "@/lib/api/bookings";
+import { AdminBadge, type BadgeTone } from '@/components/admin/ui';
 
-const STATUS_COLORS: Record<BookingStatus, string> = {
-  new: 'bg-gray-100 text-gray-700',
-  pending: "bg-yellow-100 text-yellow-700",
-  confirmed: "bg-green-100 text-green-700",
-  cancelled: "bg-red-100 text-red-700",
-  completed: "bg-gray-100 text-gray-600",
+const STATUS_TONES: Record<BookingStatus, BadgeTone> = {
+  new: 'info', pending: 'warning', confirmed: 'success', cancelled: 'destructive', completed: 'neutral',
 };
 
 export default function BookingStatusBadge({ status }: { status: BookingStatus }) {
   return (
-    <span className={`text-xs px-2 py-0.5 rounded-full ${STATUS_COLORS[status]}`}>
+    <AdminBadge tone={STATUS_TONES[status]}>
       {STATUS_LABELS[status]}
-    </span>
+    </AdminBadge>
   );
 }

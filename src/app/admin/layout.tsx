@@ -4,6 +4,7 @@ import AdminSidebar from "./AdminSidebar";
 import AdminTopbar from "./AdminTopbar";
 import { ADMIN_COOKIE, verifyAdminSessionToken } from "@/lib/admin-auth";
 import "./admin.css";
+import "./design-system.css";
 import AdminPwa from './AdminPwa';
 import { adminPwaMetadata, adminViewport } from '@/lib/admin-pwa-metadata';
 export const metadata = adminPwaMetadata;
@@ -21,10 +22,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     <>
       <div className="admin-shell">
         <AdminSidebar />
+        <a href="#admin-workspace" className="sr-only focus:not-sr-only">К содержимому</a>
         <main className="admin-main">
           <AdminTopbar />
           <AdminPwa />
-          <div className="admin-workspace admin-content">{children}</div>
+          <div id="admin-workspace" tabIndex={-1} className="admin-workspace admin-content">{children}</div>
         </main>
       </div>
     </>
