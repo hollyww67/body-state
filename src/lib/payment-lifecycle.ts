@@ -5,6 +5,7 @@ import { transitionOrderState, type OrderItem } from "@/lib/order-stock";
 import { settleBookingPayments, isPayableBookingType } from "@/lib/booking-payments";
 import { openPaymentCase } from "@/lib/payment-cases";
 import { recordSuccessfulVisit } from "@/lib/loyalty";
+import { enqueueOrderNotification } from '@/lib/notification-core';
 
 const PAID = new Set(["paid", "shipped", "delivered"]);
 type Order = {
@@ -120,6 +121,7 @@ export async function processMonetaryNotification(data: Record<string, unknown>)
       await recordSuccessfulVisit({accountUserId:order.account_user_id,phone:order.loyalty_client_phone,
         email:order.receipt_email,serviceCode:order.loyalty_service_code,orderId:order.id}, client);
     }
+    if(status==='CONFIRMED'&&!linked.length)await enqueueOrderNotification(client,order.id);
     return {status:200, ...(newlyPaid ? {notify:{id:order.id,total:Number(order.total)}} : {})};
   });
 }

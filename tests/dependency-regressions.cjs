@@ -31,7 +31,10 @@ function load(file, mocks, env = {}) {
   }
   const malformed = await transport.sendMail({ from: 'sender@example.test', to: 'x('.repeat(1000), text: 'test' });
   assert.ok(Array.isArray(malformed.envelope.to));
-  const providers = { '@/lib/notification-result': { providerFailure: () => ({ status: 'rejected' }) } };
+  const providers = {
+    '@/lib/notification-result': { providerFailure: () => ({ status: 'rejected' }) },
+    '@/lib/notification-smtp-budget': { reserveSmtpBudget: async () => null },
+  };
   assert.equal((await load('src/lib/notifications.ts', providers).deliverEmail('a@example.test','test','test')).status, 'not_configured');
   for (const fail of [false, true]) {
     let calls = 0;

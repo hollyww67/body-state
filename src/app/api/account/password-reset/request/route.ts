@@ -1,12 +1,13 @@
 import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { pool } from "@/lib/db";
+import { db, pool } from "@/lib/db";
+import { assertResetKeyConfigured, enqueuePasswordReset, resetNotificationsEnabled } from "@/lib/notification-reset";
 import { isEmailConfigured, sendEmail } from "@/lib/notifications";
 import { cleanText, enforceRateLimit, readJsonObject } from "@/lib/request";
 import { checkRateLimit } from "@/lib/rate-limit";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://body-state.ru";
-const GENERIC_MESSAGE = "Если аккаунт найден, письмо для восстановления уже отправлено.";
+const GENERIC_MESSAGE = "Если аккаунт найден, вы получите письмо для восстановления.";
 
 function digest(value: string) {
   return crypto.createHash("sha256").update(value).digest("hex");
@@ -19,7 +20,12 @@ function escapeHtml(value: string) {
 export async function POST(request: NextRequest) {
   const limited = await enforceRateLimit(request, "account-password-reset", 5, 60 * 60);
   if (limited) return limited;
-  if (!isEmailConfigured()) {
+  const queued = resetNotificationsEnabled();
+  if (queued) {
+    try { assertResetKeyConfigured(); }
+    catch { return NextResponse.json({ error: "Восстановление временно недоступно. Обратитесь в поддержку." }, { status: 503 }); }
+  }
+  if (!queued && !isEmailConfigured()) {
     return NextResponse.json({ error: "Отправка писем пока не настроена. Обратитесь в поддержку." }, { status: 503 });
   }
 
@@ -33,6 +39,17 @@ export async function POST(request: NextRequest) {
   const identity = cleanText(body.identity, 254).normalize("NFKC").toLowerCase();
   if (identity.length < 3) return NextResponse.json({ error: "Введите логин или e-mail" }, { status: 400 });
   if (!(await checkRateLimit(`account-password-reset-target:${digest(identity)}`, 3, 60 * 60))) {
+    return NextResponse.json({ ok: true, message: GENERIC_MESSAGE });
+  }
+
+  if (queued) {
+    try {
+      await db.transaction(client => enqueuePasswordReset(client, identity));
+    } catch {
+      // No identity, reset URL, token, SQL parameters or provider response in logs.
+      console.error("[Account] Password reset queue unavailable");
+      return NextResponse.json({ error: "Восстановление временно недоступно. Попробуйте позже." }, { status: 503 });
+    }
     return NextResponse.json({ ok: true, message: GENERIC_MESSAGE });
   }
 
