@@ -695,5 +695,29 @@ const baseOrder = () => ({ external_order_id: crypto.randomUUID(), client_name: 
       assert.equal((await pool.query('SELECT id FROM client_visits WHERE order_id=$1',[staleOrder.id])).rowCount,0);
     } finally {releaseState();await running;bank.getPaymentState=savedState;}
   });
+  await test('Notification V1 actual booking/payment hooks: atomic paid once, reschedule old/new, cancel, generic order',async()=>{
+    process.env.NOTIFICATIONS_EMAIL_V1_ENABLED='true';
+    process.env.NOTIFICATIONS_EMAIL_V1_ACTIVE_SINCE=new Date(Date.now()-1000).toISOString();
+    try{
+      const core=require('../src/lib/notification-core.js');
+      const visit=await claimSlot(await slot('2151-06-02T09:30:00+03:00'),'bfm',fields());assert(visit.ok);
+      const created=await pool.query("SELECT id FROM appointment_notifications WHERE engine='v1' AND booking_id=$1 AND event_type='created'",[visit.booking.id]);assert.equal(created.rowCount,1);
+      const order=await createPendingOrderWithReservation({...baseOrder(),receipt_email:'qa@example.invalid'},[{bookingId:visit.booking.id,bookingType:'bfm'}]);
+      await pool.query("UPDATE orders SET payment_id='notification-v1-test' WHERE id=$1",[order.id]);
+      assert.equal((await pool.query("SELECT id FROM appointment_notifications WHERE engine='v1' AND booking_id=$1 AND event_type='paid'",[visit.booking.id])).rowCount,0,'Init is not paid');
+      const body={TerminalKey:'audit-terminal',PaymentId:'notification-v1-test',OrderId:order.id,Status:'CONFIRMED',Success:true,Amount:100000};
+      const replies=await Promise.all(Array.from({length:5},()=>signedCallback(body)));assert(replies.every(r=>r.status===200));
+      assert.equal((await pool.query("SELECT id FROM appointment_notifications WHERE engine='v1' AND booking_id=$1 AND event_type='paid'",[visit.booking.id])).rowCount,1);
+      const moved=await rescheduleBooking({bookingId:visit.booking.id,serviceType:'bfm',newSlotId:await slot('2151-06-03T09:30:00+03:00')});assert(moved.ok);
+      const change=(await pool.query("SELECT payload FROM appointment_notifications WHERE engine='v1' AND booking_id=$1 AND event_type='rescheduled'",[visit.booking.id])).rows[0];assert.equal(change.payload.oldTime,'2151-06-02T06:30:00.000Z');
+      let sent=0;await core.processV1Notifications(20,{email:async()=>{sent++;return {status:'accepted'};},max:async()=>{throw Error('MAX disabled');}});assert(sent>=2);
+      await updateAdminBooking(visit.booking.id,'cancelled');
+      assert.equal((await pool.query("SELECT id FROM appointment_notifications WHERE engine='v1' AND booking_id=$1 AND event_type='cancelled'",[visit.booking.id])).rowCount,1);
+      const generic=await createPendingOrderWithReservation({...baseOrder(),receipt_email:'qa@example.invalid'},[]);
+      await pool.query("UPDATE orders SET payment_id='notification-v1-generic' WHERE id=$1",[generic.id]);
+      assert.equal((await signedCallback({...body,OrderId:generic.id,PaymentId:'notification-v1-generic'})).status,200);
+      assert.equal((await pool.query("SELECT id FROM appointment_notifications WHERE engine='v1' AND payload->>'orderId'=$1 AND event_type='paid'",[generic.id])).rowCount,1);
+    }finally{process.env.NOTIFICATIONS_EMAIL_V1_ENABLED='false';}
+  });
   console.log(JSON.stringify({passed:results.length,tests:results}));
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(()=>pool.end());
