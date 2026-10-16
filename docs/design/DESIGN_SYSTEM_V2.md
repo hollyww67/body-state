@@ -21,3 +21,7 @@ React 19.2.4 / Next 16.3.8. Tailwind utilities + `@tailwindcss/postcss` 4.3.2 п
 Нативные button/input/select/checkbox/radio, явные labels, aria-pressed фильтров, focus-visible, skip-link. Dialog остаётся существующим native top-layer с focus trap/restore, Escape и iOS scroll lock. Обработка busy/error не переписана. Для AdminField consumer обязан передать input id и `aria-describedby="<id>-description"`, если использует hint/error, и aria-invalid при ошибке.
 
 Не заявляется полная сертификация WCAG: нужен отдельный screen-reader/device acceptance. Изображённые в макетах специалисты, кабинеты, выручка и проценты роста не добавляются как фиктивная функциональность.
+
+## Расширение Phase 2
+
+`phase2.css` добавляет только namespaced composition patterns поверх существующих tokens: страничный header/toolbar, формы, финансовые tabular numbers, split layout и safe-area sticky savebar. `AdminPageHeader` и `AdminLoadingState` — presentation-only расширения UI Kit. Foundations, Manrope, palette и violet-тема утверждённой первой очереди неизменны.

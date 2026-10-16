@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Save } from 'lucide-react';
 import FileUploader from '@/components/FileUploader';
+import { AdminButton, AdminCard, AdminCheckbox, AdminFeedback, AdminInput, AdminSelect, AdminTextarea } from '@/components/admin/ui';
 
 interface MediaItem {
     id: number;
@@ -105,9 +106,9 @@ export default function EditMediaPage() {
     }
 
     return (
-        <div className="p-8 max-w-4xl mx-auto">
+        <div className="p-4 md:p-8 max-w-4xl mx-auto text-[var(--bs-foreground)]">
             <div className="flex items-center gap-4 mb-6">
-                <Link href="/admin/media" className="p-2 rounded-lg hover:bg-gray-100 transition">
+                <Link href="/admin/media" aria-label="Назад к результатам" className="bs-button bs-button--ghost bs-button--icon">
                     <ArrowLeft className="w-5 h-5" />
                 </Link>
                 <h1 className="text-2xl font-bold">
@@ -116,47 +117,40 @@ export default function EditMediaPage() {
             </div>
 
             {error && (
-                <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-xl">
-                    {error}
-                </div>
+                <AdminFeedback tone="destructive">{error}</AdminFeedback>
             )}
 
             <form onSubmit={handleSubmit} className="space-y-6">
+                <AdminCard className="p-4 md:p-6 space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                        <label className="block text-sm font-medium mb-1">Название *</label>
-                        <input
+                        <label htmlFor="media-title" className="block text-sm font-medium mb-1">Название *</label>
+                        <AdminInput id="media-title"
                             type="text"
                             value={form.title}
                             onChange={(e) => handleChange('title', e.target.value)}
-                            className="w-full p-3 border rounded-xl"
-                            style={{ borderColor: 'var(--border)', background: 'var(--bg)', color: 'var(--foreground)' }}
                             required
                         />
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium mb-1">Тип</label>
-                        <select
+                        <label htmlFor="media-type" className="block text-sm font-medium mb-1">Тип</label>
+                        <AdminSelect id="media-type"
                             value={form.media_type}
                             onChange={(e) => handleChange('media_type', e.target.value)}
-                            className="w-full p-3 border rounded-xl"
-                            style={{ borderColor: 'var(--border)', background: 'var(--bg)', color: 'var(--foreground)' }}
                         >
                             <option value="photo">Фото</option>
                             <option value="video">Видео</option>
-                        </select>
+                        </AdminSelect>
                     </div>
                 </div>
 
                 <div>
-                    <label className="block text-sm font-medium mb-1">Описание</label>
-                    <textarea
+                    <label htmlFor="media-description" className="block text-sm font-medium mb-1">Описание</label>
+                    <AdminTextarea id="media-description"
                         value={form.description}
                         onChange={(e) => handleChange('description', e.target.value)}
                         rows={3}
-                        className="w-full p-3 border rounded-xl"
-                        style={{ borderColor: 'var(--border)', background: 'var(--bg)', color: 'var(--foreground)' }}
                     />
                 </div>
 
@@ -189,73 +183,64 @@ export default function EditMediaPage() {
                         currentUrl={form.video_url}
                         onUpload={(url) => handleChange('video_url', url)}
                     />
-                    <p className="text-xs mt-1" style={{ color: 'var(--foreground-secondary)' }}>
+                    <p className="text-xs mt-1" style={{ color: 'var(--bs-muted)' }}>
                         Если загружено видео, фото ДО/ПОСЛЕ не обязательны
                     </p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
-                        <label className="block text-sm font-medium mb-1">Категория</label>
-                        <input
+                        <label htmlFor="media-category" className="block text-sm font-medium mb-1">Категория</label>
+                        <AdminInput id="media-category"
                             type="text"
                             value={form.category || ''}
                             onChange={(e) => handleChange('category', e.target.value)}
-                            className="w-full p-3 border rounded-xl"
-                            style={{ borderColor: 'var(--border)', background: 'var(--bg)', color: 'var(--foreground)' }}
                             placeholder="Например: Физическая реабилитация"
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium mb-1">Имя клиента</label>
-                        <input
+                        <label htmlFor="media-client" className="block text-sm font-medium mb-1">Имя клиента</label>
+                        <AdminInput id="media-client"
                             type="text"
                             value={form.client_name || ''}
                             onChange={(e) => handleChange('client_name', e.target.value)}
-                            className="w-full p-3 border rounded-xl"
-                            style={{ borderColor: 'var(--border)', background: 'var(--bg)', color: 'var(--foreground)' }}
                             placeholder="Анонимно"
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium mb-1">Услуга</label>
-                        <input
+                        <label htmlFor="media-service" className="block text-sm font-medium mb-1">Услуга</label>
+                        <AdminInput id="media-service"
                             type="text"
                             value={form.service_type || ''}
                             onChange={(e) => handleChange('service_type', e.target.value)}
-                            className="w-full p-3 border rounded-xl"
-                            style={{ borderColor: 'var(--border)', background: 'var(--bg)', color: 'var(--foreground)' }}
                             placeholder="Физическая реабилитация / БРТ / Психологическая реабилитация"
                         />
                     </div>
                 </div>
 
                 <div className="flex items-center gap-3">
-                    <input
-                        type="checkbox"
+                    <AdminCheckbox
                         id="is_published"
                         checked={form.is_published}
                         onChange={(e) => handleChange('is_published', e.target.checked)}
-                        className="w-4 h-4"
                     />
                     <label htmlFor="is_published" className="text-sm font-medium">
                         Опубликовано на сайте
                     </label>
                 </div>
 
-                <div className="flex gap-4 pt-4 border-t">
-                    <button
+                </AdminCard>
+                <div className="flex flex-wrap gap-4 pt-4 border-t border-[var(--bs-border)]">
+                    <AdminButton
                         type="submit"
                         disabled={saving}
-                        className="px-6 py-3 bg-gradient-to-r from-teal-500 to-emerald-500 text-white rounded-xl flex items-center gap-2 hover:shadow-lg transition disabled:opacity-50"
                     >
                         <Save className="w-4 h-4" />
                         {saving ? 'Сохранение...' : 'Сохранить'}
-                    </button>
+                    </AdminButton>
                     <Link
                         href="/admin/media"
-                        className="px-6 py-3 border rounded-xl hover:bg-gray-50 transition"
-                        style={{ borderColor: 'var(--border)' }}
+                        className="bs-button bs-button--outline bs-button--md"
                     >
                         Отмена
                     </Link>

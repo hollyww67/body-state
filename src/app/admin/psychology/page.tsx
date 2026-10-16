@@ -1,6 +1,8 @@
 'use client';
+import AdminConfirmDialog from '@/components/admin/AdminConfirmDialog';
 
 import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Plus, Edit, Eye, Trash2, HeartPulse, GripVertical } from 'lucide-react';
@@ -21,6 +23,7 @@ import {
 } from '@dnd-kit/sortable';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { AdminBadge, AdminButton, AdminFeedback } from '@/components/admin/ui';
 
 interface Program {
     id: number;
@@ -61,52 +64,46 @@ function SortableProgramRow({ program, onDelete, onEdit, onView }: {
         <tr 
             ref={setNodeRef} 
             style={style} 
-            className={`border-b hover:bg-gray-50 transition ${isDragging ? 'shadow-lg' : ''}`}
+            className={`border-b border-[var(--bs-border)] hover:bg-[var(--bs-surface-muted)] transition ${isDragging ? 'shadow-lg' : ''}`}
         >
             <td className="p-3">
                 <div 
                     {...attributes} 
                     {...listeners} 
-                    className="cursor-grab hover:cursor-grabbing inline-flex p-1 rounded hover:bg-gray-100 transition"
+                    className="cursor-grab hover:cursor-grabbing inline-flex min-h-11 min-w-11 items-center justify-center rounded-[var(--bs-radius-control)] hover:bg-[var(--bs-surface-muted)] transition"
+                    aria-label={`Переместить ${program.title}`}
                 >
-                    <GripVertical className="w-4 h-4 text-gray-400" />
+                    <GripVertical className="w-4 h-4 text-[var(--bs-muted)]" />
                 </div>
             </td>
             <td className="p-3 font-medium">{program.title}</td>
             <td className="p-3">{program.price}</td>
             <td className="p-3">{program.duration}</td>
             <td className="p-3">
-                <span className={`px-2 py-1 rounded-full text-xs ${
-                    program.is_active 
-                        ? 'bg-green-100 text-green-700' 
-                        : 'bg-gray-100 text-gray-500'
-                }`}>
+                <AdminBadge tone={program.is_active ? 'success' : 'neutral'}>
                     {program.is_active ? 'Активна' : 'Черновик'}
-                </span>
+                </AdminBadge>
             </td>
             <td className="p-3">
                 <div className="flex gap-2">
-                    <button
+                    <AdminButton type="button" variant="ghost" size="icon" aria-label="Редактировать"
                         onClick={() => onEdit(program.id)}
-                        className="p-2 rounded-lg hover:bg-blue-50 transition"
                         title="Редактировать"
                     >
-                        <Edit className="w-4 h-4 text-blue-500" />
-                    </button>
-                    <button
+                        <Edit className="w-4 h-4" />
+                    </AdminButton>
+                    <AdminButton type="button" variant="ghost" size="icon" aria-label="Просмотреть"
                         onClick={() => onView(program.slug)}
-                        className="p-2 rounded-lg hover:bg-gray-100 transition"
                         title="Просмотреть"
                     >
-                        <Eye className="w-4 h-4 text-gray-500" />
-                    </button>
-                    <button
+                        <Eye className="w-4 h-4" />
+                    </AdminButton>
+                    <AdminButton type="button" variant="destructive" size="icon" aria-label="Удалить"
                         onClick={() => onDelete(program.id, program.title)}
-                        className="p-2 rounded-lg hover:bg-red-50 transition"
                         title="Удалить"
                     >
-                        <Trash2 className="w-4 h-4 text-red-500" />
-                    </button>
+                        <Trash2 className="w-4 h-4" />
+                    </AdminButton>
                 </div>
             </td>
         </tr>
@@ -115,6 +112,7 @@ function SortableProgramRow({ program, onDelete, onEdit, onView }: {
 
 export default function PsychologyAdmin() {
     const router = useRouter();
+    const [deleteTarget, setDeleteTarget] = useState<{ id: number; title: string } | null>(null);
     const [programs, setPrograms] = useState<Program[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -148,8 +146,7 @@ export default function PsychologyAdmin() {
         }
     };
 
-    const handleDelete = async (id: number, title: string) => {
-        if (!confirm(`Удалить программу "${title}"?`)) return;
+    const handleDelete = async (id: number) => {
 
         try {
             const res = await fetch(`/api/admin/psychology/${id}`, {
@@ -160,7 +157,7 @@ export default function PsychologyAdmin() {
 
             setPrograms(programs.filter(p => p.id !== id));
         } catch {
-            alert('Не удалось удалить программу');
+            toast.error('Не удалось удалить программу');
         }
     };
 
@@ -194,7 +191,7 @@ export default function PsychologyAdmin() {
                 }
             } catch (err) {
                 console.error('Reorder error:', err);
-                alert('Не удалось сохранить порядок. Обновите страницу.');
+                toast.error('Не удалось сохранить порядок. Обновите страницу.');
                 fetchPrograms();
             } finally {
                 setIsReordering(false);
@@ -213,30 +210,30 @@ export default function PsychologyAdmin() {
     if (error) {
         return (
             <div className="p-8">
-                <div className="text-red-500">Ошибка: {error}</div>
-                <button 
+                <AdminFeedback tone="destructive">Ошибка: {error}</AdminFeedback>
+                <AdminButton type="button"
                     onClick={fetchPrograms} 
-                    className="mt-4 px-4 py-2 bg-blue-500 text-white rounded"
+                    className="mt-4"
                 >
                     Повторить
-                </button>
+                </AdminButton>
             </div>
         );
     }
 
     return (
-        <div className="p-8">
-            <div className="flex justify-between items-center mb-6">
+        <div className="p-4 md:p-8 text-[var(--bs-foreground)]">
+            <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
                 <div>
                     <h1 className="text-2xl font-bold">Программы психологии</h1>
-                    <p className="text-sm text-gray-500 mt-1">
+                    <p className="text-sm text-[var(--bs-muted)] mt-1">
                         Всего программ: {programs.length}
                         {isReordering && ' (сохранение порядка...)'}
                     </p>
                 </div>
                 <Link
                     href="/admin/psychology/new"
-                    className="px-4 py-2 bg-blue-500 text-white rounded-lg flex items-center gap-2 hover:bg-blue-600 transition"
+                    className="bs-button bs-button--primary bs-button--md"
                 >
                     <Plus className="w-4 h-4" />
                     Добавить программу
@@ -244,34 +241,34 @@ export default function PsychologyAdmin() {
             </div>
 
             {programs.length === 0 ? (
-                <div className="text-center py-12 text-gray-500 border rounded-lg">
+                <div className="bs-card text-center py-12 text-[var(--bs-muted)]">
                     <HeartPulse className="w-12 h-12 mx-auto mb-4 opacity-50" />
                     <p>Нет программ психологии</p>
                     <Link 
                         href="/admin/psychology/new" 
-                        className="text-blue-500 hover:underline mt-2 inline-block"
+                        className="bs-button bs-button--ghost bs-button--md mt-2"
                     >
                         Создать первую программу
                     </Link>
                 </div>
             ) : (
-                <div className="overflow-x-auto border rounded-lg">
+                <div className="bs-card overflow-x-auto" role="region" aria-label="Программы психологии" tabIndex={0}>
                     <DndContext
                         sensors={sensors}
                         collisionDetection={closestCenter}
                         onDragEnd={handleDragEnd}
                     >
-                        <table className="w-full">
-                            <thead className="bg-gray-50 border-b">
+                        <table className="bs-table w-full">
+                            <thead className="bg-[var(--bs-surface-muted)] border-b border-[var(--bs-border)]">
                                 <tr>
-                                    <th className="text-left p-3 text-sm font-medium text-gray-600 w-12">
-                                        <GripVertical className="w-4 h-4 text-gray-400" />
+                                    <th scope="col" aria-label="Порядок" className="text-left p-3 text-sm font-medium text-[var(--bs-muted)] w-12">
+                                        <GripVertical className="w-4 h-4" />
                                     </th>
-                                    <th className="text-left p-3 text-sm font-medium text-gray-600">Название</th>
-                                    <th className="text-left p-3 text-sm font-medium text-gray-600">Цена</th>
-                                    <th className="text-left p-3 text-sm font-medium text-gray-600">Длительность</th>
-                                    <th className="text-left p-3 text-sm font-medium text-gray-600">Статус</th>
-                                    <th className="text-left p-3 text-sm font-medium text-gray-600">Действия</th>
+                                    <th scope="col" className="text-left p-3 text-sm font-medium text-[var(--bs-muted)]">Название</th>
+                                    <th scope="col" className="text-left p-3 text-sm font-medium text-[var(--bs-muted)]">Цена</th>
+                                    <th scope="col" className="text-left p-3 text-sm font-medium text-[var(--bs-muted)]">Длительность</th>
+                                    <th scope="col" className="text-left p-3 text-sm font-medium text-[var(--bs-muted)]">Статус</th>
+                                    <th scope="col" className="text-left p-3 text-sm font-medium text-[var(--bs-muted)]">Действия</th>
                                 </tr>
                             </thead>
                             <SortableContext
@@ -283,7 +280,7 @@ export default function PsychologyAdmin() {
                                         <SortableProgramRow
                                             key={program.id}
                                             program={program}
-                                            onDelete={handleDelete}
+                                            onDelete={(id, title) => setDeleteTarget({ id, title })}
                                             onEdit={(id) => router.push(`/admin/psychology/${id}`)}
                                             onView={(slug) => window.open(`/psychology/${slug}`, '_blank')}
                                         />
@@ -294,6 +291,7 @@ export default function PsychologyAdmin() {
                     </DndContext>
                 </div>
             )}
+            {deleteTarget && <AdminConfirmDialog title={`Удалить программу "${deleteTarget.title}"?`} onCancel={() => setDeleteTarget(null)} onConfirm={() => handleDelete(deleteTarget.id)}><p>{deleteTarget.title}</p></AdminConfirmDialog>}
         </div>
     );
 }

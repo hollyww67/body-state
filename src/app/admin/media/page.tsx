@@ -1,12 +1,15 @@
 'use client';
+import AdminConfirmDialog from '@/components/admin/AdminConfirmDialog';
 
 import SiteImage from '@/components/SiteImage';
 import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { 
     Plus, Edit, Trash2, Image as ImageIcon, Video, EyeOff, User, Tag
 } from 'lucide-react';
 import Link from 'next/link';
+import { AdminBadge, AdminButton, AdminFeedback } from '@/components/admin/ui';
 
 interface MediaItem {
     id: number;
@@ -26,6 +29,7 @@ interface MediaItem {
 }
 
 export default function MediaAdmin() {
+    const [deleteTarget, setDeleteTarget] = useState<{ id: number; title: string } | null>(null);
     const [items, setItems] = useState<MediaItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -46,18 +50,17 @@ export default function MediaAdmin() {
         }
     };
 
-    const handleDelete = async (id: number, title: string) => {
-        if (!confirm(`Удалить "${title}"?`)) return;
+    const handleDelete = async (id: number) => {
 
         try {
             const res = await fetch(`/api/media/${id}`, { method: 'DELETE' });
             if (res.ok) {
                 setItems(items.filter(item => item.id !== id));
             } else {
-                alert('Ошибка удаления');
+                toast.error('Ошибка удаления');
             }
         } catch {
-            alert('Ошибка удаления');
+            toast.error('Ошибка удаления');
         }
     };
 
@@ -66,24 +69,25 @@ export default function MediaAdmin() {
     }
 
     if (error) {
-        return <div className="p-8 text-red-500">{error}</div>;
+        return <div className="p-4 md:p-8"><AdminFeedback tone="destructive">{error}</AdminFeedback></div>;
     }
 
     return (
-        <div className="p-8 max-w-7xl mx-auto">
-            <div className="flex justify-between items-center mb-6">
+        <div className="p-4 md:p-8 max-w-7xl mx-auto text-[var(--bs-foreground)]">
+      {deleteTarget && <AdminConfirmDialog title={`Удалить "${deleteTarget.title}"?`} onCancel={() => setDeleteTarget(null)} onConfirm={() => handleDelete(deleteTarget.id)}><p>{deleteTarget.title}</p></AdminConfirmDialog>}
+            <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
                 <div>
                     <h1 className="text-2xl font-bold flex items-center gap-3">
-                        <ImageIcon aria-hidden="true" className="w-6 h-6 text-teal-500" />
+                        <ImageIcon aria-hidden="true" className="w-6 h-6 text-[var(--bs-primary)]" />
                         До / После
                     </h1>
-                    <p className="text-sm text-gray-500 mt-1">
+                    <p className="text-sm text-[var(--bs-muted)] mt-1">
                         Фото и видео результатов
                     </p>
                 </div>
                 <Link
                     href="/admin/media/new"
-                    className="px-4 py-2 bg-gradient-to-r from-teal-500 to-emerald-500 text-white rounded-xl flex items-center gap-2 hover:shadow-lg transition"
+                    className="bs-button bs-button--primary bs-button--md"
                 >
                     <Plus className="w-4 h-4" />
                     Добавить
@@ -91,10 +95,10 @@ export default function MediaAdmin() {
             </div>
 
             {items.length === 0 ? (
-                <div className="text-center py-12 text-gray-500 border rounded-2xl">
+                <div className="bs-card text-center py-12 text-[var(--bs-muted)]">
                     <ImageIcon aria-hidden="true" className="w-12 h-12 mx-auto mb-4 opacity-30" />
                     <p>Нет фото и видео</p>
-                    <Link href="/admin/media/new" className="text-teal-500 hover:underline mt-2 inline-block">
+                    <Link href="/admin/media/new" className="bs-button bs-button--ghost bs-button--md mt-2">
                         Добавить первый результат
                     </Link>
                 </div>
@@ -105,10 +109,11 @@ export default function MediaAdmin() {
                             key={item.id}
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
-                            className="bg-white border rounded-2xl overflow-hidden hover:shadow-lg transition"
+                            className="bs-card overflow-hidden"
+                            style={{ padding: 0 }}
                         >
                             {/* Превью */}
-                            <div className="relative aspect-[4/3] bg-gray-100">
+                            <div className="relative aspect-[4/3] bg-[var(--bs-surface-muted)]">
                                 {item.media_type === 'photo' ? (
                                     <SiteImage
                                         src={item.after_image_url || item.before_image_url || '/placeholder.jpg'}
@@ -116,58 +121,59 @@ export default function MediaAdmin() {
                                         className="w-full h-full object-cover"
                                     />
                                 ) : (
-                                    <div className="w-full h-full flex items-center justify-center bg-gray-800">
-                                        <Video className="w-12 h-12 text-white/50" />
+                                    <div className="w-full h-full flex items-center justify-center bg-[var(--bs-surface-muted)]">
+                                        <Video className="w-12 h-12 text-[var(--bs-muted)]" />
                                     </div>
                                 )}
                                 {!item.is_published && (
-                                    <div className="absolute top-2 right-2 bg-gray-800/80 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1">
+                                    <AdminBadge className="absolute top-2 right-2" tone="warning">
                                         <EyeOff className="w-3 h-3" />
                                         Скрыто
-                                    </div>
+                                    </AdminBadge>
                                 )}
-                                <div className="absolute top-2 left-2 bg-black/60 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1">
+                                <AdminBadge className="absolute top-2 left-2" tone="info">
                                     {item.media_type === 'photo' ? (
                                         <ImageIcon aria-hidden="true" className="w-3 h-3" />
                                     ) : (
                                         <Video className="w-3 h-3" />
                                     )}
                                     {item.media_type === 'photo' ? 'Фото' : 'Видео'}
-                                </div>
+                                </AdminBadge>
                             </div>
 
                             {/* Информация */}
                             <div className="p-4">
                                 <h3 className="font-semibold truncate">{item.title}</h3>
                                 {item.client_name && (
-                                    <p className="text-sm text-gray-500 flex items-center gap-1 mt-1">
+                                    <p className="text-sm text-[var(--bs-muted)] flex items-center gap-1 mt-1">
                                         <User className="w-3 h-3" />
                                         {item.client_name}
                                     </p>
                                 )}
                                 {item.category && (
-                                    <p className="text-sm text-gray-500 flex items-center gap-1">
+                                    <p className="text-sm text-[var(--bs-muted)] flex items-center gap-1">
                                         <Tag className="w-3 h-3" />
                                         {item.category}
                                     </p>
                                 )}
-                                <div className="flex justify-between items-center mt-3 pt-3 border-t">
-                                    <span className="text-xs text-gray-400">
+                                <div className="flex justify-between items-center mt-3 pt-3 border-t border-[var(--bs-border)]">
+                                    <span className="text-xs text-[var(--bs-muted)]">
                                         {new Date(item.created_at).toLocaleDateString('ru-RU')}
                                     </span>
                                     <div className="flex gap-2">
                                         <Link
                                             href={`/admin/media/${item.id}`}
-                                            className="p-2 rounded-lg hover:bg-blue-50 transition"
+                                            className="bs-button bs-button--ghost bs-button--icon"
+                                            aria-label={`Редактировать ${item.title}`}
                                         >
-                                            <Edit className="w-4 h-4 text-blue-500" />
+                                            <Edit className="w-4 h-4" />
                                         </Link>
-                                        <button
-                                            onClick={() => handleDelete(item.id, item.title)}
-                                            className="p-2 rounded-lg hover:bg-red-50 transition"
+                                        <AdminButton type="button" variant="destructive" size="icon"
+                                            aria-label={`Удалить ${item.title}`}
+                                            onClick={() => setDeleteTarget({ id: item.id, title: item.title })}
                                         >
-                                            <Trash2 className="w-4 h-4 text-red-500" />
-                                        </button>
+                                            <Trash2 className="w-4 h-4" />
+                                        </AdminButton>
                                     </div>
                                 </div>
                             </div>

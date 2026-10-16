@@ -1,0 +1,34 @@
+/* Phase 2 consumes approved tokens; no palette override and no storefront selectors. */
+.admin-shell .bs-page, .admin-confirm-dialog .bs-page { display: grid; min-width: 0; gap: 24px; }
+.admin-shell .bs-page-header, .admin-confirm-dialog .bs-page-header { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+.admin-shell .bs-page-header h2, .admin-confirm-dialog .bs-page-header h2 { font: var(--bs-h2); color: var(--bs-foreground); }
+.admin-shell .bs-page-header p, .admin-confirm-dialog .bs-page-header p { margin-top: 8px; max-width: 75ch; font: var(--bs-small); color: var(--bs-muted); }
+.admin-shell .bs-toolbar, .admin-confirm-dialog .bs-toolbar { display: flex; min-width: 0; flex-wrap: wrap; align-items: center; gap: 12px; }
+.admin-shell .bs-loading, .admin-confirm-dialog .bs-loading { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 32px 16px; color: var(--bs-muted); font: var(--bs-small); }
+.admin-shell .bs-money, .admin-confirm-dialog .bs-money { font-variant-numeric: tabular-nums; }
+.admin-shell .bs-split, .admin-confirm-dialog .bs-split { display: grid; min-width: 0; grid-template-columns: minmax(0, 340px) minmax(0, 1fr); gap: 24px; align-items: start; }
+.admin-shell .bs-form, .admin-confirm-dialog .bs-form { display: grid; gap: 16px; padding: 20px; border: 1px solid var(--bs-border); border-radius: var(--bs-radius-card); background: var(--bs-surface); box-shadow: var(--bs-shadow-sm); }
+.admin-shell .bs-form label, .admin-confirm-dialog .bs-form label { min-width: 0; font: var(--bs-small); }
+.admin-shell .bs-form label:has(input[type="checkbox"]), .admin-confirm-dialog .bs-form label:has(input[type="checkbox"]) { min-height: 44px; align-items: center; }
+.admin-shell .bs-muted, .admin-confirm-dialog .bs-muted { color: var(--bs-muted); }
+.admin-shell .bs-subtle, .admin-confirm-dialog .bs-subtle { padding: 12px 16px; border-radius: var(--bs-radius-control); background: var(--bs-surface-muted); color: var(--bs-muted); font: var(--bs-small); }
+.admin-shell .bs-section-heading, .admin-confirm-dialog .bs-section-heading { font: var(--bs-h4); color: var(--bs-foreground); }
+.admin-shell .bs-table tbody tr:hover, .admin-confirm-dialog .bs-table tbody tr:hover { background: var(--bs-surface-muted); }
+.admin-shell .bs-table :is(th, td), .admin-confirm-dialog .bs-table :is(th, td) { font-variant-numeric: tabular-nums; }
+.admin-shell .bs-table td, .admin-confirm-dialog .bs-table td { vertical-align: top; }
+.admin-shell .bs-theme-choice { justify-content: flex-start; flex-wrap: wrap; min-height: 100px; white-space: normal; text-align: left; }
+.admin-shell .bs-theme-choice[aria-pressed="true"] { border-color: var(--bs-primary); background: var(--bs-primary-soft); }
+.admin-shell .bs-theme-choice p { width: 100%; font: var(--bs-caption); color: var(--bs-muted); }
+.admin-shell .bs-password-reveal { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); }
+.admin-shell .bs-content-link { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 16px; }
+.admin-shell .bs-content-link > div { min-width: 0; overflow-wrap: anywhere; }
+.admin-shell .bs-content-link p + p { margin-top: 8px; font: var(--bs-small); color: var(--bs-muted); }
+@media (max-width: 767px) {
+  .admin-shell .bs-split, .admin-confirm-dialog .bs-split { grid-template-columns: minmax(0, 1fr); }
+  .admin-shell .bs-page-header, .admin-confirm-dialog .bs-page-header { flex-direction: column; }
+  .admin-shell .bs-table-scroll, .admin-confirm-dialog .bs-table-scroll { max-width: 100%; overscroll-behavior-inline: contain; }
+  .admin-shell .bs-content-link { flex-wrap: wrap; }
+}
+@media (max-width: 1023px) {
+  .admin-shell .bs-savebar { bottom: calc(88px + env(safe-area-inset-bottom)); }
+}

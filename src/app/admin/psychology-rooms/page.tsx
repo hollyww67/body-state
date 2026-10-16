@@ -1,10 +1,13 @@
 'use client';
+import AdminConfirmDialog from '@/components/admin/AdminConfirmDialog';
+import { AdminPageHeader, AdminLoadingState, AdminBadge, AdminFeedback, AdminCard, AdminInput, AdminButton } from '@/components/admin/ui';
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Video, Copy, RefreshCw } from 'lucide-react';
 
 type Room = { id: string; kind: 'booking'|'manual'; room_id: string; room_name: string; client_name: string; email: string; is_active: boolean; starts_at: string; expires_at: string };
 export default function PsychologyRoomsAdmin() {
+  const [closeTarget, setCloseTarget] = useState<Room | null>(null);
   const [rooms,setRooms]=useState<Room[]>([]);
   const [loading,setLoading]=useState(true);
   const [busy,setBusy]=useState(false);
@@ -27,45 +30,41 @@ export default function PsychologyRoomsAdmin() {
     }catch(e){setError(e instanceof Error?e.message:'Не удалось создать комнату');}finally{setBusy(false);}
   }
   async function close(id:string) {
-    if(!confirm('Закрыть комнату? Участники будут отключены.'))return;
     setBusy(true);setError('');
     try{const res=await fetch('/api/psychology/rooms/'+id,{method:'DELETE'});if(!res.ok)throw new Error('Не удалось закрыть комнату');await load();}
     catch(e){setError((e as Error).message);}finally{setBusy(false);}
   }
-  return <div className="mx-auto max-w-6xl space-y-6 p-4 sm:p-6">
-    <section className="rounded-2xl border p-5">
-      <h2 className="text-xl font-semibold">Встречи со специалистом</h2>
-      <p className="mt-2 text-sm text-slate-500">Оплаченные онлайн-записи появляются здесь автоматически. Вход открывается за 15 минут до приёма и закрывается через 30 минут после его окончания. Время — московское.</p>
-      <Link className="mt-3 inline-flex underline" href="/admin/bookings">Перейти к записям клиентов</Link>
-    </section>
-    <form onSubmit={create} className="rounded-2xl border p-5">
-      <h2 className="font-semibold">Отдельная комната на 24 часа</h2>
-      <p className="mt-1 text-sm text-slate-500">Для дополнительной встречи. Не создаёт приём и не засчитывает посещение. Клиент должен иметь аккаунт на сайте.</p>
+  return <div className="bs-page">
+      {closeTarget && <AdminConfirmDialog title="Закрыть комнату?" confirmLabel="Закрыть комнату" pendingLabel="Закрытие…" onCancel={() => setCloseTarget(null)} onConfirm={() => close(closeTarget.id)}><p>{closeTarget.room_name}</p><p>Участники будут отключены.</p></AdminConfirmDialog>}
+    <AdminPageHeader title="Встречи со специалистом" description="Оплаченные онлайн-записи появляются здесь автоматически. Вход открывается за 15 минут до приёма и закрывается через 30 минут после его окончания. Время — московское."><Link className="bs-button bs-button--outline" href="/admin/bookings">Перейти к записям клиентов</Link></AdminPageHeader>
+    <form onSubmit={create} className="bs-form">
+      <h2 className="bs-section-heading">Отдельная комната на 24 часа</h2>
+      <p className="mt-1 text-sm text-[var(--bs-muted)]">Для дополнительной встречи. Не создаёт приём и не засчитывает посещение. Клиент должен иметь аккаунт на сайте.</p>
       <div className="mt-4 grid gap-4 md:grid-cols-3">
-        <label className="text-sm">Название встречи<input required maxLength={120} value={name} onChange={e=>setName(e.target.value)} className="mt-2 block min-h-12 w-full rounded-xl border p-3" placeholder="Дополнительная консультация"/></label>
-        <label className="text-sm">Email аккаунта клиента<input required type="email" maxLength={254} value={email} onChange={e=>setEmail(e.target.value)} className="mt-2 block min-h-12 w-full rounded-xl border p-3" placeholder="client@example.ru"/></label>
-        <button disabled={busy} className="min-h-12 self-end rounded-xl bg-teal-600 px-4 py-3 text-white disabled:opacity-50">{busy?'Сохранение…':'Создать комнату'}</button>
+        <label className="text-sm">Название встречи<AdminInput required maxLength={120} value={name} onChange={e=>setName(e.target.value)} className="mt-2 w-full" placeholder="Дополнительная консультация"/></label>
+        <label className="text-sm">Email аккаунта клиента<AdminInput required type="email" maxLength={254} value={email} onChange={e=>setEmail(e.target.value)} className="mt-2 w-full" placeholder="client@example.ru"/></label>
+        <AdminButton variant="primary" type="submit" disabled={busy} className="self-end">{busy?'Сохранение…':'Создать комнату'}</AdminButton>
       </div>
     </form>
-    {error&&<p role="alert" className="rounded-xl border border-red-300 p-4 text-red-600">{error}</p>}
-    {notice&&<p role="status" className="rounded-xl border p-4">{notice}</p>}
-    <div className="flex items-center justify-between gap-3"><h2 className="font-semibold">Встречи</h2><button disabled={loading} onClick={()=>void load()} className="inline-flex min-h-11 items-center gap-2 rounded-xl border px-4"><RefreshCw size={16}/>Обновить</button></div>
-    {loading?<p role="status">Загрузка…</p>:rooms.length===0&&!error?<p>Пока нет онлайн-встреч.</p>:null}
+    {error&&<AdminFeedback tone="destructive">{error}</AdminFeedback>}
+    {notice&&<AdminFeedback tone="success">{notice}</AdminFeedback>}
+    <div className="flex items-center justify-between gap-3"><h2 className="bs-section-heading">Встречи</h2><AdminButton variant="outline" disabled={loading} onClick={()=>void load()} className="gap-2"><RefreshCw size={16}/>Обновить</AdminButton></div>
+    {loading?<AdminLoadingState />:rooms.length===0&&!error?<p>Пока нет онлайн-встреч.</p>:null}
     <div className="grid gap-4">{rooms.map(room=>{
       const expired=!room.is_active||new Date(room.expires_at).getTime()<=Date.now();
       const early=room.kind==='booking'&&new Date(room.starts_at).getTime()-15*60000>Date.now();
       const url='/psychology/room?id='+room.room_id;
-      return <article key={room.kind+room.id} className="rounded-2xl border p-5">
+      return <AdminCard key={room.kind+room.id}>
         <h3 className="font-semibold">{room.room_name}</h3>
         <p className="mt-1 break-words">{room.client_name||'Клиент'} · {room.email}</p>
-        <p className="mt-2 text-sm text-slate-500">{room.kind==='booking'?'Приём':'Отдельная встреча'} · {new Date(room.starts_at).toLocaleString('ru-RU',{timeZone:'Europe/Moscow'})} МСК</p>
-        <p className="mt-2 text-sm">{expired?'Комната закрыта':early?'Вход откроется за 15 минут до приёма':'Можно подключиться'}</p>
+        <p className="mt-2 text-sm text-[var(--bs-muted)]">{room.kind==='booking'?'Приём':'Отдельная встреча'} · {new Date(room.starts_at).toLocaleString('ru-RU',{timeZone:'Europe/Moscow'})} МСК</p>
+        <AdminBadge className="mt-2" tone={expired ? "neutral" : early ? "warning" : "success"}>{expired?'Комната закрыта':early?'Вход откроется за 15 минут до приёма':'Можно подключиться'}</AdminBadge>
         <div className="mt-4 flex flex-wrap gap-3">
-          {!expired&&!early&&<Link href={url} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-teal-600 px-4 text-white"><Video size={18}/>Войти в комнату</Link>}
-          {!expired&&<button className="inline-flex min-h-11 items-center gap-2 rounded-xl border px-4" onClick={async()=>{try{await navigator.clipboard.writeText(window.location.origin+url);setNotice('Ссылка скопирована. Вход доступен только аккаунту этого клиента.');}catch{setError('Не удалось скопировать ссылку');}}}><Copy size={16}/>Ссылка клиенту</button>}
-          {room.kind==='manual'&&!expired&&<button disabled={busy} onClick={()=>void close(room.id)} className="min-h-11 rounded-xl border px-4 text-red-600">Закрыть комнату</button>}
+          {!expired&&!early&&<Link href={url} className="bs-button bs-button--primary"><Video size={18}/>Войти в комнату</Link>}
+          {!expired&&<AdminButton variant="outline" className="gap-2" onClick={async()=>{try{await navigator.clipboard.writeText(window.location.origin+url);setNotice('Ссылка скопирована. Вход доступен только аккаунту этого клиента.');}catch{setError('Не удалось скопировать ссылку');}}}><Copy size={16}/>Ссылка клиенту</AdminButton>}
+          {room.kind==='manual'&&!expired&&<AdminButton variant="destructive" disabled={busy} onClick={()=>setCloseTarget(room)}>Закрыть комнату</AdminButton>}
         </div>
-      </article>;
+      </AdminCard>;
     })}</div>
   </div>;
 }

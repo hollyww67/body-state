@@ -1,5 +1,6 @@
 'use client';
 import {useEffect,useState} from 'react';
+import {AdminButton,AdminCard,AdminFeedback} from '@/components/admin/ui';
 type Pending={maxUserId:string;maxChatId:string;expiresAt:string};
 type Pair={code:string;expiresAt:string;botUrl:string};
 export default function MaxNotificationBinding(){
@@ -27,16 +28,16 @@ export default function MaxNotificationBinding(){
    else{const state=await request();if(state){setConnected(state.connected);setPending(state.pending);}if(method!=='GET')setPair(null);}
   }catch(error){setError(error instanceof Error?error.message:'Ошибка подключения');}finally{setBusy(false);}
  }
- return <section className="admin-list-card space-y-3 p-4" aria-label="MAX администратора">
+ return <AdminCard className="space-y-3" aria-label="MAX администратора">
   <h3 className="font-semibold">MAX администратора</h3>
   <p className="text-sm text-[var(--admin-muted)]">{!enabled?'Канал выключен до проверки официального бота и webhook.':connected?'Подключён отдельный административный диалог.':'Административный диалог не подключён.'} Клиентская привязка не даёт доступа к административным уведомлениям.</p>
-  {error&&<p role="alert">{error}</p>}
+  {error&&<AdminFeedback tone="destructive">{error}</AdminFeedback>}
   {enabled&&<div className="flex flex-wrap gap-2">
-   <button className="admin-secondary-action" disabled={busy} onClick={()=>void act('POST')}>Создать код подключения</button>
-   <button className="admin-secondary-action" disabled={busy} onClick={()=>void act('GET')}>Проверить диалог</button>
-   {connected&&<button className="admin-secondary-action" disabled={busy} onClick={()=>void act('DELETE')}>Отключить</button>}
+   <AdminButton variant="outline" disabled={busy} onClick={()=>void act('POST')}>Создать код подключения</AdminButton>
+   <AdminButton variant="outline" disabled={busy} onClick={()=>void act('GET')}>Проверить диалог</AdminButton>
+   {connected&&<AdminButton variant="destructive" disabled={busy} onClick={()=>void act('DELETE')}>Отключить</AdminButton>}
   </div>}
   {pair&&<div className="space-y-2"><p>Откройте бота и отправьте этот одноразовый код. Затем нажмите «Проверить диалог».</p><code className="block break-all select-all">{pair.code}</code><p>Действует до {new Date(pair.expiresAt).toLocaleTimeString('ru-RU',{timeZone:'Europe/Moscow'})} МСК.</p><a className="admin-secondary-action" href={pair.botUrl} target="_blank" rel="noopener noreferrer">Открыть официального бота MAX</a></div>}
-  {pending&&<div className="space-y-2"><p>Подтвердите, что это ваш диалог. MAX user ID: <code>{pending.maxUserId}</code>, chat ID: <code>{pending.maxChatId}</code>.</p><p className="text-sm">Сверьте идентификаторы с вашим аккаунтом. При сомнении не подтверждайте подключение.</p><button className="admin-primary-action" disabled={busy||Date.parse(pending.expiresAt)<Date.now()} onClick={()=>void act('PATCH')}>Это мой диалог — подтвердить</button></div>}
- </section>;
+  {pending&&<div className="space-y-2"><p>Подтвердите, что это ваш диалог. MAX user ID: <code>{pending.maxUserId}</code>, chat ID: <code>{pending.maxChatId}</code>.</p><p className="text-sm">Сверьте идентификаторы с вашим аккаунтом. При сомнении не подтверждайте подключение.</p><AdminButton disabled={busy||Date.parse(pending.expiresAt)<Date.now()} onClick={()=>void act('PATCH')}>Это мой диалог — подтвердить</AdminButton></div>}
+ </AdminCard>;
 }

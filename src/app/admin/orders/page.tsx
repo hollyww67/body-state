@@ -7,18 +7,19 @@ import { ru } from "date-fns/locale";
 import { RefreshCw, Check, Search, Package, Clock3, CreditCard, X as XIcon, Trash2, History, Link2 } from "lucide-react";
 import { toast } from "sonner";
 import AdminConfirmDialog, { AdminModal } from "@/components/admin/AdminConfirmDialog";
+import { AdminBadge, AdminButton, AdminCard, AdminEmptyState, AdminInput, AdminSkeleton, type BadgeTone } from "@/components/admin/ui";
 
 interface OrderItem { name: string; quantity: number; price: number; }
 interface Order { id: string; client_name: string; client_phone: string; address: string; delivery: string; items: OrderItem[]; total: number; status: string; created_at: string; payment_id?: string | null; paid_at?: string | null; amount_paid?: number | string | null; }
 
-const STATUS_CONFIG: Record<string, { label: string; badge: string }> = {
-  pending: { label: "Ожидает оплаты", badge: "bg-amber-100 text-amber-700" },
-  paid: { label: "Оплачен", badge: "bg-emerald-100 text-emerald-700" },
-  shipped: { label: "Отправлен", badge: "bg-indigo-100 text-indigo-700" },
-  delivered: { label: "Доставлен", badge: "bg-slate-100 text-slate-600" },
-  cancelled: { label: "Отменён", badge: "bg-red-100 text-red-600" },
-  failed: { label: "Ошибка оплаты", badge: "bg-red-100 text-red-600" },
-  refunded: { label: "Возвращён", badge: "bg-slate-100 text-slate-600" },
+const STATUS_CONFIG: Record<string, { label: string; tone: BadgeTone }> = {
+  pending: { label: "Ожидает оплаты", tone: "warning" },
+  paid: { label: "Оплачен", tone: "success" },
+  shipped: { label: "Отправлен", tone: "info" },
+  delivered: { label: "Доставлен", tone: "neutral" },
+  cancelled: { label: "Отменён", tone: "destructive" },
+  failed: { label: "Ошибка оплаты", tone: "destructive" },
+  refunded: { label: "Возвращён", tone: "neutral" },
 };
 
 const ACTIVE_COLUMNS = ["pending", "paid", "shipped", "delivered"];
@@ -29,23 +30,23 @@ function OrderCard({ order, onOpen, onDelete }: { order: Order; onOpen: (o: Orde
   const canDelete = canDeleteOrder(order);
 
   return (
-    <div className={`bg-white rounded-2xl border p-4 transition-all duration-200 hover:shadow-md shadow-sm ${isOverdue ? "border-l-2 border-l-red-400" : "border-gray-100"}`}>
+    <AdminCard className={`p-4 transition-shadow hover:shadow-[var(--bs-shadow-md)] ${isOverdue ? "border-l-2 border-l-[var(--bs-destructive)]" : ""}`}>
       <div className="flex items-start justify-between gap-2 mb-2">
-        <button type="button" aria-label={`Открыть заказ ${order.client_name || order.id.slice(0, 8)}`} className="min-w-0 text-left cursor-pointer" onPointerDown={e => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); onOpen(order); }}>
-          <p className="font-semibold text-sm text-[#111827] truncate hover:text-teal-600">{order.client_name}</p>
-          <p className="text-xs text-[#6B7280] mt-0.5">{formatDistanceToNowStrict(new Date(order.created_at), { locale: ru, addSuffix: true })}</p>
-        </button>
+        <AdminButton type="button" variant="ghost" aria-label={`Открыть заказ ${order.client_name || order.id.slice(0, 8)}`} className="min-w-0 h-auto flex-col items-start text-left" onPointerDown={e => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); onOpen(order); }}>
+          <span className="max-w-full font-semibold text-sm text-[var(--bs-foreground)] truncate">{order.client_name}</span>
+          <span className="text-xs text-[var(--bs-muted)] mt-0.5">{formatDistanceToNowStrict(new Date(order.created_at), { locale: ru, addSuffix: true })}</span>
+        </AdminButton>
         <div className="flex items-center gap-1 shrink-0">
-          <p className="text-base font-bold text-[#111827]">{order.total} ₽</p>
+          <p className="text-base font-bold text-[var(--bs-foreground)]">{order.total} ₽</p>
           {canDelete && onDelete && (
-            <button type="button" onClick={(e) => { e.stopPropagation(); onDelete(order.id); }} className="p-1 rounded-lg text-red-400 hover:bg-red-50 hover:text-red-500 transition-colors" title="Удалить" aria-label={`Удалить заказ ${order.id.slice(0, 8)}`}><Trash2 className="w-3.5 h-3.5" /></button>
+            <AdminButton type="button" variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); onDelete(order.id); }} className="text-[var(--bs-destructive)]" title="Удалить" aria-label={`Удалить заказ ${order.id.slice(0, 8)}`}><Trash2 className="w-3.5 h-3.5" /></AdminButton>
           )}
         </div>
       </div>
-      <p className="text-xs text-[#9CA3AF]">
+      <p className="text-xs text-[var(--bs-muted)]">
         {order.items.length === 0 ? "Состав заказа не указан" : order.items.length === 1 ? (order.items[0].name || "Платёж за услугу") : `${order.items[0]?.name || "Платёж"} и ещё ${order.items.length - 1}`}
       </p>
-    </div>
+    </AdminCard>
   );
 }
 
@@ -109,18 +110,18 @@ export default function AdminOrdersPage() {
   };
 
   return (
-    <div className="admin-orders-page min-h-screen bg-[#F6F7F9]">
-      <div className="sticky top-0 z-40 backdrop-blur-xl bg-white/80 border-b border-gray-200">
+    <div className="admin-orders-page min-h-screen bg-[var(--bs-background)] text-[var(--bs-foreground)]">
+      <div className="sticky top-0 z-40 bg-[var(--bs-surface)] border-b border-[var(--bs-border)]">
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
-            <div><h1 className="text-2xl font-semibold text-[#111827] tracking-tight">Заказы</h1><p className="text-sm text-[#6B7280] mt-1">Нажмите на имя клиента, чтобы открыть заказ и действия с ним</p></div>
+            <div><h1 className="text-2xl font-semibold tracking-tight">Заказы</h1><p className="text-sm text-[var(--bs-muted)] mt-1">Нажмите на имя клиента, чтобы открыть заказ и действия с ним</p></div>
             <div className="admin-mobile-toolbar flex items-center gap-3">
-              <div className="relative w-full sm:w-[320px]"><Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#9CA3AF]" /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Поиск..." className="w-full h-11 rounded-2xl border border-gray-200 bg-white pl-10 pr-4 text-sm outline-none focus:ring-4 focus:ring-teal-500/10 focus:border-teal-500 transition-all" /></div>
-              <Link href="/admin/payment-links" className="h-11 px-4 rounded-2xl bg-teal-700 text-white flex items-center gap-2 text-sm font-medium hover:bg-teal-800 transition-all whitespace-nowrap"><Link2 className="w-4 h-4" />Ссылка на оплату</Link>
-              <button onClick={() => setShowHistory(!showHistory)} className={`h-11 px-4 rounded-2xl border text-sm font-medium transition-all flex items-center gap-2 ${showHistory ? "bg-gray-100 border-gray-300" : "bg-white border-gray-200 hover:border-teal-200 hover:bg-teal-50"}`}>
+              <div className="relative w-full sm:w-[320px]"><Search aria-hidden="true" className="pointer-events-none w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--bs-muted)]" /><AdminInput aria-label="Поиск заказов" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Поиск..." style={{ paddingLeft: "2.5rem" }} /></div>
+              <Link href="/admin/payment-links" className="bs-button bs-button--primary bs-button--md whitespace-nowrap"><Link2 className="w-4 h-4" />Ссылка на оплату</Link>
+              <AdminButton onClick={() => setShowHistory(!showHistory)} variant={showHistory ? "secondary" : "outline"} aria-pressed={showHistory}>
                 <History className="w-4 h-4" /> История ({historyOrders.length})
-              </button>
-              <button onClick={fetchOrders} className="h-11 px-4 rounded-2xl bg-white border border-gray-200 flex items-center gap-2 text-sm font-medium hover:border-teal-200 hover:bg-teal-50 transition-all"><RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />Обновить</button>
+              </AdminButton>
+              <AdminButton onClick={fetchOrders} variant="outline"><RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />Обновить</AdminButton>
             </div>
           </div>
           <div className="admin-mobile-stats grid grid-cols-2 xl:grid-cols-5 gap-3 mt-5">
@@ -135,33 +136,33 @@ export default function AdminOrdersPage() {
 
       <div className="max-w-7xl mx-auto p-4">
         {loading ? (
-          <div className="grid grid-cols-1 xl:grid-cols-4 gap-4">{[...Array(4)].map((_, i) => (<div key={i} className="rounded-3xl bg-white border border-gray-100 p-4 space-y-3"><div className="h-5 w-32 rounded bg-gray-100 animate-pulse" />{[...Array(3)].map((_, j) => (<div key={j} className="h-20 rounded-2xl bg-gray-100 animate-pulse" />))}</div>))}</div>
+          <div role="status" aria-label="Загрузка заказов" className="grid grid-cols-1 xl:grid-cols-4 gap-4">{[...Array(4)].map((_, i) => (<AdminCard key={i} className="p-4 space-y-3"><AdminSkeleton className="h-5 w-32" />{[...Array(3)].map((_, j) => (<AdminSkeleton key={j} className="h-20" />))}</AdminCard>))}</div>
         ) : showHistory ? (
           /* История */
-          <div className="bg-white rounded-3xl border border-gray-100 p-5 shadow-sm">
-            <h3 className="font-semibold text-lg text-[#111827] mb-4">История заказов</h3>
+          <AdminCard className="p-5">
+            <h3 className="font-semibold text-lg mb-4">История заказов</h3>
             {historyOrders.length === 0 ? (
-              <div className="text-center py-10"><Package className="w-5 h-5 text-[#9CA3AF] mx-auto mb-2" /><p className="text-sm text-[#6B7280]">Нет завершённых заказов</p></div>
+              <AdminEmptyState title="Нет завершённых заказов" />
             ) : (
               <div className="space-y-2">
                 {historyOrders.map(order => (
-                  <div key={order.id} className="flex items-center justify-between p-3 rounded-2xl hover:bg-gray-50 transition-colors border border-gray-100">
-                    <button type="button" className="flex min-h-11 items-center gap-3 rounded-lg text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" aria-label={`Открыть заказ ${order.id.slice(0, 8)} клиента ${order.client_name}`} onClick={() => setDrawerOrder(order)}>
-                      <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${STATUS_CONFIG[order.status]?.badge}`}>{STATUS_CONFIG[order.status]?.label}</span>
+                  <div key={order.id} className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-[var(--bs-radius-card)] border border-[var(--bs-border)]">
+                    <AdminButton type="button" variant="ghost" className="h-auto flex-wrap justify-start text-left" aria-label={`Открыть заказ ${order.id.slice(0, 8)} клиента ${order.client_name}`} onClick={() => setDrawerOrder(order)}>
+                      <AdminBadge tone={STATUS_CONFIG[order.status]?.tone}>{STATUS_CONFIG[order.status]?.label}</AdminBadge>
                       <span>
-                        <span className="block font-medium text-sm text-[#111827]">{order.client_name}</span>
-                        <span className="block text-xs text-[#6B7280]">{format(new Date(order.created_at), "d MMMM, HH:mm", { locale: ru })}</span>
+                        <span className="block font-medium text-sm">{order.client_name}</span>
+                        <span className="block text-xs text-[var(--bs-muted)]">{format(new Date(order.created_at), "d MMMM, HH:mm", { locale: ru })}</span>
                       </span>
-                    </button>
+                    </AdminButton>
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold text-sm text-[#111827]">{order.total} ₽</span>
-                      {canDeleteOrder(order) && <button type="button" aria-label={`Удалить заказ ${order.id.slice(0, 8)}`} onClick={() => setShowDeleteConfirm(order.id)} className="min-h-11 min-w-11 p-1.5 rounded-lg text-red-400 hover:bg-red-50 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>}
+                      <span className="font-semibold text-sm">{order.total} ₽</span>
+                      {canDeleteOrder(order) && <AdminButton type="button" variant="ghost" size="icon" aria-label={`Удалить заказ ${order.id.slice(0, 8)}`} onClick={() => setShowDeleteConfirm(order.id)} className="text-[var(--bs-destructive)]"><Trash2 className="w-3.5 h-3.5" /></AdminButton>}
                     </div>
                   </div>
                 ))}
               </div>
             )}
-          </div>
+          </AdminCard>
         ) : (
           /* Канбан */
           <section aria-label="Заказы по этапам">
@@ -170,15 +171,15 @@ export default function AdminOrdersPage() {
                 const columnOrders = activeOrders.filter((o) => o.status === status);
                 return (
                   <div key={status}>
-                    <div className="bg-white border border-gray-100 rounded-3xl p-3 shadow-sm">
+                    <AdminCard className="p-3">
                       <div className="flex items-center justify-between px-2 py-2 mb-3">
-                        <div className="flex items-center gap-2"><h3 className="font-semibold text-sm text-[#111827]">{STATUS_CONFIG[status].label}</h3><span className="w-6 h-6 rounded-lg bg-gray-100 flex items-center justify-center text-xs font-semibold text-[#6B7280]">{columnOrders.length}</span></div>
+                        <div className="flex items-center gap-2"><h3 className="font-semibold text-sm"><AdminBadge tone={STATUS_CONFIG[status].tone}>{STATUS_CONFIG[status].label}</AdminBadge></h3><span className="w-6 h-6 rounded-[var(--bs-radius-sm)] bg-[var(--bs-surface-muted)] flex items-center justify-center text-xs font-semibold text-[var(--bs-muted)]">{columnOrders.length}</span></div>
                       </div>
                       <div className="space-y-2 max-h-[calc(100vh-280px)] overflow-y-auto pr-1">
                         {columnOrders.map((order) => (<OrderCard key={order.id} order={order} onOpen={setDrawerOrder} onDelete={(id) => setShowDeleteConfirm(id)} />))}
-                        {columnOrders.length === 0 && (<div className="py-10 text-center"><Package className="w-5 h-5 text-[#9CA3AF] mx-auto mb-2" /><p className="text-sm text-[#6B7280]">Пусто</p></div>)}
+                        {columnOrders.length === 0 && <AdminEmptyState title="Пусто" />}
                       </div>
-                    </div>
+                    </AdminCard>
                   </div>
                 );
               })}
@@ -197,25 +198,25 @@ export default function AdminOrdersPage() {
       {/* Drawer */}
       {drawerOrder && (
         <AdminModal title="Заказ" onCancel={() => setDrawerOrder(null)}>
-          <div className="absolute right-0 top-0 bottom-0 w-full max-w-md bg-white shadow-2xl overflow-y-auto">
+          <div className="absolute right-0 top-0 bottom-0 w-full max-w-md bg-[var(--bs-surface)] text-[var(--bs-foreground)] shadow-[var(--bs-shadow-md)] overflow-y-auto">
             <div className="p-6">
-              <div className="flex items-center justify-between mb-8"><h2 className="text-xl font-semibold text-[#111827]">Заказ #{drawerOrder.id.slice(0, 8)}</h2><button type="button" aria-label="Закрыть карточку заказа" onClick={() => setDrawerOrder(null)} className="p-2 rounded-xl hover:bg-gray-100"><XIcon className="w-5 h-5" /></button></div>
-              <div className="flex items-center gap-3 mb-6"><div className="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center text-lg font-bold text-[#111827]">{drawerOrder.client_name[0]}</div><div><p className="font-semibold text-[#111827]">{drawerOrder.client_name}</p><p className="text-sm text-[#6B7280]">{drawerOrder.client_phone}</p></div></div>
+              <div className="flex items-center justify-between mb-8"><h2 className="text-xl font-semibold">Заказ #{drawerOrder.id.slice(0, 8)}</h2><AdminButton type="button" variant="ghost" size="icon" aria-label="Закрыть карточку заказа" onClick={() => setDrawerOrder(null)}><XIcon className="w-5 h-5" /></AdminButton></div>
+              <div className="flex items-center gap-3 mb-6"><div className="w-12 h-12 rounded-[var(--bs-radius-card)] bg-[var(--bs-surface-muted)] flex items-center justify-center text-lg font-bold">{drawerOrder.client_name[0]}</div><div><p className="font-semibold">{drawerOrder.client_name}</p><p className="text-sm text-[var(--bs-muted)]">{drawerOrder.client_phone}</p></div></div>
               <div className="space-y-3 mb-6">
-                <div className="flex justify-between text-sm"><span className="text-[#6B7280]">Адрес</span><span className="font-medium text-right">{drawerOrder.address}</span></div>
-                <div className="flex justify-between text-sm"><span className="text-[#6B7280]">Доставка</span><span className="font-medium">{drawerOrder.delivery === "cdek" ? "СДЭК" : drawerOrder.delivery === "pickup" ? "Самовывоз" : drawerOrder.delivery}</span></div>
-                <div className="flex justify-between text-sm"><span className="text-[#6B7280]">Создан</span><span className="font-medium">{format(new Date(drawerOrder.created_at), "d MMMM, HH:mm", { locale: ru })}</span></div>
+                <div className="flex justify-between text-sm"><span className="text-[var(--bs-muted)]">Адрес</span><span className="font-medium text-right">{drawerOrder.address}</span></div>
+                <div className="flex justify-between text-sm"><span className="text-[var(--bs-muted)]">Доставка</span><span className="font-medium">{drawerOrder.delivery === "cdek" ? "СДЭК" : drawerOrder.delivery === "pickup" ? "Самовывоз" : drawerOrder.delivery}</span></div>
+                <div className="flex justify-between text-sm"><span className="text-[var(--bs-muted)]">Создан</span><span className="font-medium">{format(new Date(drawerOrder.created_at), "d MMMM, HH:mm", { locale: ru })}</span></div>
               </div>
-              <div className="border-t pt-4 mb-6">
-                <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wider mb-3">Товары</p>
+              <div className="border-t border-[var(--bs-border)] pt-4 mb-6">
+                <p className="text-xs font-semibold text-[var(--bs-muted)] uppercase tracking-wider mb-3">Товары</p>
                 {drawerOrder.items.map((item, i) => (<div key={i} className="flex justify-between gap-3 py-2 text-sm"><span>{item.name || "Платёж за услугу"}{Number.isFinite(item.quantity) ? ` × ${item.quantity}` : ""}</span><span className="font-medium">{Number.isFinite(item.price * item.quantity) ? `${item.price * item.quantity} ₽` : "Сумма в итоге заказа"}</span></div>))}
-                <div className="flex justify-between pt-3 border-t mt-3 font-bold text-lg"><span>Итого</span><span>{drawerOrder.total} ₽</span></div>
+                <div className="flex justify-between pt-3 border-t border-[var(--bs-border)] mt-3 font-bold text-lg"><span>Итого</span><span>{drawerOrder.total} ₽</span></div>
               </div>
               {ACTIVE_COLUMNS.includes(drawerOrder.status) && (
                 <div className="flex gap-2">
-                  {drawerOrder.status === "pending" && <button onClick={() => { updateStatus(drawerOrder.id, "cancelled"); setDrawerOrder(null); }} className="flex-1 py-2.5 rounded-2xl bg-red-50 text-red-600 font-medium text-sm hover:bg-red-100">Отменить</button>}
-                  {drawerOrder.status === "paid" && <button onClick={() => { updateStatus(drawerOrder.id, "shipped"); setDrawerOrder(null); }} className="flex-1 py-2.5 rounded-2xl bg-indigo-600 text-white font-medium text-sm hover:bg-indigo-700">Отправить</button>}
-                  {drawerOrder.status === "shipped" && <button onClick={() => { updateStatus(drawerOrder.id, "delivered"); setDrawerOrder(null); }} className="flex-1 py-2.5 rounded-2xl bg-emerald-600 text-white font-medium text-sm hover:bg-emerald-700">Доставлен</button>}
+                  {drawerOrder.status === "pending" && <AdminButton variant="destructive" onClick={() => { updateStatus(drawerOrder.id, "cancelled"); setDrawerOrder(null); }} className="flex-1">Отменить</AdminButton>}
+                  {drawerOrder.status === "paid" && <AdminButton onClick={() => { updateStatus(drawerOrder.id, "shipped"); setDrawerOrder(null); }} className="flex-1">Отправить</AdminButton>}
+                  {drawerOrder.status === "shipped" && <AdminButton onClick={() => { updateStatus(drawerOrder.id, "delivered"); setDrawerOrder(null); }} className="flex-1">Доставлен</AdminButton>}
                 </div>
               )}
             </div>
@@ -228,8 +229,8 @@ export default function AdminOrdersPage() {
 
 function StatCard({ title, value, icon, highlight }: { title: string; value: string | number; icon: React.ReactNode; highlight?: boolean }) {
   return (
-    <div className={`rounded-3xl border p-4 shadow-sm ${highlight ? "bg-emerald-50 border-emerald-200" : "bg-white border-gray-100"}`}>
-      <div className="flex items-center justify-between"><div><p className="text-xs text-[#6B7280]">{title}</p><h3 className={`text-2xl font-bold mt-1 ${highlight ? "text-emerald-700" : "text-[#111827]"}`}>{value}</h3></div><div className={`w-11 h-11 rounded-2xl flex items-center justify-center ${highlight ? "bg-emerald-100 text-emerald-700" : "bg-[#F3F4F6] text-[#111827]"}`}>{icon}</div></div>
-    </div>
+    <AdminCard className="p-4" style={highlight ? { background: "var(--bs-primary-soft)" } : undefined}>
+      <div className="flex items-center justify-between gap-3"><div><p className="text-xs text-[var(--bs-muted)]">{title}</p><h3 className="text-2xl font-bold mt-1 text-[var(--bs-foreground)]">{value}</h3></div><div className="w-11 h-11 shrink-0 rounded-[var(--bs-radius-card)] flex items-center justify-center bg-[var(--bs-surface-muted)] text-[var(--bs-primary)]">{icon}</div></div>
+    </AdminCard>
   );
 }
