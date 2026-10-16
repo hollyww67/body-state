@@ -17,7 +17,9 @@ import {
   Stethoscope,
 } from "lucide-react";
 import { toast } from "sonner";
+import AdminConfirmDialog from "@/components/admin/AdminConfirmDialog";
 import { formatRussianPhoneInput } from "@/lib/phone";
+import { AdminBadge, AdminButton, AdminCard, AdminFeedback, AdminInput, AdminSelect, type BadgeTone } from "@/components/admin/ui";
 
 type PaymentLink = {
   id: string;
@@ -34,13 +36,13 @@ type PaymentLink = {
   createdAt: string;
 };
 
-const STATUS: Record<string, { label: string; className: string }> = {
-  pending: { label: "Ожидает оплаты", className: "is-pending" },
-  paid: { label: "Оплачено", className: "is-paid" },
-  failed: { label: "Ошибка", className: "is-failed" },
-  cancelled: { label: "Отменено", className: "is-cancelled" },
-  refunded: { label: "Возврат", className: "is-refunded" },
-  expired: { label: "Истекла", className: "is-expired" },
+const STATUS: Record<string, { label: string; tone: BadgeTone }> = {
+  pending: { label: "Ожидает оплаты", tone: "warning" },
+  paid: { label: "Оплачено", tone: "success" },
+  failed: { label: "Ошибка", tone: "destructive" },
+  cancelled: { label: "Отменено", tone: "neutral" },
+  refunded: { label: "Возврат", tone: "neutral" },
+  expired: { label: "Истекла", tone: "neutral" },
 };
 
 function formatMoney(value: number) {
@@ -70,6 +72,7 @@ export default function AdminPaymentLinksPage() {
   const submitting = useRef(false);
   const operation = useRef<{ requestKey: string; body: string } | null>(null);
   const [operationPending, setOperationPending] = useState(false);
+  const [confirmNewPayment, setConfirmNewPayment] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
 
@@ -187,17 +190,17 @@ export default function AdminPaymentLinksPage() {
 
   return (
     <div className="admin-payment-links-page">
-      <section className="admin-payment-link-hero">
+      <AdminCard className="admin-payment-link-hero" style={{ background: "var(--bs-primary-soft)", color: "var(--bs-foreground)", borderColor: "var(--bs-border)" }}>
         <div>
           <p className="admin-section-eyebrow">Быстрая оплата</p>
           <h2>Сформировать ссылку</h2>
           <p>Укажите назначение, сумму и контакты клиента. Если выбрана процедура, успешная оплата будет учтена в его программе лояльности.</p>
         </div>
-        <span className="admin-payment-link-hero-icon"><Link2 aria-hidden="true" /></span>
-      </section>
+        <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[var(--bs-radius-card)] bg-[var(--bs-primary)] text-[var(--bs-on-primary)]"><Link2 aria-hidden="true" /></span>
+      </AdminCard>
 
       <div className="admin-payment-link-grid">
-        <form className="admin-payment-link-form" onSubmit={createLink}>
+        <form className="admin-payment-link-form bs-card" onSubmit={createLink}>
           <header>
             <div>
               <h3>Новый платёж</h3>
@@ -210,9 +213,9 @@ export default function AdminPaymentLinksPage() {
           <div className="admin-payment-link-fields">
             <label>
               <span>Наименование</span>
-              <div className="admin-payment-field">
-                <Link2 aria-hidden="true" />
-                <input
+              <div className="flex min-w-0 items-center gap-3 text-[var(--bs-muted)]">
+                <Link2 className="h-5 w-5 shrink-0" aria-hidden="true" />
+                <AdminInput
                   value={name}
                   onChange={(event) => setName(event.target.value)}
                   placeholder="Например, консультация"
@@ -226,9 +229,9 @@ export default function AdminPaymentLinksPage() {
 
             <label>
               <span>Стоимость</span>
-              <div className="admin-payment-field">
-                <BadgeRussianRuble aria-hidden="true" />
-                <input
+              <div className="flex min-w-0 items-center gap-3 text-[var(--bs-muted)]">
+                <BadgeRussianRuble className="h-5 w-5 shrink-0" aria-hidden="true" />
+                <AdminInput
                   value={amount}
                   onChange={(event) => setAmount(event.target.value)}
                   placeholder="5 000"
@@ -236,15 +239,15 @@ export default function AdminPaymentLinksPage() {
                   autoComplete="off"
                   required
                 />
-                <strong>{amountPreview}</strong>
+                <strong className="shrink-0 whitespace-nowrap text-xs">{amountPreview}</strong>
               </div>
             </label>
 
             <label>
               <span>E-mail для чека</span>
-              <div className="admin-payment-field">
-                <Mail aria-hidden="true" />
-                <input
+              <div className="flex min-w-0 items-center gap-3 text-[var(--bs-muted)]">
+                <Mail className="h-5 w-5 shrink-0" aria-hidden="true" />
+                <AdminInput
                   type="email"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
@@ -259,9 +262,9 @@ export default function AdminPaymentLinksPage() {
 
             <label>
               <span>Телефон клиента</span>
-              <div className="admin-payment-field">
-                <Phone aria-hidden="true" />
-                <input
+              <div className="flex min-w-0 items-center gap-3 text-[var(--bs-muted)]">
+                <Phone className="h-5 w-5 shrink-0" aria-hidden="true" />
+                <AdminInput
                   type="tel"
                   value={phone}
                   onChange={(event) => setPhone(formatRussianPhoneInput(event.target.value))}
@@ -276,51 +279,47 @@ export default function AdminPaymentLinksPage() {
 
             <label>
               <span>Процедура для учёта посещения</span>
-              <div className="admin-payment-field">
-                <Stethoscope aria-hidden="true" />
-                <select value={serviceCode} onChange={(event) => setServiceCode(event.target.value)}>
+              <div className="flex min-w-0 items-center gap-3 text-[var(--bs-muted)]">
+                <Stethoscope className="h-5 w-5 shrink-0" aria-hidden="true" />
+                <AdminSelect value={serviceCode} onChange={(event) => setServiceCode(event.target.value)}>
                   <option value="">Не учитывать как посещение</option>
                   <option value="bfm">Физическая реабилитация</option>
                   <option value="brt">БРТ</option>
                   <option value="psychology">Психологическая реабилитация</option>
                   <option value="psychology_program">Психологическая программа</option>
-                </select>
+                </AdminSelect>
               </div>
             </label>
 
             <label>
               <span>Срок действия</span>
-              <div className="admin-payment-field">
-                <Clock3 aria-hidden="true" />
-                <select value={lifetimeDays} onChange={(event) => setLifetimeDays(event.target.value)}>
+              <div className="flex min-w-0 items-center gap-3 text-[var(--bs-muted)]">
+                <Clock3 className="h-5 w-5 shrink-0" aria-hidden="true" />
+                <AdminSelect value={lifetimeDays} onChange={(event) => setLifetimeDays(event.target.value)}>
                   <option value="1">1 день</option>
                   <option value="3">3 дня</option>
                   <option value="7">7 дней</option>
                   <option value="14">14 дней</option>
                   <option value="30">30 дней</option>
-                </select>
+                </AdminSelect>
               </div>
             </label>
           </div>
           </fieldset>
 
-          <button type="submit" className="admin-payment-create-button" disabled={creating}>
+          <AdminButton type="submit" className="w-full" disabled={creating}>
             {creating ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : <Link2 aria-hidden="true" />}
             <span>{creating ? "Формируем ссылку…" : operationPending ? "Проверить результат операции" : "Сформировать ссылку"}</span>
-          </button>
+          </AdminButton>
           {operationPending && !creating && (
-            <div role="status">
+            <AdminFeedback tone="warning">
               <p>Результат ещё не подтверждён. Проверка использует прежнюю операцию. Новый платёж может создать отдельную ссылку.</p>
-              <button type="button" onClick={() => {
-                if (!window.confirm("Начать отдельный платёж? Предыдущая операция могла уже создать ссылку. Сначала проверьте историю.")) return;
-                operation.current = null;
-                setOperationPending(false);
-              }}>Начать новый платёж</button>
-            </div>
+              <AdminButton type="button" variant="secondary" onClick={() => setConfirmNewPayment(true)}>Начать новый платёж</AdminButton>
+            </AdminFeedback>
           )}
         </form>
 
-        <section className={`admin-payment-link-result ${latestLink ? "has-link" : ""}`} aria-live="polite">
+        <AdminCard className={`admin-payment-link-result ${latestLink ? "has-link" : ""}`} aria-live="polite" style={{ background: "var(--bs-surface)", borderColor: "var(--bs-border)", color: "var(--bs-foreground)" }}>
           {latestLink ? (
             <>
               <span className="admin-payment-result-icon"><Check aria-hidden="true" /></span>
@@ -330,10 +329,10 @@ export default function AdminPaymentLinksPage() {
               <p>Чек: {latestLink.email}</p>
               {latestLink.countsAsVisit && <p>{latestLink.phone} · посещение будет учтено после оплаты</p>}
               <div className="admin-payment-url"><span>{latestLink.paymentUrl}</span></div>
-              <div className="admin-payment-result-actions">
-                <button type="button" onClick={() => void copyLink(latestLink)}><Copy aria-hidden="true" />Скопировать</button>
-                <button type="button" className="is-primary" onClick={() => void shareLink(latestLink)}><Share2 aria-hidden="true" />Поделиться</button>
-                <a href={latestLink.paymentUrl} target="_blank" rel="noreferrer" aria-label="Открыть платёжную страницу"><ExternalLink aria-hidden="true" /></a>
+              <div className="mt-3 flex w-full flex-wrap items-center justify-center gap-2 [&_svg]:h-4 [&_svg]:w-4">
+                <AdminButton type="button" variant="secondary" onClick={() => void copyLink(latestLink)}><Copy aria-hidden="true" />Скопировать</AdminButton>
+                <AdminButton type="button" onClick={() => void shareLink(latestLink)}><Share2 aria-hidden="true" />Поделиться</AdminButton>
+                <a className="bs-button bs-button--outline bs-button--icon" href={latestLink.paymentUrl} target="_blank" rel="noreferrer" aria-label="Открыть платёжную страницу"><ExternalLink aria-hidden="true" /></a>
               </div>
               <small>Ссылка действует до {formatDate(latestLink.expiresAt)}</small>
             </>
@@ -344,18 +343,18 @@ export default function AdminPaymentLinksPage() {
               <p>После формирования её можно скопировать, открыть или отправить через системное меню «Поделиться».</p>
             </>
           )}
-        </section>
+        </AdminCard>
       </div>
 
-      <section className="admin-payment-link-history">
+      <AdminCard className="admin-payment-link-history">
         <header>
           <div>
             <p className="admin-section-eyebrow">Последние операции</p>
             <h3>История платёжных ссылок</h3>
           </div>
-          <button type="button" onClick={() => void loadLinks()} disabled={refreshing} aria-label="Обновить историю">
+          <AdminButton type="button" variant="ghost" size="icon" onClick={() => void loadLinks()} disabled={refreshing} aria-label="Обновить историю">
             <RefreshCw className={refreshing ? "animate-spin" : ""} aria-hidden="true" />
-          </button>
+          </AdminButton>
         </header>
 
         {loading ? (
@@ -366,25 +365,25 @@ export default function AdminPaymentLinksPage() {
           <div className="admin-payment-history-list">
             {links.map((link) => {
               const expired = link.status === "pending" && Boolean(link.expiresAt) && new Date(link.expiresAt!).getTime() <= Date.now();
-              const status = STATUS[expired ? "expired" : link.status] || { label: link.status, className: "" };
+              const status = STATUS[expired ? "expired" : link.status] || { label: link.status, tone: "neutral" as const };
               const canUse = link.status === "pending" && !expired && Boolean(link.paymentUrl);
               return (
                 <article key={link.id} className="admin-payment-history-row">
                   <div className="admin-payment-history-copy">
-                    <div><strong>{link.name}</strong><span className={`admin-payment-status ${status.className}`}>{status.label}</span></div>
+                    <div><strong>{link.name}</strong><AdminBadge tone={status.tone}>{status.label}</AdminBadge></div>
                     <p>{link.email}{link.phone ? ` · ${link.phone}` : ""} · создана {formatDate(link.createdAt)}</p>
                     {link.countsAsVisit && <small>Учитывается в программе лояльности после оплаты</small>}
                     <small>Действует до {formatDate(link.expiresAt)}</small>
                   </div>
                   <strong className="admin-payment-history-amount">{formatMoney(link.amount)}</strong>
-                  <div className="admin-payment-history-actions">
-                    <button type="button" onClick={() => void copyLink(link)} disabled={!canUse} aria-label="Скопировать ссылку"><Copy aria-hidden="true" /></button>
-                    <button type="button" onClick={() => void shareLink(link)} disabled={!canUse} aria-label="Поделиться ссылкой"><Share2 aria-hidden="true" /></button>
-                    {canUse && <a href={link.paymentUrl} target="_blank" rel="noreferrer" aria-label="Открыть ссылку"><ExternalLink aria-hidden="true" /></a>}
+                  <div className="flex flex-wrap items-center gap-2 [&_svg]:h-4 [&_svg]:w-4">
+                    <AdminButton type="button" variant="ghost" size="icon" onClick={() => void copyLink(link)} disabled={!canUse} aria-label="Скопировать ссылку"><Copy aria-hidden="true" /></AdminButton>
+                    <AdminButton type="button" variant="ghost" size="icon" onClick={() => void shareLink(link)} disabled={!canUse} aria-label="Поделиться ссылкой"><Share2 aria-hidden="true" /></AdminButton>
+                    {canUse && <a className="bs-button bs-button--outline bs-button--icon" href={link.paymentUrl} target="_blank" rel="noreferrer" aria-label="Открыть ссылку"><ExternalLink aria-hidden="true" /></a>}
                     {link.status === "pending" && link.paymentId && (
-                      <button type="button" className="is-danger" onClick={() => void cancelLink(link)} disabled={cancellingId === link.id} aria-label="Отменить ссылку">
+                      <AdminButton type="button" variant="destructive" size="icon" onClick={() => void cancelLink(link)} disabled={cancellingId === link.id} aria-label="Отменить ссылку">
                         {cancellingId === link.id ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : <Ban aria-hidden="true" />}
-                      </button>
+                      </AdminButton>
                     )}
                   </div>
                 </article>
@@ -392,7 +391,17 @@ export default function AdminPaymentLinksPage() {
             })}
           </div>
         )}
-      </section>
+      </AdminCard>
+      {confirmNewPayment && (
+        <AdminConfirmDialog title="Начать отдельный платёж?" confirmLabel="Начать новый платёж" pendingLabel="Подготовка…"
+          onCancel={() => setConfirmNewPayment(false)}
+          onConfirm={async () => {
+            operation.current = null;
+            setOperationPending(false);
+          }}>
+          Предыдущая операция могла уже создать ссылку. Сначала проверьте историю.
+        </AdminConfirmDialog>
+      )}
     </div>
   );
 }

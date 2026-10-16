@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Award, Loader2, Plus, Save } from "lucide-react";
+import { Award, Plus, Save } from "lucide-react";
 import { toast } from "sonner";
+import {AdminBadge,AdminButton,AdminCard,AdminEmptyState,AdminInput,AdminLoadingState,AdminPageHeader} from '@/components/admin/ui';
 
 type Rule={id:string;visits_required:number;discount_percent:number;is_active:boolean};
 
@@ -12,5 +13,19 @@ export default function LoyaltyAdminPage(){
   useEffect(()=>{void load();},[load]);
   const create=async(e:React.FormEvent)=>{e.preventDefault();setSaving("new");try{const r=await fetch("/api/admin/loyalty",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({visitsRequired:Number(visits),discountPercent:Number(discount)})});const d=await r.json();if(!r.ok)throw new Error(d.error);setRules(c=>[...c,d.rule].sort((a,b)=>a.visits_required-b.visits_required));toast.success("Уровень добавлен");}catch(e){toast.error(e instanceof Error?e.message:"Ошибка");}finally{setSaving("");}};
   const update=async(rule:Rule)=>{setSaving(rule.id);try{const r=await fetch("/api/admin/loyalty",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:rule.id,visitsRequired:Number(rule.visits_required),discountPercent:Number(rule.discount_percent),isActive:rule.is_active})});const d=await r.json();if(!r.ok)throw new Error(d.error);setRules(c=>c.map(x=>x.id===rule.id?d.rule:x).sort((a,b)=>a.visits_required-b.visits_required));toast.success("Правило сохранено");}catch(e){toast.error(e instanceof Error?e.message:"Ошибка");}finally{setSaving("");}};
-  return <div className="mx-auto grid max-w-6xl gap-6 p-4 md:p-8"><div><p className="admin-kicker">Клиенты</p><h1 className="text-3xl font-semibold">Программа лояльности</h1><p className="mt-2 text-sm text-[var(--foreground-secondary)]">Настройте, после какого количества успешных приёмов выдаётся одноразовая персональная скидка.</p></div><div className="grid items-start gap-6 lg:grid-cols-[340px_1fr]"><form onSubmit={create} className="content-panel grid gap-4 rounded-[28px] p-5"><div className="flex items-center gap-3"><Award className="h-6 w-6 text-[var(--primary)]"/><h2 className="font-semibold">Новый уровень</h2></div><label className="grid gap-2 text-sm">Количество приёмов<input type="number" min="1" required value={visits} onChange={e=>setVisits(e.target.value)} className="h-12 rounded-2xl border bg-[var(--input-bg)] px-4"/></label><label className="grid gap-2 text-sm">Скидка, %<input type="number" min="1" max="99" step="0.01" required value={discount} onChange={e=>setDiscount(e.target.value)} className="h-12 rounded-2xl border bg-[var(--input-bg)] px-4"/></label><button disabled={saving==="new"} className="admin-primary-action justify-center"><Plus className="h-4 w-4"/>Добавить уровень</button></form><section className="grid gap-3">{loading?<div className="content-panel rounded-[28px] p-12 text-center"><Loader2 className="mx-auto h-6 w-6 animate-spin"/></div>:rules.map(rule=><article key={rule.id} className="content-panel grid gap-4 rounded-[24px] p-5 sm:grid-cols-[1fr_1fr_auto] sm:items-end"><label className="grid gap-2 text-sm">Приёмов<input type="number" min="1" value={rule.visits_required} onChange={e=>setRules(c=>c.map(x=>x.id===rule.id?{...x,visits_required:Number(e.target.value)}:x))} className="h-11 rounded-xl border bg-[var(--input-bg)] px-3"/></label><label className="grid gap-2 text-sm">Скидка, %<input type="number" min="1" max="99" value={rule.discount_percent} onChange={e=>setRules(c=>c.map(x=>x.id===rule.id?{...x,discount_percent:Number(e.target.value)}:x))} className="h-11 rounded-xl border bg-[var(--input-bg)] px-3"/></label><div className="flex gap-2"><button type="button" onClick={()=>setRules(c=>c.map(x=>x.id===rule.id?{...x,is_active:!x.is_active}:x))} className="admin-secondary-action">{rule.is_active?"Активен":"Отключён"}</button><button type="button" onClick={()=>void update(rule)} disabled={saving===rule.id} className="admin-primary-action"><Save className="h-4 w-4"/></button></div></article>)}</section></div></div>;
+  return <div className="bs-page">
+    <AdminPageHeader title="Программа лояльности" description="Настройте, после какого количества успешных приёмов выдаётся одноразовая персональная скидка."/>
+    <div className="bs-split"><form onSubmit={create} className="bs-form">
+      <div className="bs-toolbar"><Award size={24}/><h2 className="bs-section-heading">Новый уровень</h2></div>
+      <label>Количество приёмов<AdminInput type="number" min="1" required value={visits} onChange={e=>setVisits(e.target.value)}/></label>
+      <label>Скидка, %<AdminInput type="number" min="1" max="99" step="0.01" required value={discount} onChange={e=>setDiscount(e.target.value)}/></label>
+      <AdminButton type="submit" disabled={saving==='new'}><Plus size={16}/>Добавить уровень</AdminButton>
+    </form><section className="grid min-w-0 gap-4" aria-label="Уровни лояльности">
+      {loading?<AdminLoadingState/>:rules.length===0?<AdminEmptyState title="Уровней пока нет"/>:rules.map(rule=><AdminCard key={rule.id} className="grid gap-4 sm:grid-cols-2">
+        <label className="grid gap-2 text-sm">Приёмов<AdminInput type="number" min="1" value={rule.visits_required} onChange={e=>setRules(c=>c.map(x=>x.id===rule.id?{...x,visits_required:Number(e.target.value)}:x))}/></label>
+        <label className="grid gap-2 text-sm">Скидка, %<AdminInput type="number" min="1" max="99" value={rule.discount_percent} onChange={e=>setRules(c=>c.map(x=>x.id===rule.id?{...x,discount_percent:Number(e.target.value)}:x))}/></label>
+        <div className="bs-toolbar sm:col-span-2"><AdminBadge tone={rule.is_active?'success':'neutral'}>{rule.is_active?'Активен':'Отключён'}</AdminBadge><AdminButton variant="outline" onClick={()=>setRules(c=>c.map(x=>x.id===rule.id?{...x,is_active:!x.is_active}:x))}>{rule.is_active?'Отключить':'Включить'}</AdminButton><AdminButton onClick={()=>void update(rule)} disabled={saving===rule.id} aria-label={`Сохранить уровень ${rule.visits_required} приёмов`}><Save size={16}/>Сохранить</AdminButton></div>
+      </AdminCard>)}
+    </section></div>
+  </div>;
 }

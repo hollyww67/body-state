@@ -1,3 +1,4 @@
+import { AdminButton } from '@/components/admin/ui';
 import type { BookingStatus } from "@/lib/api/bookings";
 
 interface Props {
@@ -18,17 +19,14 @@ export default function BookingsFilters({ filter, onFilterChange }: Props) {
   return (
     <div className="flex flex-wrap gap-2">
       {tabs.map((tab) => (
-        <button
+        <AdminButton variant={filter === tab.value ? 'primary' : 'outline'}
           key={tab.value}
+          aria-pressed={filter === tab.value}
           onClick={() => onFilterChange(tab.value)}
-          className={`px-3 py-1.5 rounded-full text-xs sm:text-sm font-medium transition-all ${
-            filter === tab.value
-              ? "bg-[#0F766E] text-white shadow-sm"
-              : "bg-white border border-gray-200 text-[#6B7280] hover:border-gray-300"
-          }`}
+          size="sm"
         >
           {tab.label}
-        </button>
+        </AdminButton>
       ))}
     </div>
   );

@@ -5,6 +5,7 @@ import AdminTopbar from "./AdminTopbar";
 import { ADMIN_COOKIE, verifyAdminSessionToken } from "@/lib/admin-auth";
 import "./admin.css";
 import "./design-system.css";
+import "./phase2.css";
 import AdminPwa from './AdminPwa';
 import { adminPwaMetadata, adminViewport } from '@/lib/admin-pwa-metadata';
 export const metadata = adminPwaMetadata;

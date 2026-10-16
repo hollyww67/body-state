@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { BadgeRussianRuble, Boxes, HeartPulse, Loader2, RefreshCw, Save, Sparkles } from "lucide-react";
+import { Boxes, HeartPulse, RefreshCw, Save, Sparkles } from "lucide-react";
 import { toast } from "sonner";
+import {AdminButton,AdminCard,AdminEmptyState,AdminInput,AdminLoadingState,AdminPageHeader} from '@/components/admin/ui';
 
 type PriceRow = { id?: string; code?: string; label: string; price: number; prefix?: string; stock?: number };
 type PriceData = { services: PriceRow[]; psychology: PriceRow[]; products: PriceRow[] };
@@ -48,18 +49,15 @@ export default function AdminPricesPage() {
 
   return (
     <div className="admin-prices-page">
-      <header className="admin-page-intro">
-        <div><p className="admin-section-eyebrow">Единый прайс</p><h2>Управление всеми ценами</h2><p>Изменения сразу применяются на сайте и перепроверяются сервером при оплате.</p></div>
-        <button type="button" onClick={load} className="admin-dashboard-refresh" disabled={loading}><RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /><span>Обновить</span></button>
-      </header>
+      <AdminPageHeader title="Управление всеми ценами" description="Изменения сразу применяются на сайте и перепроверяются сервером при оплате."><AdminButton variant="outline" onClick={load} disabled={loading}><RefreshCw size={16}/><span>Обновить</span></AdminButton></AdminPageHeader>
 
-      {loading ? <div className="admin-list-empty"><Loader2 className="mx-auto mb-2 h-6 w-6 animate-spin" />Загружаем прайс</div> : SECTIONS.map((section) => {
+      {loading ? <AdminLoadingState>Загружаем прайс</AdminLoadingState> : SECTIONS.map((section) => {
         const Icon = section.icon;
-        return <section key={section.key} className="admin-price-section"><header><span><Icon className="h-5 w-5" /></span><div><h3>{section.title}</h3><p>{section.description}</p></div></header><div className="admin-price-list">{data[section.key].length ? data[section.key].map((row) => {
+        return <AdminCard key={section.key} className="mb-6"><header className="bs-toolbar mb-4"><Icon size={20}/><div><h3 className="bs-section-heading">{section.title}</h3><p className="bs-muted text-sm">{section.description}</p></div></header><div className="grid gap-4">{data[section.key].length ? data[section.key].map((row) => {
           const id = row.id || row.code || "";
           const busy = saving === `${section.kind}:${id}`;
-          return <article key={id} className="admin-price-row"><div className="admin-price-copy"><strong>{row.label}</strong><small>{row.prefix ? `Показывается с пометкой «${row.prefix}»` : row.stock !== undefined ? `Остаток: ${row.stock}` : "Точная стоимость"}</small></div><label><span className="sr-only">Цена: {row.label}</span><BadgeRussianRuble className="h-4 w-4" /><input type="number" min="0" max="10000000" step="1" value={Number(row.price)} onChange={(event) => changePrice(section.key, id, event.target.value)} /></label><button type="button" onClick={() => save(section.kind, row)} disabled={busy} aria-label={`Сохранить цену ${row.label}`}>{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}<span>Сохранить</span></button></article>;
-        }) : <p className="admin-list-empty">В этом разделе пока нет позиций.</p>}</div></section>;
+          return <article key={id} className="grid gap-3 border-t border-[var(--bs-border)] pt-4 sm:grid-cols-[minmax(0,1fr)_160px_auto] sm:items-center"><div className="min-w-0"><strong>{row.label}</strong><p className="bs-muted mt-1 text-xs">{row.prefix ? `Показывается с пометкой «${row.prefix}»` : row.stock !== undefined ? `Остаток: ${row.stock}` : "Точная стоимость"}</p></div><label><span className="sr-only">Цена: {row.label}</span><AdminInput type="number" min="0" max="10000000" step="1" className="bs-money" value={Number(row.price)} onChange={event=>changePrice(section.key,id,event.target.value)}/></label><AdminButton onClick={()=>save(section.kind,row)} loading={busy} aria-label={`Сохранить цену ${row.label}`}><Save size={16}/><span>Сохранить</span></AdminButton></article>;
+        }) : <AdminEmptyState title="В этом разделе пока нет позиций" />}</div></AdminCard>;
       })}
     </div>
   );

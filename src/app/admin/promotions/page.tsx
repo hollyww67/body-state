@@ -1,7 +1,8 @@
 "use client";
+import { AdminPageHeader, AdminLoadingState, AdminInput, AdminTextarea, AdminCheckbox, AdminButton, AdminCard } from '@/components/admin/ui';
 
 import { useCallback, useEffect, useState } from "react";
-import { Gift, Loader2, Plus, Save } from "lucide-react";
+import { Gift, Plus, Save } from "lucide-react";
 import { toast } from "sonner";
 
 type Promotion = {
@@ -46,7 +47,6 @@ function payload(value: Promotion | PromotionForm) {
   };
 }
 
-const inputClass = "h-11 rounded-xl border bg-[var(--input-bg)] px-3";
 
 export default function PromotionsAdminPage() {
   const [items, setItems] = useState<Promotion[]>([]);
@@ -97,40 +97,41 @@ export default function PromotionsAdminPage() {
     ["image_url", "Ссылка на изображение"], ["cta_label", "Текст кнопки"], ["cta_url", "Ссылка кнопки"],
   ];
 
-  return <div className="admin-promotions-page mx-auto grid max-w-7xl gap-6 p-4 md:p-8">
+  return <div className="admin-promotions-page bs-page">
+    <AdminPageHeader title="Акции" />
     <div className="grid items-start gap-6 xl:grid-cols-[380px_1fr]">
-      <form onSubmit={create} className="content-panel grid gap-4 rounded-[28px] p-5 xl:sticky xl:top-28">
-        <div className="flex items-center gap-2 font-semibold"><Gift className="h-5 w-5 text-[var(--primary)]" />Новая акция</div>
-        {formFields.map(([key, label]) => <label key={key} className="grid gap-1.5 text-sm">{label}<input required={key === "title"} value={String(form[key])} onChange={(event) => setForm((current) => ({ ...current, [key]: event.target.value }))} className={inputClass} /></label>)}
-        <label className="grid gap-1.5 text-sm">Условия<textarea value={form.details} onChange={(event) => setForm((current) => ({ ...current, details: event.target.value }))} className="min-h-28 rounded-xl border bg-[var(--input-bg)] p-3" /></label>
-        <div className="grid grid-cols-2 gap-2">
-          <label className="grid gap-1.5 text-xs">Начало<input type="datetime-local" value={form.starts_at} onChange={(event) => setForm((current) => ({ ...current, starts_at: event.target.value }))} className={inputClass} /></label>
-          <label className="grid gap-1.5 text-xs">Окончание<input type="datetime-local" value={form.ends_at} onChange={(event) => setForm((current) => ({ ...current, ends_at: event.target.value }))} className={inputClass} /></label>
+      <form onSubmit={create} className="bs-form xl:sticky xl:top-28">
+        <div className="flex items-center gap-2 font-semibold"><Gift className="h-5 w-5 text-[var(--bs-primary)]" />Новая акция</div>
+        {formFields.map(([key, label]) => <label key={key} className="grid gap-1.5 text-sm">{label}<AdminInput required={key === "title"} value={String(form[key])} onChange={(event) => setForm((current) => ({ ...current, [key]: event.target.value }))} /></label>)}
+        <label className="grid gap-1.5 text-sm">Условия<AdminTextarea value={form.details} onChange={(event) => setForm((current) => ({ ...current, details: event.target.value }))} /></label>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="grid gap-1.5 text-xs">Начало<AdminInput type="datetime-local" value={form.starts_at} onChange={(event) => setForm((current) => ({ ...current, starts_at: event.target.value }))} /></label>
+          <label className="grid gap-1.5 text-xs">Окончание<AdminInput type="datetime-local" value={form.ends_at} onChange={(event) => setForm((current) => ({ ...current, ends_at: event.target.value }))} /></label>
         </div>
-        <label className="flex items-center gap-3 text-sm"><input type="checkbox" checked={form.is_active} onChange={(event) => setForm((current) => ({ ...current, is_active: event.target.checked }))} />Показывать на сайте сразу</label>
-        <button disabled={saving === "new"} className="admin-primary-action justify-center"><Plus className="h-4 w-4" />Добавить акцию</button>
+        <label className="flex items-center gap-3 text-sm"><AdminCheckbox checked={form.is_active} onChange={(event) => setForm((current) => ({ ...current, is_active: event.target.checked }))} />Показывать на сайте сразу</label>
+        <AdminButton variant="primary" type="submit" disabled={saving === "new"}><Plus className="h-4 w-4" />Добавить акцию</AdminButton>
       </form>
 
       <section className="grid gap-4">
-        {loading ? <Loader2 className="mx-auto mt-12 h-6 w-6 animate-spin" /> : items.map((item) => <article key={item.id} className="content-panel grid gap-4 rounded-[24px] p-5">
+        {loading ? <AdminLoadingState>Загружаем акции…</AdminLoadingState> : items.map((item) => <AdminCard key={item.id} className="grid gap-4">
           <div className="grid gap-3 md:grid-cols-2">
-            <label className="grid gap-1.5 text-xs">Название<input value={item.title} onChange={(event) => updateItem(item.id, { title: event.target.value })} className={`${inputClass} font-semibold`} /></label>
-            <label className="grid gap-1.5 text-xs">Бейдж<input value={item.badge} onChange={(event) => updateItem(item.id, { badge: event.target.value })} className={inputClass} /></label>
+            <label className="grid gap-1.5 text-xs">Название<AdminInput value={item.title} onChange={(event) => updateItem(item.id, { title: event.target.value })} /></label>
+            <label className="grid gap-1.5 text-xs">Бейдж<AdminInput value={item.badge} onChange={(event) => updateItem(item.id, { badge: event.target.value })} /></label>
           </div>
-          <label className="grid gap-1.5 text-xs">Краткое описание<textarea value={item.summary} onChange={(event) => updateItem(item.id, { summary: event.target.value })} className="min-h-20 rounded-xl border bg-[var(--input-bg)] p-3" /></label>
-          <label className="grid gap-1.5 text-xs">Условия<textarea value={item.details} onChange={(event) => updateItem(item.id, { details: event.target.value })} className="min-h-24 rounded-xl border bg-[var(--input-bg)] p-3" /></label>
+          <label className="grid gap-1.5 text-xs">Краткое описание<AdminTextarea value={item.summary} onChange={(event) => updateItem(item.id, { summary: event.target.value })} /></label>
+          <label className="grid gap-1.5 text-xs">Условия<AdminTextarea value={item.details} onChange={(event) => updateItem(item.id, { details: event.target.value })} /></label>
           <div className="grid gap-3 md:grid-cols-2">
-            <label className="grid gap-1.5 text-xs">Изображение<input value={item.image_url || ""} onChange={(event) => updateItem(item.id, { image_url: event.target.value || null })} className={inputClass} /></label>
-            <label className="grid gap-1.5 text-xs">Текст кнопки<input value={item.cta_label} onChange={(event) => updateItem(item.id, { cta_label: event.target.value })} className={inputClass} /></label>
-            <label className="grid gap-1.5 text-xs">Ссылка кнопки<input value={item.cta_url} onChange={(event) => updateItem(item.id, { cta_url: event.target.value })} className={inputClass} /></label>
-            <label className="grid gap-1.5 text-xs">Начало<input type="datetime-local" value={toLocalDate(item.starts_at)} onChange={(event) => updateItem(item.id, { starts_at: event.target.value || null })} className={inputClass} /></label>
-            <label className="grid gap-1.5 text-xs">Окончание<input type="datetime-local" value={toLocalDate(item.ends_at)} onChange={(event) => updateItem(item.id, { ends_at: event.target.value || null })} className={inputClass} /></label>
+            <label className="grid gap-1.5 text-xs">Изображение<AdminInput value={item.image_url || ""} onChange={(event) => updateItem(item.id, { image_url: event.target.value || null })} /></label>
+            <label className="grid gap-1.5 text-xs">Текст кнопки<AdminInput value={item.cta_label} onChange={(event) => updateItem(item.id, { cta_label: event.target.value })} /></label>
+            <label className="grid gap-1.5 text-xs">Ссылка кнопки<AdminInput value={item.cta_url} onChange={(event) => updateItem(item.id, { cta_url: event.target.value })} /></label>
+            <label className="grid gap-1.5 text-xs">Начало<AdminInput type="datetime-local" value={toLocalDate(item.starts_at)} onChange={(event) => updateItem(item.id, { starts_at: event.target.value || null })} /></label>
+            <label className="grid gap-1.5 text-xs">Окончание<AdminInput type="datetime-local" value={toLocalDate(item.ends_at)} onChange={(event) => updateItem(item.id, { ends_at: event.target.value || null })} /></label>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={() => updateItem(item.id, { is_active: !item.is_active })} className="admin-secondary-action">{item.is_active ? "Показывается" : "Скрыта"}</button>
-            <button type="button" onClick={() => void save(item)} disabled={saving === item.id} className="admin-primary-action"><Save className="h-4 w-4" />Сохранить</button>
+          <div className="bs-toolbar">
+            <AdminButton aria-pressed={item.is_active} variant="outline" type="button" onClick={() => updateItem(item.id, { is_active: !item.is_active })}>{item.is_active ? "Показывается" : "Скрыта"}</AdminButton>
+            <AdminButton variant="primary" type="button" onClick={() => void save(item)} disabled={saving === item.id}><Save className="h-4 w-4" />Сохранить</AdminButton>
           </div>
-        </article>)}
+        </AdminCard>)}
       </section>
     </div>
   </div>;

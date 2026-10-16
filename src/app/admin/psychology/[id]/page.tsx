@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Save, Trash2 } from 'lucide-react';
 import TipTapEditor from '@/components/TipTapEditor';
+import { AdminButton, AdminCard, AdminCheckbox, AdminFeedback, AdminInput } from '@/components/admin/ui';
 
 interface Program {
     id: number;
@@ -127,8 +128,8 @@ export default function EditPsychologyPage() {
     if (error && !isNew) {
         return (
             <div className="p-8">
-                <div className="text-red-500">Ошибка: {error}</div>
-                <Link href="/admin/psychology" className="text-blue-500 hover:underline mt-4 inline-block">
+                <AdminFeedback tone="destructive">Ошибка: {error}</AdminFeedback>
+                <Link href="/admin/psychology" className="bs-button bs-button--outline bs-button--md mt-4">
                     Вернуться к списку
                 </Link>
             </div>
@@ -136,11 +137,12 @@ export default function EditPsychologyPage() {
     }
 
     return (
-        <div className="p-8 max-w-5xl mx-auto">
+        <div className="p-4 md:p-8 max-w-5xl mx-auto text-[var(--bs-foreground)]">
             <div className="flex items-center gap-4 mb-6">
                 <Link
                     href="/admin/psychology"
-                    className="p-2 rounded-lg hover:bg-gray-100 transition"
+                    className="bs-button bs-button--ghost bs-button--icon"
+                    aria-label="Назад к программам"
                 >
                     <ArrowLeft className="w-5 h-5" />
                 </Link>
@@ -150,72 +152,63 @@ export default function EditPsychologyPage() {
             </div>
 
             {error && (
-                <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg">
-                    {error}
-                </div>
+                <AdminFeedback tone="destructive">{error}</AdminFeedback>
             )}
 
             <form onSubmit={handleSubmit} className="space-y-6">
+                <AdminCard className="p-4 md:p-6 space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                        <label className="block text-sm font-medium mb-1">Название *</label>
-                        <input
+                        <label htmlFor="program-title" className="block text-sm font-medium mb-1">Название *</label>
+                        <AdminInput id="program-title"
                             type="text"
                             value={program.title}
                             onChange={(e) => handleChange('title', e.target.value)}
-                            className="w-full p-2 border rounded-lg"
-                            style={{ borderColor: 'var(--border)', background: 'var(--bg)', color: 'var(--foreground)' }}
                             required
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium mb-1">Slug (URL)</label>
-                        <input
+                        <label htmlFor="program-slug" className="block text-sm font-medium mb-1">Slug (URL)</label>
+                        <AdminInput id="program-slug" aria-describedby="program-slug-hint"
                             type="text"
                             value={program.slug}
                             onChange={(e) => handleChange('slug', e.target.value)}
-                            className="w-full p-2 border rounded-lg"
-                            style={{ borderColor: 'var(--border)', background: 'var(--bg)', color: 'var(--foreground)' }}
                             placeholder="автоматически из названия"
                         />
-                        <p className="text-xs text-gray-500 mt-1">URL: /psychology/{program.slug || '...'}</p>
+                        <p id="program-slug-hint" className="text-xs text-[var(--bs-muted)] mt-1">URL: /psychology/{program.slug || '...'}</p>
                     </div>
                 </div>
 
                 {/* Визуальный редактор вместо textarea */}
-                <div>
+                <div className="rounded-[var(--bs-radius-card)] border border-[var(--bs-border)] p-4">
                     <label className="block text-sm font-medium mb-1">Описание</label>
                     <TipTapEditor
                         content={program.description}
                         onChange={(content) => handleChange('description', content)}
                     />
-                    <p className="text-xs text-gray-400 mt-1">
+                    <p className="text-xs text-[var(--bs-muted)] mt-1">
                         Используйте панель инструментов для форматирования текста
                     </p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                     <div>
-                        <label className="block text-sm font-medium mb-1">Цена *</label>
-                        <input
+                        <label htmlFor="program-price" className="block text-sm font-medium mb-1">Цена *</label>
+                        <AdminInput id="program-price" aria-describedby="program-price-hint"
                             type="text"
                             value={program.price}
                             onChange={(e) => handleChange('price', e.target.value)}
-                            className="w-full p-2 border rounded-lg"
-                            style={{ borderColor: 'var(--border)', background: 'var(--bg)', color: 'var(--foreground)' }}
                             placeholder="От 3000 ₽"
                             required
                         />
-                        <p className="text-xs text-gray-400 mt-1">Можно писать: "3000 ₽", "От 3000 ₽"</p>
+                        <p id="program-price-hint" className="text-xs text-[var(--bs-muted)] mt-1">Можно писать: "3000 ₽", "От 3000 ₽"</p>
                     </div>
                     <div>
-                        <label className="block text-sm font-medium mb-1">Длительность *</label>
-                        <input
+                        <label htmlFor="program-duration" className="block text-sm font-medium mb-1">Длительность *</label>
+                        <AdminInput id="program-duration"
                             type="text"
                             value={program.duration}
                             onChange={(e) => handleChange('duration', e.target.value)}
-                            className="w-full p-2 border rounded-lg"
-                            style={{ borderColor: 'var(--border)', background: 'var(--bg)', color: 'var(--foreground)' }}
                             placeholder="60 минут"
                             required
                         />
@@ -226,59 +219,53 @@ export default function EditPsychologyPage() {
                     <label className="block text-sm font-medium mb-1">Особенности</label>
                     {program.features.map((feature, index) => (
                         <div key={index} className="flex gap-2 mb-2">
-                            <input
+                            <AdminInput aria-label={`Особенность ${index + 1}`}
                                 type="text"
                                 value={feature}
                                 onChange={(e) => handleFeatureChange(index, e.target.value)}
-                                className="flex-1 p-2 border rounded-lg"
-                                style={{ borderColor: 'var(--border)', background: 'var(--bg)', color: 'var(--foreground)' }}
+                                className="flex-1 min-w-0"
                                 placeholder={`Особенность ${index + 1}`}
                             />
-                            <button
+                            <AdminButton variant="destructive" size="icon" aria-label={`Удалить особенность ${index + 1}`}
                                 type="button"
                                 onClick={() => removeFeature(index)}
-                                className="px-3 py-2 bg-red-50 text-red-500 rounded-lg hover:bg-red-100"
                                 disabled={program.features.length === 1}
                             >
                                 <Trash2 className="w-4 h-4" />
-                            </button>
+                            </AdminButton>
                         </div>
                     ))}
-                    <button
+                    <AdminButton variant="secondary"
                         type="button"
                         onClick={addFeature}
-                        className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition"
                     >
                         + Добавить особенность
-                    </button>
+                    </AdminButton>
                 </div>
 
                 <div className="flex items-center gap-3">
-                    <input
-                        type="checkbox"
+                    <AdminCheckbox
                         id="is_active"
                         checked={program.is_active}
                         onChange={(e) => handleChange('is_active', e.target.checked)}
-                        className="w-4 h-4"
                     />
                     <label htmlFor="is_active" className="text-sm font-medium">
                         Активна (отображается на сайте)
                     </label>
                 </div>
 
-                <div className="flex gap-4 pt-4 border-t">
-                    <button
+                </AdminCard>
+                <div className="flex flex-wrap gap-4 pt-4 border-t border-[var(--bs-border)]">
+                    <AdminButton
                         type="submit"
                         disabled={saving}
-                        className="px-6 py-2 bg-blue-500 text-white rounded-lg flex items-center gap-2 hover:bg-blue-600 transition disabled:opacity-50"
                     >
                         <Save className="w-4 h-4" />
                         {saving ? 'Сохранение...' : 'Сохранить'}
-                    </button>
+                    </AdminButton>
                     <Link
                         href="/admin/psychology"
-                        className="px-6 py-2 border rounded-lg hover:bg-gray-50 transition"
-                        style={{ borderColor: 'var(--border)' }}
+                        className="bs-button bs-button--outline bs-button--md"
                     >
                         Отмена
                     </Link>

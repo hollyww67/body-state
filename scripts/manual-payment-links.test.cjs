@@ -207,6 +207,8 @@ function uiFixture(fetch) {
       if (name === "lucide-react") return {};
       if (name === "sonner") return { toast: { success() {}, error() {} } };
       if (name === "@/lib/phone") return { formatRussianPhoneInput: (v) => v };
+      if (name === "@/components/admin/ui") return { AdminBadge: "span", AdminButton: "button", AdminCard: "section", AdminFeedback: "aside", AdminInput: "input", AdminSelect: "select" };
+      if (name === "@/components/admin/AdminConfirmDialog") return { default: "AdminConfirmDialog", __esModule: true };
       throw new Error("Unexpected UI import: " + name);
     },
   });
@@ -264,8 +266,17 @@ test("form retains key after unknown Init; deliberate new operation uses a diffe
   assert.equal(bodies[0].requestKey, bodies[1].requestKey);
   assert.equal(f.initCalls, 1);
   ui.find(ui.render(), (n) => n.type === "button" && n.props.children === "Начать новый платёж").props.onClick();
+  const cancelled = ui.find(ui.render(), (n) => n.type === "AdminConfirmDialog");
+  assert.ok(cancelled, "opening the warning does not reset the existing operation");
+  cancelled.props.onCancel();
   await ui.submit();
-  assert.notEqual(bodies[2].requestKey, bodies[0].requestKey);
+  assert.equal(bodies[2].requestKey, bodies[0].requestKey);
+  assert.equal(f.initCalls, 1, "cancelling the warning cannot create another Init");
+  ui.find(ui.render(), (n) => n.type === "button" && n.props.children === "Начать новый платёж").props.onClick();
+  await ui.find(ui.render(), (n) => n.type === "AdminConfirmDialog").props.onConfirm();
+  assert.equal(f.initCalls, 1, "confirmation only resets local form state; it does not call the bank");
+  await ui.submit();
+  assert.notEqual(bodies[3].requestKey, bodies[0].requestKey);
   assert.equal(f.initCalls, 2);
 });
 

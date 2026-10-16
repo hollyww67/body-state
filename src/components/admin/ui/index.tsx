@@ -62,3 +62,9 @@ export function AdminTable({ caption, children }: { caption: string; children: R
 export function AdminFeedback({ tone = 'info', children }: { tone?: BadgeTone; children: React.ReactNode }) {
   return <div className={`bs-feedback bs-badge--${tone}`} role={tone === 'destructive' ? 'alert' : 'status'}>{children}</div>;
 }
+export function AdminPageHeader({ title, description, children }: { title: string; description?: string; children?: React.ReactNode }) {
+  return <header className="bs-page-header"><div><h2>{title}</h2>{description && <p>{description}</p>}</div>{children && <div className="bs-toolbar">{children}</div>}</header>;
+}
+export function AdminLoadingState({ children = 'Загрузка…' }: { children?: React.ReactNode }) {
+  return <div className="bs-loading" role="status"><LoaderCircle className="bs-spinner" size={20} aria-hidden="true" /><span>{children}</span></div>;
+}
