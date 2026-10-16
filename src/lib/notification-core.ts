@@ -5,9 +5,11 @@ import { deliverTransactionalEmail } from '@/lib/notifications';
 import { notificationTemplate } from '@/lib/notification-templates';
 import { deliverMax,type MaxRecipient } from '@/lib/max-notifications';
 import type { ProviderResult } from '@/lib/notification-result';
+import { maxEnabled, maxClientsEnabled } from '@/lib/max-rollout';
 
 export const emailV1Enabled = () => process.env.NOTIFICATIONS_EMAIL_V1_ENABLED === 'true';
-export const maxV1Enabled = () => process.env.NOTIFICATIONS_MAX_V1_ENABLED === 'true';
+export const maxV1Enabled = maxEnabled;
+export const maxClientsV1Enabled = maxClientsEnabled;
 export type NotificationKind = 'created'|'confirmed'|'rescheduled'|'cancelled'|'paid'|'reminder_24h'|'reminder_2h'|'reset_requested'|'password_changed'|'delivery_alert';
 type Row = {id:string;booking_id:string|null;service_type:JourneyService|null;account_user_id:string|null;recipient_role:'client'|'admin';event_type:NotificationKind;revision:number;channel:'email'|'max';attempts:number;payload:Record<string,unknown>;scheduled_at:Date;created_at:Date};
 const isReminder = (kind:string) => kind === 'reminder_24h' || kind === 'reminder_2h';
@@ -24,7 +26,7 @@ async function channelBoundary(client:PoolClient,channel:'email'|'max'){
 
 async function enqueue(client:PoolClient, input:{service?:JourneyService;bookingId?:string;userId?:string;kind:NotificationKind;revision:number;key:string;at?:Date;payload?:Record<string,unknown>}) {
   for (const channel of ['email','max'] as const) {
-    if (channel==='email' ? !emailV1Enabled() : !maxV1Enabled() || !input.bookingId) continue;
+    if (channel==='email' ? !emailV1Enabled() : !maxClientsV1Enabled() || !input.bookingId) continue;
     if(await channelBoundary(client,channel)===null)continue;
     if(channel==='email'&&input.kind==='reminder_24h'&&(await client.query(`SELECT 1 FROM appointment_notifications WHERE engine='legacy' AND booking_id=$1 AND service_type=$2
       AND event_type='reminder' AND revision=$3 AND channel='email' AND status NOT IN ('cancelled','failed','not_configured') LIMIT 1`,[input.bookingId,input.service,input.revision])).rowCount)continue;
@@ -63,7 +65,7 @@ async function enqueueAdminNotification(client:PoolClient,kind:NotificationKind,
     ON CONFLICT DO NOTHING`,[`v1:admin:${key}`,kind,JSON.stringify(payload)]);
 }
 export async function scheduleV1Reminders(client:PoolClient,service:JourneyService,id:string) {
-  if(!emailV1Enabled()&&!maxV1Enabled())return;
+  if(!emailV1Enabled()&&!maxClientsV1Enabled())return;
   const b=await loadJourney(service,id,client);if(!b||b.status!=='confirmed')return;
   for(const [kind,hours] of [['reminder_24h',24],['reminder_2h',2]] as const){
     const at=new Date(new Date(b.slot_time).getTime()-hours*3600000);
@@ -153,7 +155,8 @@ export async function processV1Notifications(limit=20,providers:V1Providers={ema
     status=CASE WHEN send_started_at IS NOT NULL THEN 'uncertain' WHEN attempts>=4 THEN 'failed' ELSE 'retry' END,
     last_error=CASE WHEN send_started_at IS NOT NULL THEN 'worker_interrupted' WHEN attempts>=4 THEN 'attempts_exhausted' ELSE 'provider_unavailable' END,
     next_attempt_at=now()+interval '1 minute',updated_at=now()
-    WHERE engine='v1' AND status='processing' AND processing_at<now()-interval '5 minutes'`));
+    WHERE engine='v1' AND status='processing' AND processing_at<now()-interval '5 minutes'
+    AND (channel<>'max' OR recipient_role='admin' OR $1)`,[maxClientsV1Enabled()]));
   let processed=0;
   const deadline=Date.now()+budgetMs;
   for(let i=0;i<Math.min(Math.max(limit,0),50);i++){
@@ -162,8 +165,8 @@ export async function processV1Notifications(limit=20,providers:V1Providers={ema
     if(Date.now()+timeoutMs+1000>deadline)break;
     const row=await transaction(async client=>{
       const r=await client.query<Row>(`SELECT * FROM appointment_notifications WHERE engine='v1' AND status IN ('queued','retry')
-        AND scheduled_at<=now() AND next_attempt_at<=now() AND ((channel='email' AND $1) OR (channel='max' AND $2))
-        ORDER BY next_attempt_at,id FOR UPDATE SKIP LOCKED LIMIT 1`,[emailV1Enabled(),maxV1Enabled()]);
+        AND scheduled_at<=now() AND next_attempt_at<=now() AND ((channel='email' AND $1) OR (channel='max' AND $2 AND (recipient_role='admin' OR $3)))
+        ORDER BY next_attempt_at,id FOR UPDATE SKIP LOCKED LIMIT 1`,[emailV1Enabled(),maxV1Enabled(),maxClientsV1Enabled()]);
       if(!r.rows[0])return null;
       await client.query(`UPDATE appointment_notifications SET status='processing',processing_at=now(),send_started_at=NULL,attempts=attempts+1,updated_at=now() WHERE id=$1`,[r.rows[0].id]);
       return {...r.rows[0],attempts:r.rows[0].attempts+1};

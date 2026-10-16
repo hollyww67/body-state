@@ -64,6 +64,7 @@ function providers(fn = async () => ({ status: 'accepted', id: 'fake-provider-id
 async function test(name, fn) {
   await pool.query("DELETE FROM appointment_notifications WHERE engine='v1'");
   env.NOTIFICATIONS_EMAIL_V1_ENABLED = 'true'; env.NOTIFICATIONS_MAX_V1_ENABLED = 'false';
+  delete env.NOTIFICATIONS_MAX_V1_ADMIN_ONLY;
   try { await fn(); assert.deepEqual(await legacySnapshot(), protectedRows); results.push({ name, ok: true }); console.log('PASS', name); }
   catch (e) { results.push({ name, ok: false }); console.error('FAIL', name, e.stack); }
 }
@@ -248,6 +249,36 @@ async function main() {
     await adminBinding.revokeMaxAdminBinding();await max.unlinkMax(user);
     assert.equal((await pool.query('SELECT * FROM max_account_bindings WHERE account_user_id=$1',[user])).rowCount,0);
     env.NOTIFICATIONS_MAX_V1_ENABLED='false';
+  });
+  await test('MAX admin-only preserves client pairing/queue and Email while dispatching only confirmed admin',async()=>{
+    env.NOTIFICATIONS_MAX_V1_ENABLED='true';env.MAX_BOT_URL='https://max.ru/synthetic_qa_bot';
+    const max=load('max-notifications'),adminBinding=load('max-admin-binding');
+    const user=(await pool.query("INSERT INTO account_users(display_name,email,username,consent_version,consent_at,verified_at) VALUES('Synthetic admin-only','admin-only@example.invalid','adminonlyqa','qa',now(),now()) RETURNING id")).rows[0].id;
+    const pair=await max.createMaxPairing(user);
+    const beforePair=(await pool.query('SELECT * FROM max_pairing_codes WHERE account_user_id=$1',[user])).rows[0];
+    env.NOTIFICATIONS_MAX_V1_ADMIN_ONLY='true';
+    await assert.rejects(max.createMaxPairing(user),/MAX_DISABLED/);
+    await max.acceptMaxUpdate({key:crypto.createHash('sha256').update('admin-only-client-code').digest('hex'),userId:'123',chatId:'456',timestamp:Date.now(),code:pair.code});
+    assert.deepEqual((await pool.query('SELECT * FROM max_pairing_codes WHERE account_user_id=$1',[user])).rows[0],beforePair);
+    assert.equal((await pool.query('SELECT * FROM max_account_bindings WHERE account_user_id=$1',[user])).rowCount,0);
+    const adminPair=await adminBinding.createMaxAdminPairing();
+    await max.acceptMaxUpdate({key:crypto.createHash('sha256').update('admin-only-pending').digest('hex'),userId:'789',chatId:'987',timestamp:Date.now(),code:adminPair.code});
+    assert.equal((await pool.query('SELECT * FROM max_admin_binding')).rowCount,0);
+    assert.equal(await adminBinding.confirmMaxAdminBinding('789','987'),true); // Synthetic QA only.
+    await pool.query('INSERT INTO max_account_bindings(account_user_id,max_user_id,max_chat_id) VALUES($1,$2,$3)',[user,'123','456']);
+    assert.equal((await max.deliverMax('456','blocked',{role:'client',accountUserId:user,boundAt:new Date().toISOString()})).status,'not_configured');
+    const id=await booking();await pool.query('UPDATE bfm_bookings SET account_user_id=$1 WHERE id=$2',[user,id]);
+    await enqueue(id);
+    assert.equal((await pool.query("SELECT * FROM appointment_notifications WHERE booking_id=$1 AND channel='max' AND recipient_role='client'",[id])).rowCount,0);
+    for(const status of ['queued','retry','processing'])await pool.query(`INSERT INTO appointment_notifications(engine,event_key,booking_id,service_type,account_user_id,event_type,revision,channel,scheduled_at,next_attempt_at,status,processing_at,attempts)
+      VALUES('v1',$1,$2,'bfm',$3,'confirmed',0,'max',now(),now(),$4,now()-interval '6 minutes',1)`,['admin-only-protected:'+status,id,user,status]);
+    const snapshot=async()=> (await pool.query("SELECT to_jsonb(n) data FROM appointment_notifications n WHERE event_key LIKE 'admin-only-protected:%' ORDER BY event_key")).rows;
+    const protectedClients=await snapshot();let emails=0,admins=0;
+    await core.processV1Notifications(10,{email:async()=>{emails++;return {status:'accepted'};},max:async(to,text,expected)=>{
+      assert.equal(expected.role,'admin');assert.equal(to,'987');admins++;return {status:'accepted'};
+    }});
+    assert.equal(emails,1);assert.equal(admins,1);assert.deepEqual(await snapshot(),protectedClients);
+    await adminBinding.revokeMaxAdminBinding();
   });
   await test('V1 in-flight revision change is uncertain, missing email is a safe failure',async()=>{
     const bookingId=await booking();const id=await enqueue(bookingId);

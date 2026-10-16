@@ -118,3 +118,18 @@ Worker отбрасывает события до границы, сервисн
 Ручной retry допустим только через проверенный административный механизм для разрешённых состояний и актуального бизнес-события после устранения причины. Проверить revision/status записи, канал, действующую привязку, срок reset-token и отсутствие уже принятого логического уведомления. Если механизма или доказательств нет, оставить на ручном разборе. Исключительное решение о новой отправке требует отдельного конкретного разрешения владельца с учётом риска дубля; это не разрешение replay существующей строки.
 
 В отчёте разбора оставлять категорию ошибки и безопасные технические идентификаторы; не публиковать email/телефон, текст сообщения, reset URL/token, SMTP/MAX credentials и webhook secret. Ошибка уведомления не меняет booking/payment lifecycle. Email об оплате не заменяет фискальный чек.
+
+## MAX administrative-only rollout
+
+For an explicitly approved admin-only launch set both
+`NOTIFICATIONS_MAX_V1_ENABLED=true` and `NOTIFICATIONS_MAX_V1_ADMIN_ONLY=true`,
+with a fresh `NOTIFICATIONS_MAX_V1_ACTIVE_SINCE`. The master flag alone preserves
+the previous full-rollout behavior and is not an admin-only switch.
+
+Admin-only mode disables customer pairing APIs, code consumption, customer MAX
+enqueue, queue claiming/recovery, and transport even for existing bindings.
+Existing customer rows/bindings are retained. Email policy is unchanged. Webhook
+accepts only the authenticated `message_created` path; matching admin codes create
+pending identity only. The owner must independently confirm the dialog in the
+admin UI before administrative delivery is allowed. A previous bot "Start" is
+not pairing or proof of webhook delivery. Invalid mode values fail closed.

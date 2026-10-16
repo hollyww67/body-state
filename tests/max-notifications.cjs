@@ -6,7 +6,11 @@ const vm = require('node:vm');
 const path = require('node:path');
 
 function fixture(env = {}) {
-  const calls = [], outgoing = [];
+  const calls = [], outgoing = [], adminPending = [];
+  const mode = { exports: {}, process: { env } };
+  vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(__dirname, '../src/lib/max-rollout.ts'), 'utf8'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText, mode);
   const seen = new Set();
   let owner = true, consumed = true, binding = true, fail = false, http = 200, network = false;
   const query = async (sql, args) => {
@@ -30,14 +34,15 @@ function fixture(env = {}) {
     },
     require: name => {
       if (name === '@/lib/db') return { db: { transaction: fn => fn({ query }) }, pool: { query } };
-      if (name === '@/lib/max-admin-binding') return {recordMaxAdminPending:async()=>{}};
+      if (name === '@/lib/max-admin-binding') return {recordMaxAdminPending:async(...args)=>{adminPending.push(args.slice(1));}};
+      if (name === '@/lib/max-rollout') return mode.exports;
       if (name === '@/lib/notification-result') return { providerFailure: status => ({ status: status === 429 ? 'retry' : 'failed', error: 'provider_rejected' }) };
       return require(name);
     },
   };
   const source = fs.readFileSync(path.join(__dirname, '../src/lib/max-notifications.ts'), 'utf8');
   vm.runInNewContext(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, context);
-  return { api: context.exports, calls, outgoing, configure: value => { ({ owner = owner, consumed = consumed, binding = binding, fail = fail, http = http, network = network } = value); } };
+  return { api: context.exports, calls, outgoing, adminPending, configure: value => { ({ owner = owner, consumed = consumed, binding = binding, fail = fail, http = http, network = network } = value); } };
 }
 const enabled = { NOTIFICATIONS_MAX_V1_ENABLED: 'true', MAX_BOT_TOKEN: 'fake-token', MAX_WEBHOOK_SECRET: 's'.repeat(40), MAX_BOT_URL: 'https://max.ru/body_state_bot' };
 function event(text = 'a'.repeat(43)) {
@@ -163,7 +168,7 @@ test('pair routes enforce origin and account auth, never admin identity; respons
     '@/lib/account-auth': { getAccountSession: async () => authenticated ? { userId: 'account-one' } : null },
     '@/lib/request': { enforceRateLimit: async () => null },
     '@/lib/rate-limit': { checkRateLimit: async () => !limited },
-    '@/lib/max-notifications': { maxEnabled: () => true,
+    '@/lib/max-notifications': { maxClientsEnabled: () => true,
       createMaxPairing: async user => { assert.equal(user, 'account-one'); mutations++; return { code: 'opaque', expiresAt: 'later', botUrl: 'https://max.ru/bot' }; },
       unlinkMax: async user => { assert.equal(user, 'account-one'); mutations++; },
     },
@@ -178,4 +183,78 @@ test('pair routes enforce origin and account auth, never admin identity; respons
   assert.equal(response.status, 200); assert.equal(response.headers.get('cache-control'), 'no-store');
   assert.deepEqual(Object.keys(await response.json()).sort(), ['botUrl', 'code', 'expiresAt']);
   assert.equal((await r.DELETE(req('https://example.invalid'))).status, 200); assert.equal(mutations, 2);
+});
+
+test('admin-only rollout blocks client pairing and delivery even with existing client binding', async () => {
+  const f = fixture({ ...enabled, NOTIFICATIONS_MAX_V1_ADMIN_ONLY: 'true' });
+  assert.equal(f.api.maxEnabled(), true); assert.equal(f.api.maxClientsEnabled(), false);
+  await assert.rejects(f.api.createMaxPairing('account-one'), /MAX_DISABLED/);
+  await assert.rejects(f.api.unlinkMax('account-one'), /MAX_DISABLED/);
+  assert.equal((await f.api.deliverMax('456', 'client', {role:'client',accountUserId:'account-one',boundAt:'2026-01-01T00:00:00Z'})).status, 'not_configured');
+  assert.equal(f.calls.length, 0); assert.equal(f.outgoing.length, 0);
+  assert.equal((await f.api.deliverMax('456', 'admin', {role:'admin',boundAt:'2026-01-01T00:00:00Z'})).status, 'accepted');
+  assert(f.calls.some(c => c.sql.includes('FROM max_admin_binding')));
+  assert(!f.calls.some(c => c.sql.includes('JOIN account_users')));
+});
+
+test('admin-only webhook never consumes existing client codes or confirms admin binding', async () => {
+  const f = fixture({ ...enabled, NOTIFICATIONS_MAX_V1_ADMIN_ONLY: 'true' });
+  const update = f.api.parseMaxUpdate(event());
+  assert.equal((await f.api.acceptMaxUpdate(update)).duplicate, false);
+  assert.equal((await f.api.acceptMaxUpdate(update)).duplicate, true);
+  assert.equal(f.adminPending.length, 1);
+  assert(!f.calls.some(c => /max_pairing_codes|max_account_bindings|INSERT INTO max_admin_binding/.test(c.sql)));
+  assert.equal(f.outgoing.length, 0);
+});
+
+test('invalid admin-only mode fails closed, explicit false preserves full rollout', async () => {
+  for (const mode of ['', 'TRUE', '1', 'admin']) {
+    const f = fixture({...enabled, NOTIFICATIONS_MAX_V1_ADMIN_ONLY:mode});
+    assert.equal(f.api.maxEnabled(), false); assert.equal(f.api.maxClientsEnabled(), false);
+    assert.equal((await f.api.deliverMax('456','blocked',{role:'admin',boundAt:'2026-01-01T00:00:00Z'})).status,'not_configured');
+    assert.equal(f.calls.length+f.outgoing.length,0);
+  }
+  assert.equal(fixture({...enabled,NOTIFICATIONS_MAX_V1_ADMIN_ONLY:'false'}).api.maxClientsEnabled(),true);
+});
+
+test('admin-only customer pairing routes reject both methods before auth or mutation',async()=>{
+  const f=fixture({...enabled,NOTIFICATIONS_MAX_V1_ADMIN_ONLY:'true'});
+  const forbidden=()=>{throw Error('customer path must not run');};
+  const r=route('account/notifications/max/pair',{
+    '@/lib/max-notifications':f.api,'@/lib/account-auth':{getAccountSession:forbidden},
+    '@/lib/request':{enforceRateLimit:forbidden},'@/lib/rate-limit':{checkRateLimit:forbidden},
+  });
+  assert.equal((await r.POST({})).status,503);assert.equal((await r.DELETE({})).status,503);
+  assert.equal(f.calls.length+f.outgoing.length,0);
+});
+
+test('admin-only account status hides client MAX without changing Email status or binding history',async()=>{
+  const f=fixture({...enabled,NOTIFICATIONS_MAX_V1_ADMIN_ONLY:'true'});
+  const r=route('account/notifications',{
+    '@/lib/account-auth':{getAccountSession:async()=>({userId:'account-one'})},
+    '@/lib/db':{pool:{query:async()=>({rows:[{email:'synthetic@example.invalid',max_connected:true}]})}},
+    '@/lib/notification-core':{emailV1Enabled:()=>true,maxClientsV1Enabled:f.api.maxClientsEnabled},
+    '@/lib/request':{},
+  });
+  const response=await r.GET({});const body=await response.json();
+  assert.equal(body.emailEnabled,true);assert.equal(body.maxEnabled,false);assert.equal(body.maxConnected,true);
+  assert.equal(response.headers.get('cache-control'),'no-store');
+});
+
+test('admin MAX endpoint still requires admin session and same-origin mutations',async()=>{
+  let authorized=false,created=0,confirmed=0;
+  const f=fixture({...enabled,NOTIFICATIONS_MAX_V1_ADMIN_ONLY:'true'});
+  const r=route('admin/notifications/max',{
+    '@/lib/max-notifications':f.api,
+    '@/lib/admin-auth':{requireAdmin:async()=>authorized?null:Response.json({error:'Unauthorized'},{status:401})},
+    '@/lib/request':{enforceRateLimit:async()=>null,readJsonObject:async()=>({maxUserId:'123',maxChatId:'456'})},
+    '@/lib/rate-limit':{checkRateLimit:async()=>true},
+    '@/lib/max-admin-binding':{getMaxAdminBinding:async()=>({connected:false,pending:null}),createMaxAdminPairing:async()=>{created++;return {code:'synthetic-code'};},confirmMaxAdminBinding:async()=>{confirmed++;return false;},revokeMaxAdminBinding:async()=>{}},
+  });
+  const request=origin=>({headers:new Headers({origin}),nextUrl:new URL('https://example.invalid/api/admin/notifications/max')});
+  assert.equal((await r.GET(request('https://example.invalid'))).status,401);
+  authorized=true;
+  assert.equal((await r.POST(request('https://forged.invalid'))).status,403);assert.equal(created,0);
+  assert.equal((await r.GET(request('https://example.invalid'))).status,200);assert.equal(confirmed,0);
+  assert.equal((await r.POST(request('https://example.invalid'))).status,200);assert.equal(created,1);assert.equal(confirmed,0);
 });

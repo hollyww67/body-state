@@ -61,6 +61,7 @@ if(value('NOTIFICATIONS_EMAIL_V1_ENABLED')==='true'){
   }
 }
 if(value('NOTIFICATIONS_V1_SCHEDULER_ENABLED')&&!['true','false'].includes(value('NOTIFICATIONS_V1_SCHEDULER_ENABLED')))errors.push('NOTIFICATIONS_V1_SCHEDULER_ENABLED must be true or false');
+if(process.env.NOTIFICATIONS_MAX_V1_ADMIN_ONLY!==undefined&&!['true','false'].includes(process.env.NOTIFICATIONS_MAX_V1_ADMIN_ONLY))errors.push('NOTIFICATIONS_MAX_V1_ADMIN_ONLY must be true or false');
 if(value('NOTIFICATIONS_MAX_V1_ENABLED')==='true'){
   requireValue('MAX_BOT_TOKEN');requireValue('MAX_WEBHOOK_SECRET',32);
   try{const bot=new URL(requireValue('MAX_BOT_URL'));if(bot.protocol!=='https:'||bot.hostname!=='max.ru'||bot.username||bot.password||bot.port||bot.search||bot.hash||!/^\/[A-Za-z0-9_-]+$/.test(bot.pathname))errors.push('MAX_BOT_URL must be an official HTTPS bot link');}

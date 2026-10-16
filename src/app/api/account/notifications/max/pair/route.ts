@@ -2,12 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAccountSession } from "@/lib/account-auth";
 import { enforceRateLimit } from "@/lib/request";
 import { checkRateLimit } from "@/lib/rate-limit";
-import { createMaxPairing, maxEnabled, unlinkMax } from "@/lib/max-notifications";
+import { createMaxPairing, maxClientsEnabled, unlinkMax } from "@/lib/max-notifications";
 
 export const runtime = "nodejs";
 async function handle(request: NextRequest, unlink: boolean) {
   const reply = (body: object, status = 200) => NextResponse.json(body, { status, headers: { "Cache-Control": "no-store" } });
-  if (!maxEnabled()) return reply({ error: "MAX недоступен" }, 503);
+  if (!maxClientsEnabled()) return reply({ error: "MAX недоступен" }, 503);
   // Cookie-authenticated mutations must originate from this site.
   if (request.headers.get("origin") !== request.nextUrl.origin || request.headers.get("sec-fetch-site") === "cross-site") return reply({ error: "Недопустимый источник" }, 403);
   try {

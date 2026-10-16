@@ -1,9 +1,10 @@
 import { createHash, randomBytes } from "node:crypto";
 import type { PoolClient } from "pg";
 import { db, pool } from "@/lib/db";
+import { maxEnabled } from '@/lib/max-rollout';
 
 const hash = (code: string) => createHash("sha256").update(code).digest("hex");
-function enabled() { if (process.env.NOTIFICATIONS_MAX_V1_ENABLED !== "true") throw new Error("MAX_DISABLED"); }
+function enabled() { if (!maxEnabled()) throw new Error("MAX_DISABLED"); }
 // Every admin mutation takes this same lock, including when the singleton row does not exist yet.
 async function lock(client: PoolClient) { await client.query("SELECT pg_advisory_xact_lock(221022,1)"); }
 

@@ -2,8 +2,9 @@ import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { db, pool } from "@/lib/db";
 import { type ProviderResult, providerFailure } from "@/lib/notification-result";
 import { recordMaxAdminPending } from "@/lib/max-admin-binding";
+import { maxEnabled, maxClientsEnabled } from '@/lib/max-rollout';
 
-export const maxEnabled = () => process.env.NOTIFICATIONS_MAX_V1_ENABLED === "true";
+export { maxEnabled, maxClientsEnabled } from '@/lib/max-rollout';
 export const maxHash = (value: string) => createHash("sha256").update(value).digest("hex");
 const CODE = /^[A-Za-z0-9_-]{43}$/;
 const id = (v: unknown): string | null => typeof v === "number" && Number.isSafeInteger(v) && v > 0 ? String(v) : null;
@@ -53,7 +54,7 @@ export function parseMaxUpdate(input: unknown, now = Date.now()) {
 }
 
 export async function createMaxPairing(accountUserId: string) {
-  if (!maxEnabled()) throw new Error("MAX_DISABLED");
+  if (!maxClientsEnabled()) throw new Error("MAX_DISABLED");
   const botUrl = new URL(process.env.MAX_BOT_URL || "");
   if (botUrl.protocol !== "https:" || botUrl.hostname !== "max.ru" || botUrl.port || botUrl.username || botUrl.password
     || !/^\/[A-Za-z0-9_-]+$/.test(botUrl.pathname) || botUrl.search || botUrl.hash) throw new Error("MAX_NOT_CONFIGURED");
@@ -70,7 +71,7 @@ export async function createMaxPairing(accountUserId: string) {
 }
 
 export async function unlinkMax(accountUserId: string) {
-  if (!maxEnabled()) throw new Error("MAX_DISABLED");
+  if (!maxClientsEnabled()) throw new Error("MAX_DISABLED");
   await db.transaction(async client => {
     await client.query("SELECT id FROM account_users WHERE id=$1 FOR UPDATE", [accountUserId]);
     await client.query("DELETE FROM max_pairing_codes WHERE account_user_id=$1", [accountUserId]);
@@ -87,8 +88,10 @@ export async function acceptMaxUpdate(update: ReturnType<typeof parseMaxUpdate>)
     if (!inserted.rowCount) return { duplicate: true };
     if (update.code) {
       const hash = maxHash(update.code);
-      const owner = await client.query<{ account_user_id: string }>(
-        "SELECT account_user_id FROM max_pairing_codes WHERE code_hash=$1 AND expires_at>now()", [hash]);
+      // Admin-only ingress must never consume even a pre-existing client code.
+      const owner = maxClientsEnabled() ? await client.query<{ account_user_id: string }>(
+        "SELECT account_user_id FROM max_pairing_codes WHERE code_hash=$1 AND expires_at>now()", [hash])
+        : { rows: [] };
       if (owner.rows[0]) {
         const accountId = owner.rows[0].account_user_id;
         const account = await client.query("SELECT id FROM account_users WHERE id=$1 AND disabled_at IS NULL FOR UPDATE", [accountId]);
@@ -115,6 +118,7 @@ export async function acceptMaxUpdate(update: ReturnType<typeof parseMaxUpdate>)
 export type MaxRecipient = {role:'client';accountUserId:string;boundAt:string}|{role:'admin';boundAt:string};
 export async function deliverMax(to: string, text: string, expected?:MaxRecipient): Promise<ProviderResult> {
   if (!maxEnabled() || !process.env.MAX_BOT_TOKEN) return { status: "not_configured", error: "channel_not_configured" };
+  if (expected?.role === 'client' && !maxClientsEnabled()) return { status: 'not_configured', error: 'channel_not_configured' };
   if (!/^[1-9][0-9]{0,18}$/.test(to) || !text.trim() || text.length > 4000) return { status: "failed", error: "provider_rejected" };
   if(!expected||!Number.isFinite(Date.parse(expected.boundAt)))return {status:'failed',error:'contact_missing'};
   // Dispatch only to a currently linked private dialog. Queue must resolve the current binding before each send.
