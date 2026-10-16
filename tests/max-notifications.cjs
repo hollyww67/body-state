@@ -137,8 +137,8 @@ test('MAX transport requires expected owner/version and separates admin from cus
   assert.equal(f.outgoing.length,1);
 });
 
-function route(file, mocks) {
-  const context = { exports: {}, Error, require: name => {
+function route(file, mocks, env = {}) {
+  const context = { exports: {}, Error, URL, process: {env}, require: name => {
     if (name === 'next/server') return { NextResponse: { json: (body, options) => Response.json(body, options) } };
     if (Object.hasOwn(mocks, name)) return mocks[name];
     throw new Error(`Unexpected import ${name}`);
@@ -257,4 +257,52 @@ test('admin MAX endpoint still requires admin session and same-origin mutations'
   assert.equal((await r.POST(request('https://forged.invalid'))).status,403);assert.equal(created,0);
   assert.equal((await r.GET(request('https://example.invalid'))).status,200);assert.equal(confirmed,0);
   assert.equal((await r.POST(request('https://example.invalid'))).status,200);assert.equal(created,1);assert.equal(confirmed,0);
+});
+
+test('admin mutations use canonical public origin behind reverse proxy, never forwarded host',async()=>{
+  let authorized=true,limited=false,globalLimited=false,on=true;
+  const mutations=[];
+  const mocks={
+    '@/lib/max-notifications':{maxEnabled:()=>on},
+    '@/lib/admin-auth':{requireAdmin:async()=>authorized?null:Response.json({error:'Unauthorized'},{status:401})},
+    '@/lib/request':{enforceRateLimit:async()=>limited?Response.json({}, {status:429}):null,readJsonObject:async()=>({maxUserId:'123',maxChatId:'456'})},
+    '@/lib/rate-limit':{checkRateLimit:async()=>!globalLimited},
+    '@/lib/max-admin-binding':{
+      getMaxAdminBinding:async()=>({connected:false,pending:null}),
+      createMaxAdminPairing:async()=>{mutations.push('POST');return {code:'synthetic-code'};},
+      confirmMaxAdminBinding:async()=>{mutations.push('PATCH');return false;},
+      revokeMaxAdminBinding:async()=>{mutations.push('DELETE');},
+    },
+  };
+  const load=env=>route('admin/notifications/max',mocks,env);
+  const r=load({NODE_ENV:'production',NEXT_PUBLIC_SITE_URL:'https://body-state.ru'});
+  const req=(origin='https://body-state.ru',extra={})=>({headers:new Headers({...origin===null?{}:{origin},...extra}),nextUrl:new URL('https://0.0.0.0:3000/api/admin/notifications/max')});
+  for(const method of ['POST','PATCH','DELETE']){
+    authorized=false;
+    assert.equal((await r[method](req())).status,401);
+    authorized=true;
+    for(const origin of [null,'','null','https://0.0.0.0:3000','http://body-state.ru','https://body-state.ru:444','https://sub.body-state.ru','https://body-state.ru.evil.invalid','https://body-state.ru/','https://user@body-state.ru','https://body-state.ru, https://evil.invalid']){
+      const before=mutations.length;
+      assert.equal((await r[method](req(origin,{host:'body-state.ru','x-forwarded-host':'body-state.ru','x-forwarded-proto':'https',forwarded:'host=body-state.ru;proto=https'}))).status,403);
+      assert.equal(mutations.length,before);
+    }
+    const before=mutations.length;
+    assert.equal((await r[method](req(undefined,{'sec-fetch-site':'cross-site'}))).status,403);
+    assert.equal(mutations.length,before);
+    limited=true;assert.equal((await r[method](req())).status,429);limited=false;
+    globalLimited=true;assert.equal((await r[method](req())).status,429);globalLimited=false;
+    assert.equal(mutations.length,before);
+    const good=await r[method](req(undefined,{'x-forwarded-host':'evil.invalid'}));
+    assert.equal(good.status,method==='PATCH'?409:200);
+    assert.equal(good.headers.get('cache-control'),'no-store');
+    assert.equal(mutations.length,before+1);assert.equal(mutations.at(-1),method);
+  }
+  for(const site of [undefined,'','not-a-url','http://body-state.ru','https://user:pass@body-state.ru','https://body-state.ru/path','https://body-state.ru?query=1','https://body-state.ru#fragment']){
+    const bad=load({NODE_ENV:'production',NEXT_PUBLIC_SITE_URL:site});
+    const before=mutations.length;
+    assert.equal((await bad.POST(req())).status,503);assert.equal(mutations.length,before);
+    assert.equal((await bad.GET(req())).status,200);
+  }
+  on=false;
+  for(const method of ['GET','POST','PATCH','DELETE'])assert.equal((await r[method](req())).status,503);
 });

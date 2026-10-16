@@ -7,7 +7,10 @@ export default function MaxNotificationBinding(){
  async function request(method='GET',body?:object){
   const response=await fetch('/api/admin/notifications/max',{method,cache:'no-store',headers:{'Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{})});
   if(response.status===503&&method==='GET')return null;
-  if(!response.ok)throw new Error('Не удалось выполнить действие. Проверьте доступ и повторите.');
+  if(!response.ok){
+   const messages:Record<number,string>={401:'Сессия администратора истекла. Войдите снова.',403:'Откройте админку по основному адресу сайта и повторите действие.',409:'Код подключения истёк или диалог изменился. Создайте новый код.',429:'Слишком много попыток. Подождите несколько минут.',503:'MAX временно недоступен. Повторите позже или обратитесь к администратору.'};
+   throw new Error(messages[response.status]||'Не удалось выполнить действие. Повторите позже.');
+  }
   return response.json();
  }
  useEffect(()=>{
