@@ -13,8 +13,27 @@ function fixture(env = {}) {
   }).outputText, mode);
   const seen = new Set();
   let owner = true, consumed = true, binding = true, fail = false, http = 200, network = false;
-  const query = async (sql, args) => {
-    calls.push({ sql, args });
+  let contention = false, unlock = true, unlockThrows = false, connectFails = false, acquireThrows = false, fetchHook;
+  let held = false, connects = 0;
+  let adminVersion = '2026-01-01T00:00:00Z', adminChat = '456';
+  const releases = [];
+  const query = async (sql, args, session = false) => {
+    const config = typeof sql === 'object' ? sql : null;
+    if (config) { args = config.values; sql = config.text; }
+    calls.push({ sql, args, session, query_timeout: config?.query_timeout });
+    if (session) assert.equal(config?.query_timeout,1000);
+    if (sql.includes('pg_try_advisory_lock')) {
+      assert.equal(session, true);
+      if (acquireThrows) { held = true; throw Error('private acquisition error'); }
+      held = !contention;
+      return { rows: [{ acquired: held }] };
+    }
+    if (sql.includes('pg_advisory_unlock')) {
+      assert.equal(session, true);
+      if (unlockThrows) throw Error('private unlock error');
+      if (unlock) held = false;
+      return { rows: [{ released: unlock }] };
+    }
     if (fail) throw new Error('private provider secret');
     if (sql.includes('INSERT INTO max_incoming')) {
       if (seen.has(args[0])) return { rowCount: 0, rows: [] };
@@ -23,17 +42,24 @@ function fixture(env = {}) {
     if (sql.includes('SELECT account_user_id FROM max_pairing')) return { rowCount: owner ? 1 : 0, rows: owner ? [{ account_user_id: 'account-one' }] : [] };
     if (sql.includes('DELETE FROM max_pairing') && sql.includes('RETURNING')) return { rowCount: consumed ? 1 : 0, rows: [] };
     if (sql.includes('JOIN account_users')) return { rowCount: binding ? 1 : 0, rows: [] };
-    if (sql.includes('FROM max_admin_binding')) return {rowCount:binding?1:0,rows:[]};
+    if (sql.includes('FROM max_admin_binding')) return {rowCount:binding&&args[0]===adminChat&&args[1]===adminVersion?1:0,rows:[]};
     return { rowCount: 1, rows: [{ id: 'account-one' }] };
   };
   const context = { exports: {}, Error, Buffer, URL, AbortSignal, process: { env },
     fetch: async (url, options) => {
       outgoing.push({ url, options });
+      if (fetchHook) await fetchHook();
       if (network) throw new Error('private provider secret');
       return new Response(JSON.stringify({ message: { body: { mid: 'provider-message' } } }), { status: http });
     },
     require: name => {
-      if (name === '@/lib/db') return { db: { transaction: fn => fn({ query }) }, pool: { query } };
+      if (name === '@/lib/db') return { db: { transaction: fn => fn({ query }) }, pool: { query,
+        connect: async () => {
+          connects++;
+          if (connectFails) throw Error('private connection error');
+          return {query:(sql,args)=>query(sql,args,true),release:destroy=>{releases.push(destroy);if(destroy)held=false;}};
+        },
+      } };
       if (name === '@/lib/max-admin-binding') return {recordMaxAdminPending:async(...args)=>{adminPending.push(args.slice(1));}};
       if (name === '@/lib/max-rollout') return mode.exports;
       if (name === '@/lib/notification-result') return { providerFailure: status => ({ status: status === 429 ? 'retry' : 'failed', error: 'provider_rejected' }) };
@@ -42,7 +68,10 @@ function fixture(env = {}) {
   };
   const source = fs.readFileSync(path.join(__dirname, '../src/lib/max-notifications.ts'), 'utf8');
   vm.runInNewContext(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, context);
-  return { api: context.exports, calls, outgoing, adminPending, configure: value => { ({ owner = owner, consumed = consumed, binding = binding, fail = fail, http = http, network = network } = value); } };
+  return { api: context.exports, calls, outgoing, adminPending, releases,
+    lease:()=>({held,connects}), configure: value => { ({ owner = owner, consumed = consumed, binding = binding, fail = fail, http = http, network = network,
+      contention = contention, unlock = unlock, unlockThrows = unlockThrows, connectFails = connectFails, acquireThrows = acquireThrows, fetchHook = fetchHook,
+      adminVersion = adminVersion, adminChat = adminChat } = value); } };
 }
 const enabled = { NOTIFICATIONS_MAX_V1_ENABLED: 'true', MAX_BOT_TOKEN: 'fake-token', MAX_WEBHOOK_SECRET: 's'.repeat(40), MAX_BOT_URL: 'https://max.ru/body_state_bot' };
 function event(text = 'a'.repeat(43)) {
@@ -135,6 +164,61 @@ test('MAX transport requires expected owner/version and separates admin from cus
   f.configure({binding:false});
   assert.equal((await f.api.deliverMax('456','hello',{role:'admin',boundAt:'2026-01-01T00:00:00Z'})).status,'failed');
   assert.equal(f.outgoing.length,1);
+});
+
+const adminRecipient = {role:'admin',boundAt:'2026-01-01T00:00:00Z'};
+test('admin lease holds one session through HTTP outcome without a transaction or nested borrowing',async()=>{
+  const f=fixture(enabled);
+  let finishFetch, enteredFetch;
+  const entered=new Promise(resolve=>{enteredFetch=resolve;});
+  f.configure({fetchHook:()=>{enteredFetch();return new Promise(resolve=>{finishFetch=resolve;});}});
+  const sending=f.api.deliverMax('456','synthetic',adminRecipient);
+  await entered;
+  assert.deepEqual(f.lease(),{held:true,connects:1});
+  assert.equal(f.releases.length,0);
+  assert(f.calls.every(c=>c.session));
+  assert(!f.calls.some(c=>/BEGIN|COMMIT|ROLLBACK/.test(c.sql)));
+  assert.match(f.calls[0].sql,/pg_try_advisory_lock\(221022,1\)/);
+  assert.match(f.calls[1].sql,/confirmed_at=\$2/);
+  assert.equal(f.calls[1].args[1],adminRecipient.boundAt);
+  finishFetch();
+  assert.equal((await sending).status,'accepted');
+  assert.deepEqual(f.releases,[false]);
+  assert.equal(f.lease().held,false);
+  assert.match(f.calls.at(-1).sql,/pg_advisory_unlock\(221022,1\)/);
+});
+
+test('revoked or rebound admin binding and lease contention never admit HTTP',async()=>{
+  for(const settings of [{binding:false},{adminVersion:'2026-01-02T00:00:00Z'},{adminChat:'789'},{contention:true}]){
+    const f=fixture(enabled);f.configure(settings);
+    const result=await f.api.deliverMax('456','synthetic',adminRecipient);
+    assert.equal(result.status,settings.contention?'retry':'failed');
+    assert.equal(f.outgoing.length,0);
+    assert.deepEqual(f.releases,[false]);
+    assert.equal(f.lease().held,false);
+    if(settings.contention)assert.equal(f.calls.length,1);
+  }
+});
+
+test('admin failures release leases; unknown unlock destroys session without changing HTTP outcome',async()=>{
+  for(const [settings,status,destroy] of [
+    [{fail:true},'retry',true], [{network:true},'uncertain',false],
+    [{http:503},'uncertain',false], [{http:429},'retry',false], [{http:403},'failed',false],
+    [{unlock:false},'accepted',true], [{unlockThrows:true},'accepted',true],
+    [{network:true,unlockThrows:true},'uncertain',true], [{acquireThrows:true},'retry',true],
+    [{acquireThrows:true,unlockThrows:true},'retry',true], [{fail:true,unlockThrows:true},'retry',true],
+  ]){
+    const f=fixture(enabled);f.configure(settings);
+    const result=await f.api.deliverMax('456','synthetic',adminRecipient);
+    assert.equal(result.status,status);
+    assert.deepEqual(f.releases,[destroy]);
+    assert.equal(f.lease().held,false);
+    assert(!JSON.stringify(result).includes('private'));
+    assert.equal(f.outgoing.length,settings.fail||settings.acquireThrows?0:1);
+  }
+  const f=fixture(enabled);f.configure({connectFails:true});
+  assert.equal((await f.api.deliverMax('456','synthetic',adminRecipient)).status,'retry');
+  assert.equal(f.outgoing.length,0);assert.deepEqual(f.releases,[]);
 });
 
 function route(file, mocks, env = {}) {

@@ -1,4 +1,5 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import type { PoolClient, QueryConfig } from "pg";
 import { db, pool } from "@/lib/db";
 import { type ProviderResult, providerFailure } from "@/lib/notification-result";
 import { recordMaxAdminPending } from "@/lib/max-admin-binding";
@@ -116,19 +117,43 @@ export async function acceptMaxUpdate(update: ReturnType<typeof parseMaxUpdate>)
 }
 
 export type MaxRecipient = {role:'client';accountUserId:string;boundAt:string}|{role:'admin';boundAt:string};
+// pg supports per-query read deadlines; installed @types/pg omits this runtime option.
+const adminQuery = (text: string, values?: unknown[]): QueryConfig & {query_timeout: number} =>
+  ({text, values, query_timeout: 1000});
 export async function deliverMax(to: string, text: string, expected?:MaxRecipient): Promise<ProviderResult> {
   if (!maxEnabled() || !process.env.MAX_BOT_TOKEN) return { status: "not_configured", error: "channel_not_configured" };
   if (expected?.role === 'client' && !maxClientsEnabled()) return { status: 'not_configured', error: 'channel_not_configured' };
   if (!/^[1-9][0-9]{0,18}$/.test(to) || !text.trim() || text.length > 4000) return { status: "failed", error: "provider_rejected" };
   if(!expected||!Number.isFinite(Date.parse(expected.boundAt)))return {status:'failed',error:'contact_missing'};
+  let adminClient: PoolClient | undefined;
+  // Acquisition can succeed server-side even when its response is lost.
+  let destroyAdminClient = false;
+  let adminLeaseHeld = false;
+  try {
   // Dispatch only to a currently linked private dialog. Queue must resolve the current binding before each send.
   try {
+    if (expected.role === 'admin') {
+      adminClient = await pool.connect();
+      destroyAdminClient = true;
+      const lease = await adminClient.query(adminQuery('SELECT pg_try_advisory_lock(221022,1) AS acquired'));
+      if (lease.rows[0]?.acquired === false) {
+        destroyAdminClient = false;
+        return { status: 'retry', error: 'provider_unavailable' };
+      }
+      if (lease.rows[0]?.acquired !== true) return { status: 'retry', error: 'provider_unavailable' };
+      adminLeaseHeld = true;
+      destroyAdminClient = false;
+    }
     const binding = expected.role==='admin'
-      ?await pool.query('SELECT max_chat_id FROM max_admin_binding WHERE singleton=true AND max_chat_id=$1 AND confirmed_at=$2',[to,expected.boundAt])
+      ?await adminClient!.query(adminQuery('SELECT max_chat_id FROM max_admin_binding WHERE singleton=true AND max_chat_id=$1 AND confirmed_at=$2',[to,expected.boundAt]))
       :await pool.query(`SELECT b.max_chat_id FROM max_account_bindings b JOIN account_users a ON a.id=b.account_user_id
         WHERE b.max_chat_id=$1 AND b.account_user_id=$2 AND b.created_at=$3 AND a.disabled_at IS NULL`,[to,expected.accountUserId,expected.boundAt]);
     if (!binding.rowCount) return { status: "failed", error: "contact_missing" };
-  } catch { return { status: "retry", error: "provider_unavailable" }; }
+  } catch {
+    // A timed-out query may still be executing. Do not queue cleanup on that session.
+    if (adminClient) destroyAdminClient = true;
+    return { status: "retry", error: "provider_unavailable" };
+  }
   try {
     const response = await fetch(`https://platform-api2.max.ru/messages?chat_id=${encodeURIComponent(to)}`, {
       method: "POST", redirect: "error", signal: AbortSignal.timeout(10_000),
@@ -145,4 +170,16 @@ export async function deliverMax(to: string, text: string, expected?:MaxRecipien
     return typeof mid === "string" && /^[\w.:-]{1,200}$/.test(mid)
       ? { status: "accepted", id: mid } : { status: "uncertain", error: "provider_outcome_unknown" };
   } catch { return { status: "uncertain", error: "provider_outcome_unknown" }; }
+  } finally {
+    if (adminClient) {
+      if (adminLeaseHeld && !destroyAdminClient) {
+        destroyAdminClient = true;
+        try {
+          const unlocked = await adminClient.query(adminQuery('SELECT pg_advisory_unlock(221022,1) AS released'));
+          destroyAdminClient = unlocked.rows[0]?.released !== true;
+        } catch { /* Destroy sessions whose lease release cannot be proven. */ }
+      }
+      adminClient.release(destroyAdminClient);
+    }
+  }
 }

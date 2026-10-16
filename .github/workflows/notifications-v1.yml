@@ -34,6 +34,7 @@ jobs:
       - run: node tests/notification-smtp-budget.cjs
       - run: node tests/notification-reset.cjs
       - run: node --test tests/max-notifications.cjs
+      - run: node --test tests/admin-max-notification.cjs
       - run: node tests/notification-core.cjs
       - run: node tests/notification-core-harness.cjs
       - name: Real Linux guard processes and durable restart

@@ -6,12 +6,14 @@ import { notificationTemplate } from '@/lib/notification-templates';
 import { deliverMax,type MaxRecipient } from '@/lib/max-notifications';
 import type { ProviderResult } from '@/lib/notification-result';
 import { maxEnabled, maxClientsEnabled } from '@/lib/max-rollout';
+import { adminMaxDetailsEnabled, resolveAdminMaxBooking } from '@/lib/admin-max-notification';
 
 export const emailV1Enabled = () => process.env.NOTIFICATIONS_EMAIL_V1_ENABLED === 'true';
 export const maxV1Enabled = maxEnabled;
 export const maxClientsV1Enabled = maxClientsEnabled;
 export type NotificationKind = 'created'|'confirmed'|'rescheduled'|'cancelled'|'paid'|'reminder_24h'|'reminder_2h'|'reset_requested'|'password_changed'|'delivery_alert';
-type Row = {id:string;booking_id:string|null;service_type:JourneyService|null;account_user_id:string|null;recipient_role:'client'|'admin';event_type:NotificationKind;revision:number;channel:'email'|'max';attempts:number;payload:Record<string,unknown>;scheduled_at:Date;created_at:Date};
+type Row = {id:string;event_key:string;booking_id:string|null;service_type:JourneyService|null;account_user_id:string|null;recipient_role:'client'|'admin';event_type:NotificationKind;revision:number;channel:'email'|'max';attempts:number;payload:Record<string,unknown>;scheduled_at:Date;created_at:Date};
+type ResolvedPayload={recipient:string;message:ReturnType<typeof notificationTemplate>;maxRecipient?:MaxRecipient};
 const isReminder = (kind:string) => kind === 'reminder_24h' || kind === 'reminder_2h';
 const errors = new Set(['channel_not_configured','contact_missing','provider_outcome_unknown','provider_rate_limited','provider_unavailable','provider_rejected','attempts_exhausted','worker_interrupted','smtp_budget_exhausted','smtp_budget_unavailable','smtp_budget_not_configured','smtp_budget_policy_mismatch']);
 
@@ -53,16 +55,17 @@ export async function enqueueBookingNotification(client:PoolClient,service:Journ
   await enqueue(client,{service,bookingId:id,userId:booking.account_user_id||undefined,kind,revision:booking.notification_revision,
     key,at:options.at,payload:options.payload});
   if(['created','cancelled','rescheduled','paid'].includes(kind)||(kind==='confirmed'&&booking.notification_revision===0)){
-    await enqueueAdminNotification(client,kind,key,{bookingId:id,service,...options.payload});
+    await enqueueAdminNotification(client,kind,key,{bookingId:String(booking.id),service,
+      ...(kind==='rescheduled'?{oldTime:options.payload?.oldTime,newTime:new Date(booking.slot_time).toISOString()}:{})},Number(booking.notification_revision));
   }
 }
-async function enqueueAdminNotification(client:PoolClient,kind:NotificationKind,key:string,payload:Record<string,unknown>={}){
+async function enqueueAdminNotification(client:PoolClient,kind:NotificationKind,key:string,payload:Record<string,unknown>={},revision=0){
   if(!maxV1Enabled())return;
   if(await channelBoundary(client,'max')===null)return;
   // Dedicated role and explicit verified binding; never route admin facts through a customer account.
   await client.query(`INSERT INTO appointment_notifications(engine,event_key,recipient_role,event_type,revision,channel,scheduled_at,next_attempt_at,payload)
-    SELECT 'v1',$1,'admin',$2,0,'max',now(),now(),$3 WHERE EXISTS(SELECT 1 FROM max_admin_binding)
-    ON CONFLICT DO NOTHING`,[`v1:admin:${key}`,kind,JSON.stringify(payload)]);
+    SELECT 'v1',$1,'admin',$2,$4,'max',now(),now(),$3 WHERE EXISTS(SELECT 1 FROM max_admin_binding)
+    ON CONFLICT DO NOTHING`,[`v1:admin:${key}`,kind,JSON.stringify(payload),revision]);
 }
 export async function scheduleV1Reminders(client:PoolClient,service:JourneyService,id:string) {
   if(!emailV1Enabled()&&!maxClientsV1Enabled())return;
@@ -74,15 +77,21 @@ export async function scheduleV1Reminders(client:PoolClient,service:JourneyServi
   }
 }
 
-async function resolvePayload(client:PoolClient,row:Row){
+async function resolvePayload(client:PoolClient,row:Row):Promise<ResolvedPayload|{rejected:string}|null>{
   const boundary=await channelBoundary(client,row.channel);
   if(boundary===null||new Date(row.created_at).getTime()<boundary)return null;
   if(!isReminder(row.event_type)&&Date.now()-new Date(row.created_at).getTime()>30*60000)return null;
   if(row.recipient_role==='admin'){
+    if(row.channel!=='max')return null;
     const binding=(await client.query('SELECT max_chat_id,confirmed_at::text AS binding_version FROM max_admin_binding')).rows[0];
     if(!binding)return null;
-    const message=notificationTemplate('delivery_alert',{accountUrl:'https://body-state.ru/admin/notifications'});
-    if(row.event_type!=='delivery_alert'){
+    let message=notificationTemplate('delivery_alert',{accountUrl:'https://body-state.ru/admin/notifications'});
+    if(row.event_type!=='delivery_alert'&&adminMaxDetailsEnabled(row.created_at)){
+      const details=await resolveAdminMaxBooking(client,row);
+      if(!details)return null;
+      if('rejected' in details)return details;
+      message=details.message;
+    }else if(row.event_type!=='delivery_alert'){
       const labels:Partial<Record<NotificationKind,string>>={created:'Новая запись',confirmed:'Новая запись',cancelled:'Отмена записи',rescheduled:'Перенос записи',paid:'Оплата подтверждена'};
       message.text=`Body State: ${labels[row.event_type]||'Событие записи'}. Подробности — https://body-state.ru/admin/bookings`;
     }
@@ -172,12 +181,16 @@ export async function processV1Notifications(limit=20,providers:V1Providers={ema
       return {...r.rows[0],attempts:r.rows[0].attempts+1};
     });
     if(!row)break;
-    let payload:Awaited<ReturnType<typeof resolvePayload>>;
+    let payload:ResolvedPayload|null;
     try{payload=await transaction(async client=>{
       await client.query('SELECT pg_advisory_xact_lock($1)',[913202609]);
       const current=await client.query('SELECT status FROM appointment_notifications WHERE id=$1 FOR UPDATE',[row.id]);
       if(current.rows[0]?.status!=='processing')return null;
       const payload=await resolvePayload(client,row);
+      if(payload&&'rejected' in payload){
+        await client.query(`UPDATE appointment_notifications SET status='failed',last_error=$2,updated_at=now() WHERE id=$1 AND status='processing'`,[row.id,payload.rejected]);
+        return null;
+      }
       if(!payload){await client.query(`UPDATE appointment_notifications SET status='cancelled',updated_at=now() WHERE id=$1`,[row.id]);return null;}
       if(Date.now()+timeoutMs+1000>deadline){
         await client.query(`UPDATE appointment_notifications SET status='retry',attempts=GREATEST(0,attempts-1),
@@ -223,7 +236,8 @@ export async function processV1Notifications(limit=20,providers:V1Providers={ema
     await transaction(async client=>{
       await client.query('SELECT pg_advisory_xact_lock($1)',[913202609]);
       const current=(await client.query('SELECT status FROM appointment_notifications WHERE id=$1 FOR UPDATE',[row.id])).rows[0];
-      const resolved=await resolvePayload(client,row);
+      const checked=await resolvePayload(client,row);
+      const resolved=checked&&!('rejected' in checked)?checked:null;
       const stale=current?.status!=='processing'||!resolved||
         (row.channel==='max'&&(resolved.recipient!==payload.recipient||resolved.maxRecipient?.boundAt!==payload.maxRecipient?.boundAt));
       await client.query(`UPDATE appointment_notifications SET status=CASE WHEN status<>'processing' OR $6 THEN 'uncertain' ELSE $2 END,
@@ -245,7 +259,8 @@ export async function retryV1Notification(id:string){
     await client.query('SELECT pg_advisory_xact_lock($1)',[913202609]);
     const row=(await client.query<Row&{status:string;send_started_at:Date|null}>('SELECT * FROM appointment_notifications WHERE id=$1 AND engine=\'v1\' FOR UPDATE',[id])).rows[0];
     // Unknown/accepted/sending or exhausted attempts never receive a blind manual resend.
-    if(!row||!['failed','not_configured'].includes(row.status)||row.attempts>=4||row.event_type==='reset_requested'||!await resolvePayload(client,row))return false;
+    if(!row||!['failed','not_configured'].includes(row.status)||row.attempts>=4||row.event_type==='reset_requested')return false;
+    const payload=await resolvePayload(client,row);if(!payload||'rejected' in payload)return false;
     await client.query(`UPDATE appointment_notifications SET status='queued',last_error=NULL,next_attempt_at=GREATEST(scheduled_at,now()),updated_at=now() WHERE id=$1`,[id]);return true;
   });
 }

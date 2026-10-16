@@ -65,6 +65,8 @@ async function test(name, fn) {
   await pool.query("DELETE FROM appointment_notifications WHERE engine='v1'");
   env.NOTIFICATIONS_EMAIL_V1_ENABLED = 'true'; env.NOTIFICATIONS_MAX_V1_ENABLED = 'false';
   delete env.NOTIFICATIONS_MAX_V1_ADMIN_ONLY;
+  delete env.NOTIFICATIONS_MAX_ADMIN_DETAILS_ENABLED;
+  delete env.NOTIFICATIONS_MAX_ADMIN_DETAILS_ACTIVE_SINCE;
   try { await fn(); assert.deepEqual(await legacySnapshot(), protectedRows); results.push({ name, ok: true }); console.log('PASS', name); }
   catch (e) { results.push({ name, ok: false }); console.error('FAIL', name, e.stack); }
 }
@@ -280,7 +282,107 @@ async function main() {
     assert.equal(emails,1);assert.equal(admins,1);assert.deepEqual(await snapshot(),protectedClients);
     await adminBinding.revokeMaxAdminBinding();
   });
-  await test('V1 in-flight revision change is uncertain, missing email is a safe failure',async()=>{
+    await test('admin details: all booking services/events, transactional metadata only, dedupe and fixed links',async()=>{
+      env.NOTIFICATIONS_EMAIL_V1_ENABLED='false';env.NOTIFICATIONS_MAX_V1_ENABLED='true';env.NOTIFICATIONS_MAX_V1_ADMIN_ONLY='true';
+      env.NOTIFICATIONS_MAX_ADMIN_DETAILS_ENABLED='true';env.NOTIFICATIONS_MAX_ADMIN_DETAILS_ACTIVE_SINCE='2026-01-01T00:00:00Z';
+      await pool.query("INSERT INTO max_admin_binding(singleton,max_user_id,max_chat_id) VALUES(true,'789','987') ON CONFLICT(singleton) DO UPDATE SET confirmed_at=now()");
+      for(const service of ['bfm','brt','psychology'])for(const kind of ['created','confirmed','rescheduled','cancelled','paid']){
+        await pool.query("DELETE FROM appointment_notifications WHERE engine='v1'");
+        const slot=(await pool.query('INSERT INTO slots(service_type,slot_time,duration_minutes) VALUES($1,now()+interval \'72 hours\',90) RETURNING id,slot_time',[service])).rows[0];
+        const status=kind==='created'?'pending':'confirmed',payment=kind==='paid'?'paid':kind==='created'?'pending':'due';
+        const id=(await pool.query(`INSERT INTO ${service}_bookings(slot_id,client_name,client_phone,client_email,status,payment_status) VALUES($1,'Synthetic contact-only QA','+79990000000','admin-details@example.invalid',$2,$3) RETURNING id`,[slot.id,status,payment])).rows[0].id;
+        let payload={bookingId:crypto.randomUUID(),service:'forged',client_name:'MUST_NOT_PERSIST',client_phone:'MUST_NOT_PERSIST',client_email:'MUST_NOT_PERSIST'};
+        if(kind==='rescheduled'){
+          const next=(await pool.query('INSERT INTO slots(service_type,slot_time,duration_minutes) VALUES($1,now()+interval \'96 hours\',90) RETURNING id',[service])).rows[0].id;
+          await pool.query(`UPDATE ${service}_bookings SET slot_id=$2,notification_revision=3 WHERE id=$1`,[id,next]);payload.oldTime=slot.slot_time.toISOString();
+        }else if(kind==='cancelled')await pool.query(`UPDATE ${service}_bookings SET status='cancelled',notification_revision=3 WHERE id=$1`,[id]);
+        await db.transaction(c=>core.enqueueBookingNotification(c,service,id,kind,{payload}));
+        await db.transaction(c=>core.enqueueBookingNotification(c,service,id,kind,{payload}));
+        const rows=(await pool.query("SELECT * FROM appointment_notifications WHERE engine='v1' AND recipient_role='admin'")).rows;
+        assert.equal(rows.length,1,'admin logical event must dedupe');
+        assert(rows[0].payload.bookingId===id&&rows[0].payload.service===service,'producer identities overridden');
+        const serialized=JSON.stringify(rows[0].payload);
+        assert(!serialized.includes('MUST_NOT_PERSIST')&&!serialized.includes('Synthetic contact-only QA')&&!serialized.includes('admin-details@example.invalid')&&!serialized.includes('+79990000000'),'contact leaked into durable admin payload');
+        let sent=0;
+        await core.processV1Notifications(10,{email:forbidden,max:async(to,text,expected)=>{
+          assert(to==='987'&&expected.role==='admin','wrong MAX role/recipient');
+          assert(text.includes('Synthetic contact-only QA')&&text.includes('+79990000000')&&text.includes('admin-details@example.invalid'),'missing live record contacts');
+          assert(text.includes('https://body-state.ru/admin/bookings?booking='+id)&&text.length<3500,'unsafe link/budget');
+          if(kind==='rescheduled')assert(text.includes('Было:')&&text.includes('Стало:'),'reschedule chronology missing');
+          sent++;return {status:'accepted',id:'synthetic-details'};
+        }});
+        assert.equal(sent,1);assert.equal((await row(rows[0].id)).status,'accepted');
+      }
+      await pool.query('DELETE FROM max_admin_binding');
+    });
+    await test('admin details reject stale/missing/forged events and revoked binding without provider sends',async()=>{
+      env.NOTIFICATIONS_EMAIL_V1_ENABLED='false';env.NOTIFICATIONS_MAX_V1_ENABLED='true';env.NOTIFICATIONS_MAX_V1_ADMIN_ONLY='true';
+      env.NOTIFICATIONS_MAX_ADMIN_DETAILS_ENABLED='true';env.NOTIFICATIONS_MAX_ADMIN_DETAILS_ACTIVE_SINCE='2026-01-01T00:00:00Z';
+      for(const condition of ['stale','missing','forged','revoked','unconfirmed-payment']){
+        await pool.query("DELETE FROM appointment_notifications WHERE engine='v1'");
+        await pool.query("INSERT INTO max_admin_binding(singleton,max_user_id,max_chat_id) VALUES(true,'789','987') ON CONFLICT(singleton) DO UPDATE SET confirmed_at=now()");
+        const id=await booking(),kind=condition==='unconfirmed-payment'?'paid':'confirmed';await enqueue(id,kind);
+        const notice=(await pool.query("SELECT id FROM appointment_notifications WHERE engine='v1' AND recipient_role='admin'")).rows[0].id;
+        if(condition==='stale')await pool.query('UPDATE bfm_bookings SET notification_revision=notification_revision+1 WHERE id=$1',[id]);
+        if(condition==='missing'){
+          const missing=crypto.randomUUID();
+          await pool.query("UPDATE appointment_notifications SET event_key=$2,payload=jsonb_build_object('bookingId',$3::text,'service','bfm') WHERE id=$1",[notice,`v1:admin:bfm:${missing}:confirmed:0`,missing]);
+        }
+        if(condition==='forged')await pool.query("UPDATE appointment_notifications SET payload=jsonb_build_object('bookingId',$2::text,'service','bfm') WHERE id=$1",[notice,crypto.randomUUID()]);
+        if(condition==='revoked')await pool.query('DELETE FROM max_admin_binding');
+        if(condition==='unconfirmed-payment')await pool.query("UPDATE bfm_bookings SET payment_status='pending' WHERE id=$1",[id]);
+        await core.processV1Notifications(10,{email:forbidden,max:forbidden});
+        const actual=await row(notice);assert.equal(actual.status,['stale','revoked'].includes(condition)?'cancelled':'failed');
+        if(actual.status==='failed')assert(['admin_event_invalid','admin_booking_unavailable'].includes(actual.last_error),'unsafe classification');
+      }
+      await pool.query('DELETE FROM max_admin_binding');
+    });
+    await test('admin details default OFF/boundary keep brief messages; ambiguous MAX outcome never retries',async()=>{
+      env.NOTIFICATIONS_EMAIL_V1_ENABLED='false';env.NOTIFICATIONS_MAX_V1_ENABLED='true';env.NOTIFICATIONS_MAX_V1_ADMIN_ONLY='true';
+      await pool.query("INSERT INTO max_admin_binding(singleton,max_user_id,max_chat_id) VALUES(true,'789','987') ON CONFLICT(singleton) DO UPDATE SET confirmed_at=now()");
+      for(const mode of ['off','older-event','details']){
+        await pool.query("DELETE FROM appointment_notifications WHERE engine='v1'");
+        const id=await booking();await enqueue(id);
+        env.NOTIFICATIONS_MAX_ADMIN_DETAILS_ENABLED=mode==='off'?'false':'true';
+        env.NOTIFICATIONS_MAX_ADMIN_DETAILS_ACTIVE_SINCE=mode==='older-event'?new Date().toISOString():'2026-01-01T00:00:00Z';
+        let sends=0;
+        await core.processV1Notifications(10,{email:forbidden,max:async(to,text)=>{
+          sends++;if(mode!=='details'){assert(!text.includes('+79990000000')&&!text.includes('qa@example.invalid')&&!text.includes('Synthetic QA'),'OFF/boundary exposed contacts');return {status:'accepted'};}
+          return new Promise(()=>{});
+        }},mode==='details'?5:15000,mode==='details'?2000:20000);
+        assert.equal(sends,1);
+        if(mode==='details'){
+          const notice=(await pool.query("SELECT id FROM appointment_notifications WHERE engine='v1' AND recipient_role='admin'")).rows[0].id;
+          assert.equal((await row(notice)).status,'uncertain');await core.processV1Notifications(10,{email:forbidden,max:forbidden});assert.equal((await row(notice)).status,'uncertain');
+        }
+      }
+      await pool.query('DELETE FROM max_admin_binding');
+    });
+    await test('real PG admin lease serializes revoke with in-flight MAX and never holds a SQL transaction',async()=>{
+      env.NOTIFICATIONS_MAX_V1_ENABLED='true';env.NOTIFICATIONS_MAX_V1_ADMIN_ONLY='true';env.MAX_BOT_TOKEN='synthetic-only-provider';
+      await pool.query("INSERT INTO max_admin_binding(singleton,max_user_id,max_chat_id) VALUES(true,'789','987') ON CONFLICT(singleton) DO UPDATE SET confirmed_at=now()");
+      const boundAt=(await pool.query('SELECT confirmed_at::text AS version FROM max_admin_binding')).rows[0].version;
+      let admit,release;const admitted=new Promise(r=>admit=r),httpRelease=new Promise(r=>release=r);let sends=0,revoked=false;
+      providerFetch=async()=>{sends++;admit();await httpRelease;return new Response(JSON.stringify({message:{body:{mid:'synthetic-lease'}}}));};
+      const max=load('max-notifications'),binding=load('max-admin-binding');
+      let delivery,revocation;
+      try{
+        delivery=max.deliverMax('987','Synthetic lease check',{role:'admin',boundAt});
+        await Promise.race([admitted,new Promise((_,reject)=>setTimeout(()=>reject(Error('synthetic admission timeout')),1000))]);
+        revocation=binding.revokeMaxAdminBinding().then(()=>{revoked=true;});
+        let evidence;
+        for(let i=0;i<100;i++){
+          evidence=(await pool.query("SELECT EXISTS(SELECT 1 FROM pg_locks WHERE locktype='advisory' AND classid=221022 AND objid=1 AND NOT granted) AS waiting,EXISTS(SELECT 1 FROM pg_locks l JOIN pg_stat_activity a ON a.pid=l.pid WHERE l.locktype='advisory' AND l.classid=221022 AND l.objid=1 AND l.granted AND a.xact_start IS NULL) AS no_transaction")).rows[0];
+          if(evidence.waiting)break;await new Promise(r=>setTimeout(r,5));
+        }
+        assert(evidence.waiting&&!revoked,'revoke bypassed active lease');assert(evidence.no_transaction,'HTTP held open SQL transaction');
+        release();assert.equal((await delivery).status,'accepted');await revocation;assert(revoked);
+        assert.equal((await max.deliverMax('987','Synthetic revoked check',{role:'admin',boundAt})).status,'failed');assert.equal(sends,1);
+      }finally{
+        release();await Promise.allSettled([delivery,revocation].filter(Boolean));providerFetch=forbidden;
+      }
+    });
+    await test('V1 in-flight revision change is uncertain, missing email is a safe failure',async()=>{
     const bookingId=await booking();const id=await enqueue(bookingId);
     await core.processV1Notifications(1,providers(async()=>{
       await pool.query('UPDATE bfm_bookings SET notification_revision=notification_revision+1 WHERE id=$1',[bookingId]);
