@@ -183,3 +183,44 @@ body:has(.bs-editorial) .site-footer-premium .footer-panel {
   box-shadow: none !important;
   backdrop-filter: none !important;
 }
+
+/* The existing violet theme remains a fully legible dark editorial experience. */
+[data-theme="violet"] .bs-editorial {
+  --foreground: #f3efe9;
+  --foreground-secondary: #bbb5be;
+  --primary: #c9b8e2;
+  --primary-muted: #383143;
+  --border: #48434d;
+  --glass-border: #48434d;
+  --glass-bg: #2d2833;
+  --bg: #18171d;
+  --bs-ink: #f3efe9;
+  --bs-muted: #bbb5be;
+  --bs-paper: #18171d;
+  --bs-line: #48434d;
+  --bs-accent: #c9b8e2;
+}
+[data-theme="violet"] .bs-e-lead { color: #c2bcc5; }
+[data-theme="violet"] .bs-e-button-dark { color: #201a26; background: #cbb9e2; }
+[data-theme="violet"] .bs-e-button-dark:hover { background: #e0d0f0; }
+[data-theme="violet"] .bs-e-hero-aside { background: #292630; border-color: #4b4652; }
+[data-theme="violet"] .bs-e-aside-top { color: #d8c9e5; }
+[data-theme="violet"] .bs-e-aside-bottom { border-color: #696271; }
+[data-theme="violet"] .bs-e-aside-bottom > span { color: #c1bac8; }
+[data-theme="violet"] .bs-e-service-row:hover { background: #25222b; }
+[data-theme="violet"] .bs-e-manifesto { background: #29252f; }
+[data-theme="violet"] .bs-e-manifesto .bs-e-manifesto-grid > div > p { color: #c2bbc9; }
+[data-theme="violet"] .bs-e-appointment { background: #352f3f; }
+[data-theme="violet"] .bs-e-appointment .bs-e-section-index,
+[data-theme="violet"] .bs-e-appointment-signature { color: #cfc4dc; }
+[data-theme="violet"] .bs-e-appointment-inner > div > p { color: #dad3df; }
+[data-theme="violet"] .bs-e-review-controls button:hover { background: #2c2833; }
+[data-theme="violet"] body:has(.bs-editorial) .site-footer-premium {
+  --foreground: #f3efe9;
+  --foreground-secondary: #bbb5be;
+  --primary: #c9b8e2;
+  --border: #48434d;
+  --glass-border: #48434d;
+  background: #18171d;
+  color: #bbb5be !important;
+}
