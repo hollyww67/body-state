@@ -4,7 +4,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 /** Native modal top layer escapes every sidebar/animation stacking context. */
-export default function AdminConfirmDialog({ title, children, onCancel, onConfirm,dismissDisabled=false,confirmLabel='Удалить',pendingLabel='Удаление…' }: {
+export default function AdminConfirmDialog({ title, children, onCancel, onConfirm,dismissDisabled=false,confirmLabel='Удалить',pendingLabel='Удаление…',presentation='dialog' }: {
   title: string;
   children: ReactNode;
   onCancel: () => void;
@@ -12,6 +12,7 @@ export default function AdminConfirmDialog({ title, children, onCancel, onConfir
   confirmLabel?:string;
   pendingLabel?:string;
   dismissDisabled?:boolean;
+  presentation?: 'dialog' | 'booking' | 'panel';
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const cancel = useRef<HTMLButtonElement>(null);
@@ -82,7 +83,7 @@ export default function AdminConfirmDialog({ title, children, onCancel, onConfir
   };
 
   return createPortal(
-    <dialog ref={dialog} tabIndex={-1} className={`admin-confirm-dialog ${onConfirm ? "" : "admin-content admin-modal-general"}`} role={onConfirm ? "alertdialog" : "dialog"} aria-modal="true"
+    <dialog ref={dialog} tabIndex={-1} className={`admin-confirm-dialog ${onConfirm ? "" : `admin-content admin-modal-general admin-presentation-${presentation}`}`} role={onConfirm ? "alertdialog" : "dialog"} aria-modal="true"
       aria-label={onConfirm ? undefined : title} aria-labelledby={onConfirm ? titleId : undefined} aria-describedby={onConfirm ? descriptionId : undefined} aria-busy={busy}
       style={onConfirm ? undefined : { flexDirection: "column", gap: 8 }}
       onKeyDown={event => {
@@ -106,14 +107,14 @@ export default function AdminConfirmDialog({ title, children, onCancel, onConfir
           <button type="button" className="admin-confirm-danger" disabled={busy} onClick={() => void confirm()}>{busy ? pendingLabel : confirmLabel}</button>
         </footer>
       </section> : <>
-        <button ref={cancel} type="button" disabled={dismissDisabled} className="shrink-0 self-center rounded-xl border px-4 py-2 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
-          onClick={() => { if (!dismissDisabled) onCancelRef.current(); }}>Закрыть</button>
+        {presentation === 'dialog' && <button ref={cancel} type="button" disabled={dismissDisabled} className="shrink-0 self-center rounded-xl border px-4 py-2 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+          onClick={() => { if (!dismissDisabled) onCancelRef.current(); }}>Закрыть</button>}
         {children}
       </>}
     </dialog>, document.body,
   );
 }
 
-export function AdminModal({ title, children, onCancel, dismissDisabled=false }: { title: string; children: ReactNode; onCancel: () => void; dismissDisabled?:boolean }) {
-  return <AdminConfirmDialog title={title} onCancel={onCancel} dismissDisabled={dismissDisabled}>{children}</AdminConfirmDialog>;
+export function AdminModal({ title, children, onCancel, dismissDisabled=false, presentation='dialog' }: { title: string; children: ReactNode; onCancel: () => void; dismissDisabled?:boolean; presentation?: 'dialog' | 'booking' | 'panel' }) {
+  return <AdminConfirmDialog title={title} onCancel={onCancel} dismissDisabled={dismissDisabled} presentation={presentation}>{children}</AdminConfirmDialog>;
 }

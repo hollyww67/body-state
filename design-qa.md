@@ -1,4 +1,68 @@
-# Stage3 design QA
+# Booking dialog fidelity correction — current acceptance
+
+17.10.2026, Петрович. Scope: только календарное окно «Новая запись». Новый owner brief supersedes прежнее решение right-side drawer; прежний PASS ниже не является основанием сохранять drawer.
+
+Source: `C:/Users/user/Downloads/Панель календаря записей BODY STATE.png`1536×1024. Built implementation: `http://localhost:3921/admin/calendar`, synthetic DB, providers OFF. Evidence: `docs/design/booking-dialog-refinement/`.
+
+## Findings / iteration
+
+- P1 owner finding: полноразмерный drawer520×900 вплотную к правому краю вместо floating card. `before-1440.png`. Исправлены scoped layout,440px ширина,fluid отступы,16px радиус,shadow/border,content height,scroll body и доступный footer.
+- P2 первой correction iteration: форма440×784.8 оставалась излишне высокой. `iteration1-1440.png`. Уплотнены help/legend/spacing, установлен max-height740 с внутренней прокруткой; новая сборка и финальные `after-1440.png`/`after-1920.png` подтверждают440×740 с отступами со всех сторон. Ни один обязательный control не скрыт.
+- Full-view `reference-before-after.png` и focused `reference-before-after-detail.png` просмотрены как единые изображения Reference/Before/After. Все пять размеров:1920×1080,1440×900,768×1024,390×844,320×740.
+
+## Normalization / fidelity surfaces
+
+Reference1536×1024; before/after desktop1440×900; mobile native390×843 при CSS390×844,320×740. Full-view comparison uses contain960×680 per column, focused crops432×602/520×900/440×740 use contain440×900, no distortion. Данные/состав полей не идентичны reference, поэтому не заявляется pixel parity.
+
+Typography: сохранён Manrope, компактная hierarchy; labels/длинная услуга читаемы. Layout: отдельная карточка справа, не центрированная и не docked, постоянные header/footer, прокрутка body; mobile full-screen и safe-area. Colors: существующие tokens/backdrop, палитра не изменена. Assets: библиотечные иконки/существующий shell, нет новых фальшивых изображений. Copy: убраны только повторные пояснения; consent/identity/availability остаются, fake specialists/status/notification modes не добавлены.
+
+Browser: geometry, initial focus, Shift+Tab wrap, Cancel/Escape+focus restoration, body lock cleanup, footer visibility, consent-disabled submit. Reduced-height390×500 checked; физическая клавиатура/PWA не сертифицирована. Modal and booking AST/VM tests PASS; browser POST не выполнялся.
+
+Нет оставшихся actionable P0/P1/P2 для этого точечного acceptance. Реальная форма выше reference из-за обязательных полей и дополнительного поддерживаемого действия; это не замена окна drawer. Manual PWA/keyboard remains pending.
+
+final result: passed
+
+---
+
+# Archived Stage 3.1 design QA (superseded for creation presentation above)
+
+17.10.2026, Петрович. Ниже перед архивом Stage3 приведён актуальный результат Stage3.1.
+
+## Visual truth and evidence
+
+Source: `C:/Users/user/Downloads/Панель управления Body State.png`, `Панель календаря записей BODY STATE.png`, `Интерфейс BODY STATE_ клиника и записи.png`, каждый1536×1024. Implementation: production-built isolated `http://localhost:3921`, synthetic data, no providers.
+
+`docs/design/screenshots-stage3-1/compare-dashboard.png`, `compare-calendar.png`, `compare-calendar-form.png`, `compare-mobile-dashboard.png`, `compare-mobile-calendar.png`, `compare-mobile-booking.png`: source-left + implementation-right в одном изображении; все пары просмотрены. Mobile пары390px также служат focused evidence читаемых вкладок/карточек/действий, отдельное увеличение не требуется.
+
+CSS viewports320×740,390×844,768×1024,1440×900,1920×1080. IAB density: обычная mobile PNG375×811 при CSS390×844; native modal390×843; desktop full-page width1424/variable document height, modal1440×900. Mobile reference crop x49/553/1058,y78,432×900, без hardware/statusbar →390×812. Desktop top crop1440×900. Это нормализованное сравнение композиции, не pixel-distance score; данные/имена/даты/длительности различаются.
+
+## Iteration / findings
+
+P2 initial: search/filter/mode chrome вытеснял дату и приёмы с первого экрана. `calendar-390-qa1.png` сохранён. Исправлено явным mobile disclosure; режимы/фильтры не удалены. Пересборка, повторные320/390, новый `calendar-390.png`, повторное сравнение `compare-mobile-calendar.png` подтвердили исправление.
+
+Неверный/stale route capture обнаружен при просмотре evidence: Dashboard переснят в отдельной фоновой вкладке с проверкой URL/heading. Имя файла само по себе не принималось за доказательство.
+
+## Fidelity surfaces
+
+- Typography: существующий Manrope, ясная иерархия и перенос длинных настоящих названий услуг.
+- Spacing/layout: full-screen booking, отдельный scroll/action bar, right creation panel, day/week strip, KPI/actions/visits/orders. Нет measured page overflow; week grid имеет свою прокрутку.
+- Colors: существующие нейтральные/teal/semantic tokens, без новой темы или библиотеки.
+- Assets: существующий логотип и icon library; инициалы реальных synthetic identities вместо вымышленных фотографий, как требует no-fake-data scope.
+- Copy/content: честные payment/notes empty states, никаких ложных чеков/доставки; перенос/отмена/attendance сохраняют смысл.
+
+## Interactions and limits
+
+Browser: настоящие четыре вкладки/history, keyboard End/arrows, вход в перенос, disabled submit без согласия в календаре, tools/month/day, Dashboard→create, native focus, Shift+Tab wrap, Escape/restore, body lock/cleanup. Console error/warning inspection пусто. Synthetic PostgreSQL regressions:21 V2 +9 pool groups. Browser POST mutation не выполнялся; это не объявляется полным browser-to-DB E2E.
+
+Не выявлено оставшихся actionable P0/P1/P2 visual findings в согласованных domain/data границах. P3: дальнейшая desktop-плотность/старые history labels после owner review. Специалисты/кабинеты/payment detail/notes editing/duplicate — отдельные domain proposals, не fake controls.
+
+Actual zoom200 и physical iOS/Android PWA — MANUAL PENDING. Owner approval и production release — отдельные gates.
+
+final result: passed
+
+---
+
+# Archived Stage3 design QA (superseded above)
 
 Ответственный — Петрович. Source: `C:/Users/user/Downloads/Панель управления Body State.png`, `C:/Users/user/Downloads/Панель календаря записей BODY STATE.png`, `C:/Users/user/Downloads/Интерфейс BODY STATE_ клиника и записи.png`. Implementation: isolated http://localhost:3920, synthetic-only data, real App/PG/Redis, providers OFF.
 
