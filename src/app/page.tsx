@@ -1,271 +1,171 @@
 "use client";
 
-import SiteImage from '@/components/SiteImage';
 import Link from "next/link";
-import { Brain, HandHelping, ArrowRight, Leaf, Sun, Flower2, Quote, Sparkles } from "lucide-react";
+import { ArrowRight, ArrowUpRight } from "lucide-react";
 import Navbar from "@/components/Navbar";
-import Container from "@/components/ui/Container";
-import SectionHeading from "@/components/ui/SectionHeading";
-import GlassCard from "@/components/ui/GlassCard";
-import Reveal from "@/components/ui/Reveal";
 import ReviewsCarousel from "@/components/ReviewsCarousel";
-import PromotionsPopup from "@/components/PromotionsPopup";
 import { usePageCopy } from "@/lib/hooks/use-page-copy";
-
-const methods = [
-  { icon: Brain, title: "Психологическая реабилитация", description: "Восстановление эмоционального ресурса и психологического благополучия.", href: "/psychology", accent: "#8B5CF6" },
-  { icon: HandHelping, title: "Физическая реабилитация", description: "Мягкое восстановление подвижности, работа с фасциальной системой и мышечными зажимами.", href: "/bfm#booking", accent: "#0F766E" },
-];
-
-const benefits = [
-  { icon: Leaf, title: "Бережный подход", text: "Восстановление без насилия над телом, в комфортном для вас темпе." },
-  { icon: Sun, title: "Индивидуальная программа", text: "Методы подбираются исходя из вашего состояния и запроса." },
-  { icon: Flower2, title: "Целостный метод", text: "Тело и психика рассматриваются как единая система." },
-];
-
-const process = [
-  { step: "01", title: "Знакомство", text: "Обсуждаем ваш запрос, историю и текущее состояние." },
-  { step: "02", title: "Консультация", text: "Определяем подходящие методы реабилитации." },
-  { step: "03", title: "Практика", text: "Реабилитационная работа по индивидуальной программе." },
-  { step: "04", title: "Поддержка", text: "Сопровождение и рекомендации между сессиями." },
-];
+import "./home-editorial.css";
 
 export default function HomePage() {
   const copy = usePageCopy("home");
+
+  const services = [
+    { number: "01", title: copy.method1Title, description: copy.method1Text, href: "/psychology" },
+    { number: "02", title: copy.method2Title, description: copy.method2Text, href: "/bfm#booking" },
+  ];
+
+  const steps = [
+    { number: "01", title: copy.process1Title, description: copy.process1Text },
+    { number: "02", title: copy.process2Title, description: copy.process2Text },
+    { number: "03", title: copy.process3Title, description: copy.process3Text },
+    { number: "04", title: copy.process4Title, description: copy.process4Text },
+  ];
+
   return (
-    <main>
+    <main className="bs-editorial">
       <Navbar />
-      <PromotionsPopup />
 
-      {/* HERO */}
-      <section className="hero-surface relative min-h-[720px] overflow-hidden flex items-center lg:min-h-screen">
-        <div className="orb orb-teal" style={{ top: "-10%", left: "50%", transform: "translateX(-50%)" }} />
-        <div className="orb orb-rose" style={{ bottom: "10%", right: "-5%" }} />
-        <div className="orb orb-amber" style={{ top: "30%", left: "-5%" }} />
-
-        <Container className="relative grid lg:grid-cols-2 gap-12 lg:gap-16 items-center pt-28 pb-16 lg:pt-32 lg:pb-20">
-          <Reveal>
-            <div className="hero-eyebrow inline-flex items-center gap-2 glass rounded-full px-4 py-2 mb-6 lg:mb-8 text-[11px] font-semibold uppercase tracking-[0.16em]" style={{ color: 'var(--primary)' }}>
-              <Sparkles className="w-4 h-4" />
-              {copy.heroEyebrow}
-            </div>
-
-            <h1 className="text-5xl md:text-6xl lg:text-7xl font-semibold tracking-[-0.035em] leading-[1] mb-6 lg:mb-8 max-w-[14ch]" style={{ color: 'var(--foreground)' }}>
-              {copy.heroTitle}
-              <span className="hero-title-accent block" style={{ color: 'var(--primary)' }}>{copy.heroAccent}</span>
-            </h1>
-
-            <p className="hero-description text-base md:text-lg lg:text-xl leading-relaxed max-w-xl mb-8 lg:mb-10" style={{ color: 'var(--foreground-secondary)' }}>
-              {copy.heroDescription}
-            </p>
-
-            <div className="flex flex-wrap items-center gap-5 lg:gap-6 mb-10 lg:mb-12">
-              <Link href="/rehabilitation#booking" className="liquid-btn group relative inline-flex items-center justify-center rounded-full text-white px-8 lg:px-10 py-4 lg:py-5 text-sm lg:text-base font-medium gap-2.5">
-                <span className="relative z-10">Записаться</span>
-                <ArrowRight className="relative z-10 w-4 h-4 transition-transform duration-300 group-hover:translate-x-0.5" />
-              </Link>
-              <Link href="/about-rehabilitation" className="glass inline-flex items-center justify-center rounded-full px-8 lg:px-10 py-4 lg:py-5 text-sm lg:text-base font-medium hover:-translate-y-0.5 transition-all duration-500" style={{ color: 'var(--foreground)', borderColor: 'var(--glass-border)' }}>
-                О реабилитации
-              </Link>
-            </div>
-
-            <div className="hero-stats flex gap-6 lg:gap-8 text-xs lg:text-sm" style={{ color: 'var(--foreground-secondary)' }}>
-              <div><div className="text-xl lg:text-2xl font-semibold" style={{ color: 'var(--foreground)' }}>10+</div>лет практики</div>
-              <div className="w-px" style={{ backgroundColor: 'var(--border)' }} />
-              <div><div className="text-xl lg:text-2xl font-semibold" style={{ color: 'var(--foreground)' }}>2</div>направления</div>
-              <div className="w-px" style={{ backgroundColor: 'var(--border)' }} />
-              <div><div className="text-xl lg:text-2xl font-semibold" style={{ color: 'var(--foreground)' }}>1:1</div>индивидуальный формат</div>
-            </div>
-          </Reveal>
-
-          <div className="hero-visual relative h-[500px] lg:h-[700px] hidden lg:block" aria-hidden="true">
-            
-            <div className="hero-visual-grid absolute inset-0 opacity-[0.03]">
-                <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
-                  <defs>
-                    <pattern id="heroGrid" width="40" height="40" patternUnits="userSpaceOnUse">
-                      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="currentColor" strokeWidth="0.5"/>
-                    </pattern>
-                    <pattern id="heroDots" width="40" height="40" patternUnits="userSpaceOnUse">
-                      <circle cx="20" cy="20" r="1" fill="currentColor"/>
-                    </pattern>
-                  </defs>
-                  <rect width="100%" height="100%" fill="url(#heroGrid)" />
-                  <rect width="100%" height="100%" fill="url(#heroDots)" />
-                </svg>
-              </div>
-            <div className="hero-orbit hero-orbit-one" />
-            <div className="hero-orbit hero-orbit-two" />
-            <Reveal delay={0.18}>
-              <div className="hero-core absolute left-1/2 top-1/2 grid h-[270px] w-[270px] -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full">
-                <div className="hero-core-inner grid h-[190px] w-[190px] place-items-center rounded-full text-center">
-                  <div>
-                    <div className="relative mx-auto mb-6 w-[180px] h-[180px]">
-                      <div className="absolute inset-0 rounded-full blur-3xl opacity-40" style={{ background: 'var(--primary)' }} />
-                      <SiteImage src="/logo.png" alt="Логотип" className="relative w-full h-full object-contain rounded-full mix-blend-lighten" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </Reveal>
-            <Reveal delay={0.3}>
-              <div className="hero-float-card hero-float-card-top glass-feature absolute left-0 top-12 w-[220px] rounded-[26px] p-5">
-                <div className="mb-3 flex items-center justify-between text-[10px] uppercase tracking-[0.18em]" style={{ color: 'var(--foreground-secondary)' }}><span>01 / 03</span><span className="h-2 w-2 rounded-full" style={{ background: 'var(--primary)' }} /></div>
-                <div className="text-lg font-semibold leading-snug" style={{ color: 'var(--foreground)' }}>Состояние начинается с внимания к себе</div>
-              </div>
-            </Reveal>
-            <Reveal delay={0.4}>
-              <div className="hero-float-card hero-float-card-right glass-feature absolute right-0 top-[42%] w-[210px] rounded-[26px] p-5">
-                <div className="mb-3 text-xs" style={{ color: 'var(--foreground-secondary)' }}>Индивидуальный маршрут</div>
-                <div className="flex items-center gap-2 text-sm font-semibold" style={{ color: 'var(--foreground)' }}><Leaf className="h-4 w-4" style={{ color: 'var(--primary)' }} /> Тело · психика · ресурс</div>
-              </div>
-            </Reveal>
-            <Reveal delay={0.52}>
-              <div className="hero-float-card hero-float-card-bottom glass-feature absolute bottom-10 left-[17%] w-[250px] rounded-[26px] p-5">
-                <div className="mb-2 text-xs" style={{ color: 'var(--foreground-secondary)' }}>Формат работы</div>
-                <div className="flex items-end justify-between"><span className="text-3xl font-semibold" style={{ color: 'var(--foreground)' }}>1:1</span><span className="pb-1 text-xs" style={{ color: 'var(--primary)' }}>в вашем темпе</span></div>
-              </div>
-            </Reveal>
+      <section className="bs-e-hero" aria-labelledby="bs-home-title">
+        <div className="bs-e-container bs-e-hero-inner">
+          <div className="bs-e-overline">
+            <span className="bs-e-wordmark">BODY STATE</span>
+            <span className="bs-e-location">{copy.heroEyebrow}</span>
           </div>
-        </Container>
-      </section>
 
-      <div className="premium-marquee relative overflow-hidden border-y" style={{ borderColor: 'var(--border)', color: 'var(--foreground-secondary)' }} aria-label="Принципы работы">
-        <div className="premium-marquee-track flex min-w-max items-center gap-8 py-4 text-[10px] font-semibold uppercase tracking-[0.24em]">
-          <span>бережность</span><span className="h-1 w-1 rounded-full" style={{ background: 'var(--primary)' }} />
-          <span>внимание к телу</span><span className="h-1 w-1 rounded-full" style={{ background: 'var(--primary)' }} />
-          <span>индивидуальный маршрут</span><span className="h-1 w-1 rounded-full" style={{ background: 'var(--primary)' }} />
-          <span>возвращение к себе</span><span className="h-1 w-1 rounded-full" style={{ background: 'var(--primary)' }} />
-          <span>бережность</span><span className="h-1 w-1 rounded-full" style={{ background: 'var(--primary)' }} />
-          <span>внимание к телу</span><span className="h-1 w-1 rounded-full" style={{ background: 'var(--primary)' }} />
-          <span>индивидуальный маршрут</span>
+          <div className="bs-e-hero-grid">
+            <div className="bs-e-hero-copy">
+              <p className="bs-e-kicker">Внимание к себе начинается здесь</p>
+              <h1 id="bs-home-title" className="bs-e-title">
+                <span>{copy.heroTitle}</span>
+                <em>{copy.heroAccent}</em>
+              </h1>
+              <p className="bs-e-lead">{copy.heroDescription}</p>
+              <div className="bs-e-actions">
+                <Link className="bs-e-button bs-e-button-dark" href="/rehabilitation#booking">
+                  Записаться на консультацию
+                  <ArrowUpRight aria-hidden="true" size={18} strokeWidth={1.6} />
+                </Link>
+                <Link className="bs-e-text-link" href="/about-rehabilitation">
+                  Узнать о подходе
+                  <ArrowRight aria-hidden="true" size={17} strokeWidth={1.5} />
+                </Link>
+              </div>
+            </div>
+
+            <aside className="bs-e-hero-aside" aria-label="Философия Body State">
+              <div className="bs-e-aside-top">
+                <span>BODY</span>
+                <span>STATE</span>
+              </div>
+              <div className="bs-e-aside-bottom">
+                <p>Тело и состояние связаны. Работа начинается с того, чтобы услышать себя.</p>
+                <span>Индивидуальная работа · Хотьково</span>
+              </div>
+            </aside>
+          </div>
+
+          <div className="bs-e-hero-foot">
+            <span>Практика бережного восстановления</span>
+            <span>Психика / Тело / Состояние</span>
+          </div>
         </div>
-      </div>
-
-      {/* МЕТОДЫ */}
-      <div className="relative -mt-12 lg:-mt-16">
-        <div className="absolute inset-0 section-gradient pointer-events-none" />
-        <Container className="section-spacing relative">
-          <SectionHeading eyebrow="Методы реабилитации" title={copy.methodsTitle} subtitle={copy.methodsDescription} />
-          <div className="section-grid grid grid-cols-1 sm:grid-cols-2 gap-5 lg:gap-6">
-            {methods.map((m, i) => {
-              const Icon = m.icon;
-              return (
-                <Reveal key={m.title} delay={i * 0.1}>
-                  <GlassCard href={m.href}>
-                    <div className="w-11 h-11 lg:w-12 lg:h-12 rounded-2xl flex items-center justify-center mb-5" style={{ backgroundColor: m.accent }}>
-                      <Icon className="w-5 h-5 lg:w-6 lg:h-6 text-white" />
-                    </div>
-                    <h3 className="text-lg lg:text-xl font-semibold mb-2" style={{ color: 'var(--foreground)' }}>{copy[`method${i + 1}Title`] || m.title}</h3>
-                    <p className="text-sm lg:text-base leading-relaxed" style={{ color: 'var(--foreground-secondary)' }}>{copy[`method${i + 1}Text`] || m.description}</p>
-                    <div className="mt-5 flex items-center gap-1 text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-300" style={{ color: 'var(--primary)' }}>
-                      Подробнее <ArrowRight className="w-3.5 h-3.5 lg:w-4 lg:h-4" />
-                    </div>
-                  </GlassCard>
-                </Reveal>
-              );
-            })}
-          </div>
-        </Container>
-      </div>
-
-      {/* PHILOSOPHY */}
-      <section className="relative py-32 lg:py-40 overflow-hidden">
-        <Container className="relative text-center max-w-3xl mx-auto">
-          <Reveal>
-            <Quote className="w-8 h-8 lg:w-10 lg:h-10 mx-auto mb-6 lg:mb-8" style={{ color: 'var(--primary)', opacity: 0.25 }} />
-            <blockquote className="text-2xl md:text-3xl lg:text-4xl font-semibold tracking-tight leading-[1.15] mb-6" style={{ color: 'var(--foreground)' }}>
-              {copy.philosophy}
-            </blockquote>
-            <p className="text-sm lg:text-base" style={{ color: 'var(--foreground-secondary)' }}>{copy.philosophyNote}</p>
-          </Reveal>
-        </Container>
       </section>
 
-      {/* PROCESS */}
-      <div className="relative -mt-12 lg:-mt-16">
-        <Container className="section-spacing">
-          <SectionHeading eyebrow="Как проходит реабилитация" title={copy.processTitle} subtitle={copy.processDescription} />
-          <div className="section-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            {process.map((p, i) => (
-              <Reveal key={p.step} delay={i * 0.08}>
-                <GlassCard>
-                  <div className="text-4xl lg:text-5xl font-bold mb-3 lg:mb-4" style={{ color: 'var(--primary)', opacity: 0.12 }}>{p.step}</div>
-                  <h3 className="text-base lg:text-lg font-semibold mb-2" style={{ color: 'var(--foreground)' }}>{copy[`process${i + 1}Title`] || p.title}</h3>
-                  <p className="text-sm leading-relaxed" style={{ color: 'var(--foreground-secondary)' }}>{copy[`process${i + 1}Text`] || p.text}</p>
-                </GlassCard>
-              </Reveal>
+      <section className="bs-e-services bs-e-section" aria-labelledby="bs-services-title">
+        <div className="bs-e-container">
+          <div className="bs-e-section-head">
+            <p className="bs-e-section-index">01 / Направления</p>
+            <div>
+              <h2 id="bs-services-title">{copy.methodsTitle}</h2>
+              <p className="bs-e-section-description">{copy.methodsDescription}</p>
+            </div>
+          </div>
+
+          <div className="bs-e-service-list">
+            {services.map((service) => (
+              <Link key={service.number} className="bs-e-service-row" href={service.href}>
+                <span className="bs-e-service-number">{service.number}</span>
+                <h3>{service.title}</h3>
+                <p>{service.description}</p>
+                <ArrowUpRight className="bs-e-service-arrow" aria-hidden="true" size={28} strokeWidth={1.15} />
+              </Link>
             ))}
           </div>
-        </Container>
-      </div>
+        </div>
+      </section>
 
-      {/* BENEFITS */}
-      <div className="relative">
-        <Container className="section-spacing relative">
-          <SectionHeading eyebrow="Почему это работает" title={copy.benefitsTitle} />
-          <div className="section-grid grid grid-cols-1 md:grid-cols-3 gap-5 mb-16">
-            {benefits.map((b, i) => {
-              const Icon = b.icon;
-              return (
-                <Reveal key={b.title} delay={i * 0.1}>
-                  <GlassCard>
-                    <div className="w-11 h-11 lg:w-12 lg:h-12 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: 'var(--primary-muted)' }}>
-                      <Icon className="w-5 h-5 lg:w-6 lg:h-6" style={{ color: 'var(--primary)' }} />
-                    </div>
-                    <h3 className="text-base lg:text-lg font-semibold text-center mb-2" style={{ color: 'var(--foreground)' }}>{copy[`benefit${i + 1}Title`] || b.title}</h3>
-                    <p className="text-sm leading-relaxed text-center" style={{ color: 'var(--foreground-secondary)' }}>{copy[`benefit${i + 1}Text`] || b.text}</p>
-                  </GlassCard>
-                </Reveal>
-              );
-            })}
-          </div>
-
-          <Reveal>
-            <div className="text-center">
-              <p className="mb-4" style={{ color: 'var(--foreground-secondary)' }}>Программа реабилитации подбирается индивидуально, исходя из вашего состояния и запроса.</p>
-              <Link href="/rehabilitation#booking" className="liquid-btn group relative inline-flex items-center justify-center rounded-full text-white px-6 lg:px-8 py-3 lg:py-3.5 font-medium gap-2 text-sm lg:text-base">
-                <span className="relative z-10">Записаться на консультацию</span>
-                <ArrowRight className="relative z-10 w-4 h-4 transition-transform duration-300 group-hover:translate-x-0.5" />
-              </Link>
-            </div>
-          </Reveal>
-        </Container>
-      </div>
-
-      {/* ОТЗЫВЫ — ЖИВЫЕ ИЗ БАЗЫ */}
-      <div className="relative -mt-12 lg:-mt-16">
-        <Container className="section-spacing">
-          <SectionHeading eyebrow="Отзывы" title={copy.reviewsTitle} />
-          <Reveal>
-            <ReviewsCarousel />
-          </Reveal>
-          <div className="text-center mt-8">
-            <Link
-              href="/reviews"
-              className="inline-flex items-center gap-2 text-sm font-medium hover:underline"
-              style={{ color: 'var(--primary)' }}
-            >
-              Все отзывы <ArrowRight className="w-4 h-4" />
-            </Link>
-          </div>
-        </Container>
-      </div>
-
-      {/* CTA */}
-      <Container className="section-spacing">
-        <div className="relative overflow-hidden rounded-[40px] lg:rounded-[48px] px-6 lg:px-16 py-16 lg:py-20 text-center text-white" style={{ backgroundColor: 'var(--primary)' }}>
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.10),transparent_60%)]" />
-          <div className="orb" style={{ background: 'rgba(255,255,255,0.1)', width: 400, height: 400, top: "-10%", left: "50%", transform: "translateX(-50%)", filter: "blur(100px)" }} />
-          <div className="relative max-w-3xl mx-auto">
-            <h2 className="text-3xl lg:text-5xl font-semibold tracking-tight mb-4 lg:mb-6 leading-tight">{copy.ctaTitle}</h2>
-            <p className="text-sm lg:text-lg text-white/80 leading-relaxed mb-8 lg:mb-10">{copy.ctaDescription}</p>
-            <Link href="/rehabilitation#booking" className="inline-flex items-center justify-center rounded-full bg-white px-6 lg:px-8 py-3.5 lg:py-4 font-medium shadow-xl hover:opacity-90 transition-all hover:-translate-y-0.5 gap-2 text-sm lg:text-base" style={{ color: 'var(--primary)' }}>
-              {copy.ctaButton} <ArrowRight className="w-4 h-4" />
+      <section className="bs-e-manifesto bs-e-section" aria-labelledby="bs-manifesto-title">
+        <div className="bs-e-container bs-e-manifesto-grid">
+          <p className="bs-e-section-index">02 / Философия</p>
+          <div>
+            <h2 id="bs-manifesto-title" className="sr-only">Наш подход</h2>
+            <blockquote>{copy.philosophy}</blockquote>
+            <p>{copy.philosophyNote}</p>
+            <Link href="/about" className="bs-e-text-link">
+              Подробнее о специалисте
+              <ArrowUpRight aria-hidden="true" size={17} strokeWidth={1.5} />
             </Link>
           </div>
         </div>
-      </Container>
+      </section>
+
+      <section className="bs-e-process bs-e-section" aria-labelledby="bs-process-title">
+        <div className="bs-e-container">
+          <div className="bs-e-section-head">
+            <p className="bs-e-section-index">03 / Как мы работаем</p>
+            <div>
+              <h2 id="bs-process-title">{copy.processTitle}</h2>
+              <p className="bs-e-section-description">{copy.processDescription}</p>
+            </div>
+          </div>
+          <ol className="bs-e-steps">
+            {steps.map((step) => (
+              <li key={step.number}>
+                <span className="bs-e-step-number">{step.number}</span>
+                <div>
+                  <h3>{step.title}</h3>
+                  <p>{step.description}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </section>
+
+      <section className="bs-e-reviews bs-e-section" aria-labelledby="bs-reviews-title">
+        <div className="bs-e-container">
+          <div className="bs-e-section-head">
+            <p className="bs-e-section-index">04 / Отзывы</p>
+            <div>
+              <h2 id="bs-reviews-title">{copy.reviewsTitle}</h2>
+              <p className="bs-e-section-description">Реальные истории людей, которые приходят на консультации и процедуры.</p>
+            </div>
+          </div>
+          <div className="bs-e-reviews-content"><ReviewsCarousel /></div>
+          <div className="bs-e-reviews-foot">
+            <Link href="/reviews" className="bs-e-text-link">
+              Читать все отзывы
+              <ArrowUpRight aria-hidden="true" size={17} strokeWidth={1.5} />
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      <section className="bs-e-appointment" aria-labelledby="bs-appointment-title">
+        <div className="bs-e-container bs-e-appointment-inner">
+          <p className="bs-e-section-index">Следующий шаг</p>
+          <div>
+            <h2 id="bs-appointment-title">{copy.ctaTitle}</h2>
+            <p>{copy.ctaDescription}</p>
+            <Link href="/rehabilitation#booking" className="bs-e-button bs-e-button-light">
+              {copy.ctaButton}
+              <ArrowUpRight aria-hidden="true" size={18} strokeWidth={1.6} />
+            </Link>
+          </div>
+          <span className="bs-e-appointment-signature">BODY STATE</span>
+        </div>
+      </section>
     </main>
   );
 }
