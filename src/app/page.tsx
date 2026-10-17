@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { ArrowRight, ArrowUpRight } from "lucide-react";
 import Navbar from "@/components/Navbar";
-import ReviewsCarousel from "@/components/ReviewsCarousel";
+import EditorialReviews from "@/components/EditorialReviews";
 import { usePageCopy } from "@/lib/hooks/use-page-copy";
 import "./home-editorial.css";
 
@@ -142,7 +142,7 @@ export default function HomePage() {
               <p className="bs-e-section-description">Реальные истории людей, которые приходят на консультации и процедуры.</p>
             </div>
           </div>
-          <div className="bs-e-reviews-content"><ReviewsCarousel /></div>
+          <div className="bs-e-reviews-content"><EditorialReviews /></div>
           <div className="bs-e-reviews-foot">
             <Link href="/reviews" className="bs-e-text-link">
               Читать все отзывы
