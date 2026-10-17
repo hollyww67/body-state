@@ -3,6 +3,7 @@ import Link from 'next/link';
 import {formatMoscow as format,moscowInputToISO,sameMoscowDay} from '@/lib/moscow-time';
 import type {Booking} from '@/lib/api/bookings';
 import {ru} from 'date-fns/locale';
+import BookingStatusBadge from '@/components/admin/bookings/BookingStatusBadge';
 
 export type CalendarSlot={id:string;service_type:string;slot_time:string;duration_minutes:number;is_booked:boolean};
 export type CalendarBreak={id:string;starts_at:string;ends_at:string;reason:string;source_type?:string};
@@ -52,7 +53,7 @@ export default function ScheduleTimeline({days,slots,bookings,breaks,rules,onSlo
             {dayBookings.map(b=>{
               const a=Date.parse(b.slot_time!),z=a+(b.duration_minutes??90)*60000;
               const conflict=dayBookings.some(other=>other.id!==b.id&&Date.parse(other.slot_time!)<z&&Date.parse(other.slot_time!)+(other.duration_minutes??90)*60000>a)||dayBreaks.some(p=>Date.parse(p.starts_at)<z&&Date.parse(p.ends_at)>a);
-              return <Link key={b.id} href={`/admin/bookings?booking=${encodeURIComponent(b.id)}`} className={`bs-calendar-event absolute left-1 right-1 overflow-hidden p-2 text-xs ${conflict?'is-conflict':''}`} style={box(a,z)}><strong>{format(b.slot_time!,'HH:mm')} · {b.client_name}</strong><br/>{names[b.service_type]}<br/>{b.duration_minutes} мин · {conflict?'Конфликт':b.status==='pending'?'Ожидает оплаты':'Подтверждена'}</Link>;
+              return <Link key={b.id} href={`/admin/bookings?booking=${encodeURIComponent(b.id)}`} data-service={b.service_type} className={`bs-calendar-event absolute left-1 right-1 overflow-hidden p-2 text-xs ${conflict?'is-conflict':''}`} style={box(a,z)}><span className="healthcare-event-time">{format(b.slot_time!,'HH:mm')}–{format(new Date(z),'HH:mm')}</span><strong>{b.client_name}</strong><span className="healthcare-event-service">{names[b.service_type]}</span><BookingStatusBadge status={b.status}/>{conflict&&<span className="healthcare-event-conflict">Конфликт</span>}</Link>;
             })}
             {daySlots.filter(s=>!s.is_booked).map(s=>{
               const same=daySlots.filter(a=>!a.is_booked&&a.slot_time===s.slot_time),column=same.findIndex(a=>a.id===s.id);

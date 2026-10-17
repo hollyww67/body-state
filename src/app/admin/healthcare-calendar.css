@@ -1,0 +1,120 @@
+/* Calendar scope only. Imported by the admin layout integration owner. */
+.admin-calendar-page { min-width: 0; min-height: auto; color: var(--bs-foreground); }
+.admin-calendar-page .healthcare-calendar-title { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+.healthcare-calendar-title h2 { margin: 0; font: var(--bs-h1); letter-spacing: -.035em; }
+.healthcare-calendar-title p { display: none; }
+.admin-calendar-page .healthcare-calendar-toolbar { background: var(--bs-background); border: 0; }
+.healthcare-calendar-toolbar > div { max-width: none; padding: 0; }
+.healthcare-calendar-toolbar .admin-mobile-toolbar { width: 100%; gap: 12px; }
+.healthcare-calendar-toolbar select { width: 220px; }
+.healthcare-calendar-toolbar .admin-mobile-toolbar > button { margin-left: auto; }
+.admin-calendar-page .healthcare-calendar-stats { display: none; }
+.admin-calendar-page .admin-calendar-modes { margin-top: 12px; }
+.healthcare-calendar-stats > * { display: flex; align-items: baseline; gap: 8px; padding: 0; border: 0; background: var(--bs-background); box-shadow: none; }
+.healthcare-calendar-stats p { margin: 0; font: var(--bs-caption); }
+.healthcare-calendar-stats svg { display: none; }
+.admin-calendar-page > .max-w-\[1600px\] { padding: 0; max-width: none; }
+.admin-calendar-page .admin-calendar-layout { grid-template-columns: minmax(0, 1fr) 280px; gap: 20px; }
+.admin-calendar-page .admin-calendar-grid-card { grid-column: 1; grid-row: 1; min-width: 0; box-shadow: none; }
+.admin-calendar-page .healthcare-calendar-directions { grid-column: 2; grid-row: 1; border: 1px solid var(--bs-border); background: var(--bs-surface); border-radius: var(--bs-radius-card); padding: 16px; }
+.healthcare-calendar-directions h3 { margin: 0; font: var(--bs-label); }
+.healthcare-calendar-directions p { color: var(--bs-muted); font: var(--bs-caption); margin: 8px 0 16px; }
+.healthcare-calendar-directions p:last-child { margin: 16px 0 0; }
+.healthcare-calendar-directions button { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 12px; margin-top: 8px; padding: 12px; text-align: left; border-radius: var(--bs-radius-control); font: var(--bs-caption); color: var(--bs-foreground); }
+.healthcare-calendar-directions button[aria-pressed="true"] { background: var(--bs-primary-soft); color: var(--bs-primary-hover); }
+.healthcare-calendar-directions button:hover { background: var(--bs-surface-muted); }
+.healthcare-calendar-directions button span:last-child { color: var(--bs-muted); font-variant-numeric: tabular-nums; }
+.admin-calendar-page .admin-calendar-header { padding: 12px 16px; gap: 12px; }
+.admin-calendar-header h2 { font: var(--bs-label); }
+.admin-calendar-header p { font: var(--bs-caption); margin-top: 2px; }
+.admin-calendar-header > div:first-child { gap: 4px; }
+.admin-calendar-header button { min-height: 40px; box-shadow: none; }
+.admin-calendar-page .admin-calendar-detail { position: static; grid-column: 1 / -1; min-width: 0; }
+.admin-calendar-detail > div { box-shadow: none; }
+.admin-calendar-detail > div > div:first-child { padding: 16px 20px; }
+.admin-calendar-detail > div > div:last-child { max-height: none; padding: 16px; }
+.admin-calendar-detail h3 { font: var(--bs-label); }
+.admin-calendar-detail > div > div:last-child > .space-y-4 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.admin-calendar-detail > div > div:last-child > .space-y-4 > * { margin: 0; }
+.admin-calendar-page .healthcare-calendar-booking { box-shadow: none; padding: 16px; border-left: 3px solid var(--bs-primary); }
+.healthcare-calendar-booking[data-service="brt"] { border-left-color: var(--bs-info); }
+.healthcare-calendar-booking[data-service="psychology"] { border-left-color: var(--bs-warning); }
+.healthcare-calendar-booking > .absolute { display: none; }
+.healthcare-calendar-booking .admin-calendar-appointment { gap: 12px; }
+.healthcare-calendar-booking .admin-calendar-appointment > div:first-child > div { width: 52px; height: 52px; background: var(--bs-primary-soft); color: var(--bs-primary-hover); box-shadow: none; }
+.healthcare-calendar-booking h4 { font: var(--bs-label); overflow-wrap: anywhere; }
+.healthcare-calendar-booking .space-y-1 { flex-shrink: 0; }
+.admin-calendar-page .bs-timeline { max-height: 760px; overflow: auto; border: 0; border-radius: 0; }
+.admin-calendar-page .bs-timeline-heading { background: var(--bs-surface); color: var(--bs-muted); font-variant-numeric: tabular-nums; }
+.admin-calendar-page .bs-timeline-heading > div { border-left: 1px solid var(--bs-border); padding: 14px 4px; font-size: 12px; font-weight: 500; }
+.admin-calendar-page .bs-calendar-event { display: flex; flex-direction: column; gap: 3px; border: 0; border-left: 2px solid var(--bs-primary); border-radius: 5px; background: var(--bs-primary-soft); color: var(--bs-foreground); box-shadow: none; line-height: 1.35; }
+.admin-calendar-page .bs-calendar-event[data-service="brt"] { background: var(--bs-info-bg); border-left-color: var(--bs-info); }
+.admin-calendar-page .bs-calendar-event[data-service="psychology"] { background: var(--bs-warning-bg); border-left-color: var(--bs-warning); }
+.admin-calendar-page .bs-calendar-event.is-conflict { border-color: var(--bs-destructive); background: var(--bs-destructive-bg); }
+.bs-calendar-event strong { font-size: 12px; overflow-wrap: anywhere; }
+.healthcare-event-time, .healthcare-event-service { font-size: 10px; }
+.healthcare-event-time { font-variant-numeric: tabular-nums; }
+.healthcare-event-conflict { color: var(--bs-destructive); font-weight: 600; }
+.admin-calendar-page .bs-calendar-event .bs-badge { align-self: flex-start; padding: 2px 5px; font-size: 10px; min-height: 0; }
+.admin-calendar-page .bs-time-slot { background: var(--bs-surface); color: var(--bs-primary-hover); border: 1px dashed var(--bs-border-strong); border-radius: 4px; }
+.admin-calendar-page .bs-calendar-break { background: var(--bs-surface-muted); color: var(--bs-muted); border: 1px solid var(--bs-border-strong); border-radius: 4px; }
+.healthcare-calendar-date-strip { display: none; }
+.healthcare-mobile-timeline { display: none; }
+.healthcare-calendar-form { color: var(--bs-foreground); border: 1px solid var(--bs-border); }
+.healthcare-calendar-form > div:first-child { padding: 16px 20px; }
+.healthcare-calendar-form form { padding: 20px; }
+.healthcare-calendar-form .healthcare-calendar-form-row { grid-template-columns: minmax(0, 1fr); }
+.healthcare-calendar-form input, .healthcare-calendar-form select { min-width: 0; background: var(--bs-surface); color: var(--bs-foreground); accent-color: var(--bs-primary); }
+.healthcare-calendar-form input:focus-visible, .healthcare-calendar-form select:focus-visible { outline: 2px solid var(--bs-primary); outline-offset: 2px; }
+.healthcare-calendar-form label { color: var(--bs-muted); }
+.admin-calendar-page :is(button, a):focus-visible { outline: 2px solid var(--bs-primary); outline-offset: 2px; }
+@media (max-width: 1100px) {
+  .admin-calendar-page .admin-calendar-layout { grid-template-columns: minmax(0, 1fr); }
+  .admin-calendar-page .healthcare-calendar-directions { display: none; }
+}
+@media (max-width: 640px) {
+  .healthcare-calendar-title { margin-bottom: 12px !important; }
+  .admin-shell:has(.admin-calendar-page) .admin-mobile-bar, .admin-shell:has(.admin-calendar-page) .admin-topbar { display: none; }
+  .admin-shell:has(.admin-calendar-page) .admin-main { padding-top: 0; }
+  .healthcare-mobile-timeline .bs-timeline-heading { display: none; }
+  .healthcare-calendar-title h2 { font: var(--bs-h2); }
+  .healthcare-calendar-title p { display: none; }
+  .healthcare-calendar-title .bs-button { font-size: 0; width: 44px; min-width: 44px; padding: 0; }
+  .healthcare-calendar-title .bs-button svg { width: 20px; height: 20px; }
+  .healthcare-calendar-toolbar .admin-mobile-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
+  .healthcare-calendar-toolbar .admin-mobile-toolbar > div:first-child { grid-column: 1 / -1; width: 100%; }
+  .healthcare-calendar-toolbar select { width: 100%; }
+  .admin-calendar-page .healthcare-calendar-stats { display: none; }
+  .admin-calendar-page .admin-calendar-modes { margin: 8px 0; }
+  .admin-calendar-page .admin-calendar-layout { display: flex; flex-direction: column; gap: 12px; }
+  .admin-calendar-page .admin-calendar-grid-card, .admin-calendar-page .admin-calendar-detail { width: 100%; }
+  .admin-calendar-page .admin-calendar-header { padding: 8px; gap: 6px; }
+  .admin-calendar-header h2 { font-size: 12px; }
+  .admin-calendar-header p { display: none; }
+  .admin-calendar-header button { width: 36px; height: 40px; padding: 4px; font-size: 11px; }
+  .admin-calendar-header > button:last-child { width: auto; }
+  .healthcare-calendar-date-strip { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; padding: 8px 4px; border-top: 1px solid var(--bs-border); }
+  .admin-calendar-layout[data-view="month"] .healthcare-calendar-date-strip { display: none; }
+  .healthcare-calendar-date-strip button { display: flex; flex-direction: column; align-items: center; gap: 7px; min-height: 64px; padding: 8px 0; border-radius: var(--bs-radius-control); font-size: 12px; }
+  .healthcare-calendar-date-strip button span { color: var(--bs-muted); }
+  .healthcare-calendar-date-strip button[aria-pressed="true"] { color: var(--bs-on-primary); background: var(--bs-primary); }
+  .healthcare-calendar-date-strip button[aria-pressed="true"] span { color: var(--bs-on-primary); }
+  .admin-calendar-layout:not([data-view="month"]) .healthcare-calendar-desktop-grid { display: none; }
+  .healthcare-mobile-timeline { display: block; }
+  .healthcare-mobile-timeline .bs-timeline { max-height: 560px; }
+  .healthcare-mobile-timeline .bs-calendar-event strong { font-size: 14px; }
+  .healthcare-mobile-timeline :is(.healthcare-event-time, .healthcare-event-service) { font-size: 12px; }
+  .admin-calendar-detail > div > div:first-child { padding: 12px; }
+  .admin-calendar-detail > div > div:first-child > div { flex-direction: column; }
+  .admin-calendar-detail > div > div:last-child { padding: 8px; }
+  .admin-calendar-detail > div > div:last-child > .space-y-4 { grid-template-columns: minmax(0, 1fr); }
+  .admin-calendar-page .healthcare-calendar-booking { padding: 12px; }
+  .healthcare-calendar-booking .admin-calendar-appointment { flex-direction: column; gap: 8px; }
+  .healthcare-calendar-booking .admin-calendar-appointment > div:first-child > div { width: auto; height: auto; display: flex; flex-direction: row; gap: 6px; justify-content: flex-start; background: var(--bs-surface); }
+  .healthcare-calendar-booking .admin-calendar-appointment > div:first-child svg { margin: 0; }
+  .healthcare-calendar-booking .admin-calendar-appointment > div:last-child > div:first-child { flex-direction: column; gap: 8px; }
+  .healthcare-calendar-booking .space-y-1 { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .healthcare-calendar-booking .space-y-1 p { margin: 0; }
+  .healthcare-calendar-booking .mt-5 { margin-top: 12px; }
+  .healthcare-calendar-form form { padding: 16px; }
+}

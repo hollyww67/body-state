@@ -1,48 +1,35 @@
-# Body State UI 2.0 — scoped visual acceptance
+# Stage3 design QA
 
-## Target and evidence
+Ответственный — Петрович. Source: `C:/Users/user/Downloads/Панель управления Body State.png`, `C:/Users/user/Downloads/Панель календаря записей BODY STATE.png`, `C:/Users/user/Downloads/Интерфейс BODY STATE_ клиника и записи.png`. Implementation: isolated http://localhost:3920, synthetic-only data, real App/PG/Redis, providers OFF.
 
-Scope: первая очередь административной UI migration, не буквальный перенос демонстрационного SaaS и не полная приёмка всех страниц.
+## Evidence
 
-Source visual truth: пять изображений владельца в `C:/Users/user/Downloads/`: `Дизайн-система Body State_ библиотека UI компонентов.png`, `Дизайн-система Body State 2.0.png`, `Панель управления Body State.png`, `Панель календаря записей BODY STATE.png`, `Интерфейс BODY STATE_ клиника и записи.png`. Пять текстовых ТЗ идентичны по SHA256 `8a4397a16e129d592c9d18637f5f17dbb106be21859c7916f543134c69d4dd64`.
+`docs/design/screenshots-stage3/compare-dashboard.png`, `compare-calendar.png`, `compare-mobile-dashboard.png`, `compare-mobile-calendar.png`, `compare-mobile-booking.png`, `compare-dashboard-focus.png` открыты как единые сравнения reference-left / implementation-right. Focus sheet нужен для читаемой проверки typography и KPI.
 
-Implementation: `http://localhost:3909/admin/dashboard` и `/admin/calendar`, отдельные synthetic PostgreSQL/Redis, production Webpack standalone app. Реальных клиентов/отправок/платежей нет.
+Запрошенные CSS viewports: 1440×900, 1920×1080, 768×1024, 390×844, 320×740. IAB PNG capture не всегда равен CSS size: например mobile 375×811 при CSS390×844, details390×843; desktop1424×1220 full-page при CSS1440×900. Поэтому reference и implementation нормализованы по ширине, без заявлений о 1:1 density/pixel parity. Mobile source1536×1024: app-region crop432×900, затем390px, верх780px; hardware/status bar исключены. Navigation проверена отдельно, а не подогнана изображением.
 
-CSS viewports1440×900 /768×1024 /390×844, light default и существующая violet. Проверено через DOM innerWidth/innerHeight, overflow=false. Browser JPEG capture может исключать scrollbar/масштабировать изображение: desktop1425×891 при CSS1440×900; это не объявляется физическим device acceptance или zoom. При сравнении desktop обе стороны нормализованы по ширине720px, source1536×1024→720×480, implementation1425×891→720×450. Без растягивания до одинаковой высоты. Full-view sheets: `docs/design/screenshots/dashboard-comparison.jpg`, `calendar-comparison.jpg` (source слева, implementation справа), открыты и рассмотрены вместе. Focused card sheet: `stat-card-comparison.jpg`, сравнение реальных padding/icon/text/состояний, а не только маленьких full-view thumbnails.
+## Iteration history
 
-Основные captures: desktop-dashboard.jpg, desktop-calendar.jpg, desktop-loading.jpg, mobile-dashboard.jpg, mobile-calendar.jpg, mobile-form.jpg, mobile-navigation.jpg, tablet-calendar.jpg, tablet-form.jpg, violet-calendar.jpg в `docs/design/screenshots/`. Диалог проверялся отдельно на mobile и tablet; source calendar показывает desktop creation panel, поэтому сравнение его композиции с mobile не выдаётся за pixel-perfect.
-
-## Findings / iteration history
-
-1. [P2 FIXED] Search icon перекрывал placeholder: padding общего input побеждал utility. Добавлен scoped `.bs-input.pl-10`; повторный desktop/tablet capture показывает раздельные иконку/текст.
-2. [P2 FIXED] Недельная сетка зажата sidebar, часть дней вне видимости. Full-width week/day, минимальная ширина колонки128, detail ниже сетки. Финальный DOM desktop: timeline clientWidth=scrollWidth1078, все семь дней видимы, page overflow=false. Геометрия времени/конфликтов не переписана.
-3. [P2 FIXED] Actions карточки могли выходить за границу узкой колонки. Добавлены wrap и компактный time marker. Контрольные формы/детали доступны без page overflow.
-4. [P2 FIXED] Broken logo и ошибочный PWA notice оказались QA packaging ошибкой public/public в повторном builder. Исправлен isolated Dockerfile, logo использует стабильный локальный asset, финальные assets доступны. Production не затрагивался.
-5. [P2 FIXED, independent Grisha review] Violet primary white2.20:1. `--bs-on-primary` применён к существующим primary actions. Финальный browser computed style у «Сегодня»: foreground rgb22,17,32 /background185,160,255. Новый contrast test сам по себе проверяет light tokens, поэтому dark fix дополнительно подтверждён браузером.
-6. [P2 FIXED, independent Grisha review] Mobile CSS grid-row sidebar против DOM. Убрана перестановка; финальный computed gridRowStart=auto.
-7. [P2 FIXED] Mobile dashboard metrics занимали четыре длинных строки. Две колонки; финальный DOM:169.6px169.6px, overflow=false; повторный mobile-dashboard capture после layout settle.
-8. [P2 FIXED] Повторный calendar header занимал лишнюю высоту. Убран дублирующий title/description (общий h1 остаётся), stats сделаны компактными. Финальный desktop-calendar capture.
+1. Initial mobile 4-column KPI — P2 unreadable density. Переведено в читаемую сетку; первый browser iteration выявил старое правило full-width action, исправлено.
+2. Side-by-side comparison выявил P2: две KPI/actions строки отодвигают визиты, а Calendar показывает повторную бренд-шапку. Исправлено: три приоритетных KPI, один ряд actions, компактный date toolbar, без лишней высоты welcome; повторная шапка календаря скрыта, views/filters доступны. Post-fix `compare-mobile-dashboard.png` и `compare-mobile-calendar.png` повторно открыты вместе с источником. Визиты доступны на первом экране; более высокая дневная карточка отражает настоящие 90 минут, а не 60 минут mockup.
+3. Независимые offline P2 (empty date throw, unnamed search, agenda contrast) исправлены и проверены Гришей. Browser layering P1 (utility behind mobile bar) исправлен, меню/поиск/Escape реально работают.
 
 ## Required fidelity surfaces
 
-- Typography: существующий self-hosted Manrope через next/font, кириллица; browser computed font family подтверждён. Unified scale tokens; длинные реальные названия услуг не заменены короткими демонстрационными.
-- Spacing/layout:4px scale, controls8/card12/overlay16, спокойные surfaces и мягкие тени. Desktop основной столбец+actions, mobile two-column metrics и существующая нижняя навигация. Day/week overflow остаётся внутри timeline на маленьких экранах, не страницы.
-- Colors: neutral/light + Body State teal, semantic badges и visible focus; сохранён violet override. Шесть основных light text pairs5.32–5.94:1; не заявляется соответствие WCAG всех legacy классов.
-- Assets: настоящий брендовый `/admin-icons/192.png`; вымышленный лист/фотографии врачей/декоративное растение не копируются. Initials там, где нет реальных аватаров, сохраняют существующее поведение и не выдают вымышленные портреты за клиентов.
-- Copy/content: реальные all-time показатели подписаны как all-time, нет фиктивных процентов роста/фамилии администратора/специалистов/кабинетов/клиентских мессенджер-кнопок.
+- Typography: действующий Manrope и общий hierarchy; маленькие dense timeline captions не подменяют полную карточку.
+- Spacing/layout: grid/rail, светлые карточки и устойчивые интервалы; mobile density повторно проверена по post-fix сравнению, приёмы доступны в первом экране.
+- Colors: semantic mint foundation, AA pairs offline PASS, альтернативная violet без нового бренда.
+- Assets: настоящий логотип, существующие icons, инициалы вместо вымышленных фотографий. Нет растрового UI или CSS-рисунков вместо assets.
+- Content: настоящие источники данных, без growth percentages, fake specialists, fake financial series и несуществующих операций.
 
-## Intentional product constraints vs source
+## Итог сравнения и intentional deviations
 
-Reference — visual direction, не specification новых backend features. Существующие groups/search/help/auth/theme/logout остаются вместо декоративного global search и неработающих bell controls. AdminToday сохраняет реальные payment/notification tasks вместо недостоверного графика и сокращённого демонстрационного календаря. Минимальные touch intervals и длительности90мин сохраняются: весь рабочий день не сжимается в маленький экран как в иллюстрации. Воскресное расширение/перенос/закрытые дни и параметры backend не меняются. Это осознанные отклонения, не заявление pixel-perfect clone.
+Desktop сохраняет sidebar/topbar/grid/rail; основная сводка не содержит вымышленных временных рядов и процентов роста. Отдельный день и его задачи занимают место, потому что это реальный инструмент, а не статичный mockup. В недельной сетке сохранена прежняя геометрия и локальный horizontal scroll на недостаточной ширине — page overflow не возникает. Calendar form отдельно сравнен в `compare-calendar-form.png`: используется прежний центрированный native modal, а не новый drawer. Неподдерживаемые вкладки, specialists и комментарии не дорисованы. Карточка клиента остаётся modal с identity/consent, а не фиктивной отдельной страницей.
 
-## Interaction evidence
+После итераций не осталось обнаруженных P0/P1/P2 в проверенных состояниях. Это визуальная готовность к **owner review**, не утверждение о pixel parity или сертификации accessibility. Маленькие dense grid captions, дополнительная общая кнопка закрытия и дальнейшая визуальная полировка modal — P3 follow-up, не скрытые функциональные обещания.
 
-Штатный login synthetic admin; sidebar navigation/search присутствует; month/week/day переключаются; light/violet переключаются; create modal открывается; disabled submit при отсутствии согласия; Tab name→phone; Escape закрывает dialog и возвращает фокус на «Запись»; mobile menu открывается и Escape закрывает; desktop/tablet/mobile overflow=false; console error entries=[] при финальной проверке. Loading и empty состояния dashboard наблюдались. Errors/busy/repeated-click проверены offline component contracts, не объявляются всеми browser visual states. Реальных mutation/payment/provider calls в production не было.
+## Remaining checks
 
-## Residual QA / polish
-
-P3: дальнейшее сокращение legacy utility overrides и унификация domain service markers в следующих страницах. Вторая очередь и полный UI catalogue перечислены отдельно в MIGRATION_V2.md/UI_KIT_V2.md, не включены в этот pass. Actual zoom200%, physical installed iOS/Android PWA, screen readers и автоматизированный axe — MANUAL PENDING/NOT RUN. Нет exact-HEAD hosted CI или production deployment в рамках этой задачи.
-
-Implementation checklist: scoped foundation ✓; first-wave integrations ✓; offline tests ✓; production build ✓; same-source runtime check ✓; browser captures/comparison ✓; production unchanged ✓.
+Physical PWA/actual zoom200 остаются ручными. Browser route smoke не заменяет тест каждого изменяющего действия. Viewport не выдаётся за installed-device acceptance. Проверены реальные menu/search, drawer Escape/scroll restoration, native modal open/close и guard-пропсы; console ошибок в финальном smoke не обнаружено. Общий logout API сознательно не изменялся.
 
 final result: passed

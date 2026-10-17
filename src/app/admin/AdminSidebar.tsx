@@ -7,7 +7,7 @@ import { usePathname } from "next/navigation";
 import {
   Calendar, CalendarDays, ChevronLeft, ChevronsLeft, ChevronsRight, Clock,
   FileText, HeartPulse, Image, LayoutDashboard, Menu, MessageSquare, Package,
-  Award, BadgeRussianRuble, Gift, Link2, Search, Settings, ShoppingBag, Star, TicketPercent, Video, X,
+  Award, BadgeRussianRuble, Gift, Link2, Search, Settings, ShoppingBag, Star, TicketPercent, UserRound, Video, X,
 } from "lucide-react";
 
 const groups = [
@@ -66,6 +66,16 @@ export default function AdminSidebar() {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const sidebarRef = useRef<HTMLElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    const search = () => {
+      setCollapsed(false);
+      if (!window.matchMedia("(min-width: 1024px)").matches) setMobileOpen(true);
+      window.requestAnimationFrame(() => document.getElementById("admin-section-search")?.focus());
+    };
+    window.addEventListener("admin-navigation-search", search);
+    return () => window.removeEventListener("admin-navigation-search", search);
+  }, []);
 
   useEffect(() => {
     const desktop = window.matchMedia("(min-width: 1024px)").matches;
@@ -140,9 +150,9 @@ export default function AdminSidebar() {
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
   const mobileItems = [
-    { href: "/admin/dashboard", label: "Сегодня", icon: LayoutDashboard },
+    { href: "/admin/dashboard", label: "Главная", icon: LayoutDashboard },
     { href: "/admin/calendar", label: "Календарь", icon: Calendar },
-    { href: "/admin/bookings", label: "Записи", icon: CalendarDays },
+    { href: "/admin/bookings", label: "Клиенты", icon: CalendarDays },
     { href: "/admin/orders", label: "Заказы", icon: ShoppingBag },
   ];
 
@@ -204,6 +214,7 @@ export default function AdminSidebar() {
         </nav>
 
         <div className="admin-sidebar-footer">
+          <Link href="/admin/settings" className="healthcare-admin-profile" aria-label="Настройки администратора"><UserRound size={20} aria-hidden="true" />{!collapsed && <span><strong>Администратор</strong><small>Настройки профиля</small></span>}</Link>
           <Link href="/" onClick={() => setMobileOpen(false)} className="admin-site-link" aria-label="Вернуться на сайт" title={collapsed ? "На сайт" : undefined}>
             <ChevronLeft className="h-[18px] w-[18px]" />
             {!collapsed && <span>Вернуться на сайт</span>}
@@ -222,7 +233,7 @@ export default function AdminSidebar() {
             </Link>
           );
         })}
-        <button type="button" className="admin-mobile-bottom-link" onClick={() => { setCollapsed(false); setMobileOpen(true); }} aria-expanded={mobileOpen} aria-controls="admin-navigation"><Menu size={19} /><span>Все разделы</span></button>
+        <button type="button" className="admin-mobile-bottom-link" onClick={() => { setCollapsed(false); setMobileOpen(true); }} aria-label="Все разделы" aria-expanded={mobileOpen} aria-controls="admin-navigation"><Menu size={19} /><span>Ещё</span></button>
       </nav>
     </>
   );

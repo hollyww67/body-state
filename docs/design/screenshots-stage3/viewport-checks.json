@@ -1,0 +1,186 @@
+[
+  {
+    "route": "calendar",
+    "size": {
+      "width": 1920,
+      "height": 1080
+    },
+    "geometry": {
+      "root": 1920,
+      "scroll": 1920
+    }
+  },
+  {
+    "route": "calendar",
+    "size": {
+      "width": 768,
+      "height": 1024
+    },
+    "geometry": {
+      "root": 768,
+      "scroll": 768
+    }
+  },
+  {
+    "route": "calendar",
+    "size": {
+      "width": 390,
+      "height": 844
+    },
+    "geometry": {
+      "root": 390,
+      "scroll": 390
+    }
+  },
+  {
+    "route": "calendar",
+    "size": {
+      "width": 320,
+      "height": 740
+    },
+    "geometry": {
+      "root": 320,
+      "scroll": 320
+    }
+  },
+  {
+    "route": "dashboard",
+    "size": {
+      "width": 320,
+      "height": 740
+    },
+    "geometry": {
+      "root": 320,
+      "scroll": 320
+    }
+  },
+  {
+    "route": "dashboard",
+    "size": {
+      "width": 390,
+      "height": 844
+    },
+    "geometry": {
+      "root": 390,
+      "scroll": 390
+    }
+  },
+  {
+    "route": "dashboard",
+    "size": {
+      "width": 768,
+      "height": 1024
+    },
+    "geometry": {
+      "root": 768,
+      "scroll": 768
+    }
+  },
+  {
+    "route": "dashboard",
+    "size": {
+      "width": 1920,
+      "height": 1080
+    },
+    "geometry": {
+      "root": 1920,
+      "scroll": 1920
+    }
+  },
+  {
+    "iteration": "post-density",
+    "route": "calendar",
+    "size": {
+      "width": 1440,
+      "height": 900
+    },
+    "geometry": {
+      "root": 1440,
+      "scroll": 1440
+    }
+  },
+  {
+    "iteration": "post-density",
+    "route": "calendar",
+    "size": {
+      "width": 1920,
+      "height": 1080
+    },
+    "geometry": {
+      "root": 1920,
+      "scroll": 1920
+    }
+  },
+  {
+    "iteration": "post-density",
+    "route": "calendar",
+    "size": {
+      "width": 768,
+      "height": 1024
+    },
+    "geometry": {
+      "root": 768,
+      "scroll": 768
+    }
+  },
+  {
+    "iteration": "post-density",
+    "route": "calendar",
+    "size": {
+      "width": 320,
+      "height": 740
+    },
+    "geometry": {
+      "root": 320,
+      "scroll": 320
+    }
+  },
+  {
+    "iteration": "post-density",
+    "route": "dashboard",
+    "size": {
+      "width": 320,
+      "height": 740
+    },
+    "geometry": {
+      "root": 320,
+      "scroll": 320
+    }
+  },
+  {
+    "iteration": "post-density",
+    "route": "dashboard",
+    "size": {
+      "width": 768,
+      "height": 1024
+    },
+    "geometry": {
+      "root": 768,
+      "scroll": 768
+    }
+  },
+  {
+    "iteration": "post-density",
+    "route": "dashboard",
+    "size": {
+      "width": 1440,
+      "height": 900
+    },
+    "geometry": {
+      "root": 1440,
+      "scroll": 1440
+    }
+  },
+  {
+    "iteration": "post-density",
+    "route": "dashboard",
+    "size": {
+      "width": 1920,
+      "height": 1080
+    },
+    "geometry": {
+      "root": 1920,
+      "scroll": 1920
+    }
+  }
+]

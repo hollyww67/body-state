@@ -1,0 +1,220 @@
+[
+  {
+    "route": "bookings",
+    "geometry": {
+      "alerts": [],
+      "headings": [
+        "Записи и клиенты",
+        "Найти запись"
+      ],
+      "root": 375,
+      "scroll": 375
+    }
+  },
+  {
+    "route": "slots",
+    "geometry": {
+      "alerts": [],
+      "headings": [
+        "Время для записи",
+        "Доступное время"
+      ],
+      "root": 375,
+      "scroll": 375
+    }
+  },
+  {
+    "route": "orders",
+    "geometry": {
+      "alerts": [],
+      "headings": [
+        "Заказы и оплаты",
+        "Заказы"
+      ],
+      "root": 375,
+      "scroll": 375
+    }
+  },
+  {
+    "route": "payment-links",
+    "geometry": {
+      "alerts": [],
+      "headings": [
+        "Ссылки на оплату",
+        "Сформировать ссылку"
+      ],
+      "root": 375,
+      "scroll": 375
+    }
+  },
+  {
+    "route": "payment-cases",
+    "geometry": {
+      "alerts": [],
+      "headings": [
+        "Проверка платежей",
+        "Платежи на разбор"
+      ],
+      "root": 390,
+      "scroll": 390
+    }
+  },
+  {
+    "route": "products",
+    "geometry": {
+      "alerts": [],
+      "headings": [
+        "Товары",
+        "Товары"
+      ],
+      "root": 390,
+      "scroll": 390
+    }
+  },
+  {
+    "route": "prices",
+    "geometry": {
+      "alerts": [],
+      "headings": [
+        "Цены",
+        "Управление всеми ценами"
+      ],
+      "root": 390,
+      "scroll": 390
+    }
+  },
+  {
+    "route": "promotions",
+    "geometry": {
+      "alerts": [],
+      "headings": [
+        "Акции на сайте",
+        "Акции"
+      ],
+      "root": 375,
+      "scroll": 375
+    }
+  },
+  {
+    "route": "promo-codes",
+    "geometry": {
+      "alerts": [],
+      "headings": [
+        "Промокоды",
+        "Промокоды на процедуры",
+        "Новый промокод"
+      ],
+      "root": 375,
+      "scroll": 375
+    }
+  },
+  {
+    "route": "loyalty",
+    "geometry": {
+      "alerts": [],
+      "headings": [
+        "Бонусы за посещения",
+        "Программа лояльности",
+        "Новый уровень"
+      ],
+      "root": 375,
+      "scroll": 375
+    }
+  },
+  {
+    "route": "psychology",
+    "geometry": {
+      "alerts": [],
+      "headings": [
+        "Программы психологии"
+      ],
+      "root": 390,
+      "scroll": 390
+    }
+  },
+  {
+    "route": "pages",
+    "geometry": {
+      "alerts": [],
+      "headings": [
+        "Тексты страниц"
+      ],
+      "root": 390,
+      "scroll": 390
+    }
+  },
+  {
+    "route": "reviews",
+    "geometry": {
+      "alerts": [],
+      "headings": [
+        "Отзывы и жалобы",
+        "Отзывы и жалобы"
+      ],
+      "root": 390,
+      "scroll": 390
+    }
+  },
+  {
+    "route": "media",
+    "geometry": {
+      "alerts": [],
+      "headings": [
+        "Фото «До и после»",
+        "До / После"
+      ],
+      "root": 390,
+      "scroll": 390
+    }
+  },
+  {
+    "route": "notifications",
+    "geometry": {
+      "alerts": [],
+      "headings": [
+        "Журнал отправок",
+        "Журнал уведомлений"
+      ],
+      "root": 390,
+      "scroll": 390
+    }
+  },
+  {
+    "route": "psychology-rooms",
+    "geometry": {
+      "alerts": [],
+      "headings": [
+        "Онлайн-консультации",
+        "Встречи со специалистом",
+        "Отдельная комната на 24 часа",
+        "Встречи"
+      ],
+      "root": 375,
+      "scroll": 375
+    }
+  },
+  {
+    "route": "faq",
+    "geometry": {
+      "alerts": [],
+      "headings": [
+        "Ответы чат-бота",
+        "FAQ для чат-бота"
+      ],
+      "root": 390,
+      "scroll": 390
+    }
+  },
+  {
+    "route": "settings",
+    "geometry": {
+      "alerts": [],
+      "headings": [
+        "Настройки",
+        "Настройки"
+      ],
+      "root": 375,
+      "scroll": 375
+    }
+  }
+]
