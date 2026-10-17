@@ -153,3 +153,33 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* Review presentation deliberately has no floating card or autoplay. */
+.bs-e-review { border-top: 1px solid var(--bs-line); padding-top: 42px; }
+.bs-e-review-body blockquote { font: 500 clamp(1.9rem, 3.3vw, 3.35rem)/1.22 var(--font-review-serif), Georgia, serif; letter-spacing: -.022em; max-width: 780px; overflow-wrap: anywhere; }
+.bs-e-review-author { margin-top: 32px !important; font-size: .85rem; font-weight: 600; color: var(--bs-muted); }
+.bs-e-review-placeholder { padding: 30px 0; color: var(--bs-muted); font-size: .93rem; }
+.bs-e-review-controls { margin-top: 42px; display: flex; align-items: center; justify-content: space-between; gap: 20px; color: var(--bs-muted); font-size: .75rem; letter-spacing: .12em; }
+.bs-e-review-controls > div { display: flex; gap: 12px; }
+.bs-e-review-controls button { display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid var(--bs-line); color: var(--bs-ink); transition: background 180ms ease; }
+.bs-e-review-controls button:hover { background: #e7e7df; }
+
+/* Remove inherited frosted-glass/footer treatment on the editorial home only. */
+body:has(.bs-editorial) .site-footer-premium {
+  --foreground: #272d27;
+  --foreground-secondary: #5d655d;
+  --primary: #3d594b;
+  --border: #d8d8d0;
+  --glass-border: #d8d8d0;
+  background: #f7f5ef;
+  color: #5d655d !important;
+}
+body:has(.bs-editorial) .site-footer-premium .footer-panel {
+  background: transparent !important;
+  border-radius: 0 !important;
+  border-left: 0;
+  border-right: 0;
+  border-bottom: 0;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
