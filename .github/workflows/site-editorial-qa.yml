@@ -29,7 +29,9 @@ jobs:
       - name: Install exactly locked packages
         run: npm ci --no-audit --no-fund
       - name: Offline store visibility integration contracts
-        run: node tests/site-visibility.cjs
+        run: |
+          node tests/site-visibility.cjs
+          node tests/shop-visibility-refresh.cjs
       - name: Existing payment, PWA and modal regressions
         run: |
           node tests/payment-init.cjs

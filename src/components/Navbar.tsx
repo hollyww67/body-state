@@ -39,13 +39,19 @@ export default function Navbar() {
 
   useEffect(() => {
     let active = true;
-    const refresh = () => fetch("/api/site-visibility", { cache: "no-store" })
-      .then((r) => r.ok ? r.json() : { shopVisible: false })
-      .then((data) => { if (active) setShopVisible(data.shopVisible === true); })
-      .catch(() => { if (active) setShopVisible(false); });
+    let controller: AbortController | undefined;
+    const refresh = () => {
+      controller?.abort();
+      const requestController = new AbortController();
+      controller = requestController;
+      fetch("/api/site-visibility", { cache: "no-store", signal: requestController.signal })
+        .then((r) => r.ok ? r.json() : { shopVisible: false })
+        .then((data) => { if (active && !requestController.signal.aborted) setShopVisible(data.shopVisible === true); })
+        .catch(() => { if (active && !requestController.signal.aborted) setShopVisible(false); });
+    };
     refresh();
     window.addEventListener("focus", refresh);
-    return () => { active = false; window.removeEventListener("focus", refresh); };
+    return () => { active = false; controller?.abort(); window.removeEventListener("focus", refresh); };
   }, [pathname]);
 
   // Обновление количества товаров в корзине
