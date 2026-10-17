@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 
-type PublicReview = { id: string | number; author_name: string; text: string; rating?: number };
+type PublicReview = { id: string | number; author_name: string; text: string; rating?: number; product_id?: string | null };
 
 export default function EditorialReviews() {
   const [reviews, setReviews] = useState<PublicReview[]>([]);
@@ -17,7 +17,7 @@ export default function EditorialReviews() {
         if (!response.ok) throw new Error("Reviews unavailable");
         return response.json();
       })
-      .then((data) => { if (active && Array.isArray(data)) setReviews(data); })
+      .then((data) => { if (active && Array.isArray(data)) setReviews(data.filter((item: PublicReview) => !item.product_id)); })
       .catch(() => undefined)
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
