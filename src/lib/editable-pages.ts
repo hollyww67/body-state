@@ -17,7 +17,7 @@ export type EditablePage = {
 
 export const editablePages: EditablePage[] = [
   {
-    slug: "home", title: "Главная", route: "/", group: "Основные", description: "Первый экран, разделы, преимущества и призывы к записи",
+    slug: "home", title: "Главная", route: "/", group: "Основные", description: "Первый экран, направления, подход, этапы и запись",
     fields: [
       { key: "heroEyebrow", label: "Первый экран · надзаголовок", defaultValue: "Реабилитолог • Хотьково" },
       { key: "heroTitle", label: "Первый экран · заголовок", defaultValue: "Через тело" },
@@ -41,13 +41,6 @@ export const editablePages: EditablePage[] = [
       { key: "process3Text", label: "Шаг 3 · описание", defaultValue: "Реабилитационная работа по индивидуальной программе.", multiline: true },
       { key: "process4Title", label: "Шаг 4 · заголовок", defaultValue: "Поддержка" },
       { key: "process4Text", label: "Шаг 4 · описание", defaultValue: "Сопровождение и рекомендации между сессиями.", multiline: true },
-      { key: "benefitsTitle", label: "Преимущества · заголовок", defaultValue: "Принципы реабилитации" },
-      { key: "benefit1Title", label: "Принцип 1 · заголовок", defaultValue: "Бережный подход" },
-      { key: "benefit1Text", label: "Принцип 1 · описание", defaultValue: "Восстановление без насилия над телом, в комфортном для вас темпе.", multiline: true },
-      { key: "benefit2Title", label: "Принцип 2 · заголовок", defaultValue: "Индивидуальная программа" },
-      { key: "benefit2Text", label: "Принцип 2 · описание", defaultValue: "Методы подбираются исходя из вашего состояния и запроса.", multiline: true },
-      { key: "benefit3Title", label: "Принцип 3 · заголовок", defaultValue: "Целостный метод" },
-      { key: "benefit3Text", label: "Принцип 3 · описание", defaultValue: "Тело и психика рассматриваются как единая система.", multiline: true },
       { key: "reviewsTitle", label: "Отзывы · заголовок", defaultValue: "Что говорят клиенты" },
       { key: "ctaTitle", label: "Финальный блок · заголовок", defaultValue: "Готовы начать восстановление?" },
       { key: "ctaDescription", label: "Финальный блок · описание", defaultValue: "Первая консультация поможет определить направление реабилитации и составить индивидуальную программу.", multiline: true },
