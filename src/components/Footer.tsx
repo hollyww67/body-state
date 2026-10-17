@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import SocialLinks from "./SocialLinks";
+import ShopVisibilityLink from "./ShopVisibilityLink";
 import { ArrowUpRight, CalendarDays, Mail, MapPin, Phone } from "lucide-react";
 import { legalDetails as d } from "@/lib/legal";
 
@@ -32,7 +33,7 @@ export default function Footer() {
                 <Link href="/about-rehabilitation" className="footer-link">О реабилитации</Link>
                 <Link href="/bfm#booking" className="footer-link">Физическая реабилитация</Link>
                 <Link href="/psychology" className="footer-link">Психологическая реабилитация</Link>
-                <Link href="/shop" className="footer-link">Магазин</Link>
+                <ShopVisibilityLink />
                 <Link href="/account" className="footer-link">Личный кабинет</Link>
                 <Link href="/reviews" className="footer-link">Отзывы</Link>
                 <Link href="/promotions" className="footer-link">Акции</Link>

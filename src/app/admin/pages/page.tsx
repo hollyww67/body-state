@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowUpRight, Edit3, FileText, Search, Settings2 } from "lucide-react";
 import { AdminBadge, AdminCard, AdminFeedback, AdminInput } from "@/components/admin/ui";
+import ShopVisibilityControl from "@/components/admin/ShopVisibilityControl";
 
 type RecordRow = { slug: string; title: string; updated_at: string; is_active: boolean };
 type CatalogItem = { slug: string; title: string; route: string; group: string; description: string; fields: unknown[]; record: RecordRow | null };
@@ -48,7 +49,7 @@ export default function PagesAdmin() {
     </section>
 
     <section><div className="mb-4 flex items-center gap-2"><Settings2 className="h-5 w-5" style={{ color: "var(--bs-primary)" }} /><h2 className="text-lg font-semibold" style={{ color: "var(--bs-foreground)" }}>Контент из других разделов</h2></div>
-      <div className="grid gap-3 md:grid-cols-2">{filtered.managed.map((item) => <AdminCard key={`${item.adminRoute}-${item.title}`} className="flex flex-wrap items-center gap-4 p-4"><div className="min-w-0 flex-1"><p className="font-medium" style={{ color: "var(--bs-foreground)" }}>{item.title}</p><p className="mt-1 text-xs leading-5" style={{ color: "var(--bs-muted)" }}>{item.description}</p></div><Link href={item.adminRoute} className="bs-button bs-button--outline bs-button--sm shrink-0">Управлять <ArrowUpRight className="h-3.5 w-3.5" /></Link></AdminCard>)}</div>
+      <div className="grid gap-3 md:grid-cols-2">{filtered.managed.map((item) => <AdminCard key={`${item.adminRoute}-${item.title}`} className="flex flex-wrap items-center gap-4 p-4"><div className="min-w-0 flex-1"><p className="font-medium" style={{ color: "var(--bs-foreground)" }}>{item.title}</p><p className="mt-1 text-xs leading-5" style={{ color: "var(--bs-muted)" }}>{item.description}</p>{item.route === "/shop" && <ShopVisibilityControl />}</div><Link href={item.adminRoute} className="bs-button bs-button--outline bs-button--sm shrink-0">Управлять <ArrowUpRight className="h-3.5 w-3.5" /></Link></AdminCard>)}</div>
     </section>
   </div>;
 }

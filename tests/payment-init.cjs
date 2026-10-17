@@ -34,6 +34,7 @@ const builder = () => { const q = { select: () => q, eq: () => q, maybeSingle: a
 const mocks = {
   'next/server': { NextResponse },
   '@/lib/db': { db: { from: builder }, pool: { query: async () => ({ rows: [] }) } },
+  '@/lib/site-visibility': { isShopVisible: async () => false }, // Service payment must work with the store disabled.
   '@/lib/tbank': { TERMINAL_KEY: 'test', PASSWORD: 'test', createPaymentStatusToken: () => 'test', generateToken: () => 'test' },
   '@/lib/legal': { CONSENT_VERSION: 'test', hasPersonalDataConsent: () => true },
   '@/lib/request': { cleanText: (x) => typeof x === 'string' ? x : '', enforceRateLimit: async () => null, normalizeEmail: x => x || '', normalizePhone: x => x || '', readJsonObject: async r => r },

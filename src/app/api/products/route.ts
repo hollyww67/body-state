@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { isShopVisible } from "@/lib/site-visibility";
 
 export async function GET() {
+  if (!(await isShopVisible())) return NextResponse.json({ error: "Магазин недоступен" }, { status: 404, headers: { "Cache-Control": "no-store" } });
   const { data, error } = await db
     .from("products")
     .select("id, slug, name, description, price, stock, images, category, subcategory, sort_order, popularity")

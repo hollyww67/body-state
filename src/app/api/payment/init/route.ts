@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, pool } from "@/lib/db";
+import { isShopVisible } from "@/lib/site-visibility";
 import { createPaymentStatusToken, generateToken, TERMINAL_KEY, PASSWORD } from "@/lib/tbank";
 import { CONSENT_VERSION, hasPersonalDataConsent } from "@/lib/legal";
 import { cleanText, enforceRateLimit, normalizeEmail, normalizePhone, readJsonObject } from "@/lib/request";
@@ -63,6 +64,9 @@ function quantityOf(value: unknown) {
 
 async function resolveItemsFromDb(items: NormalizedPaymentItem[]): Promise<ResolvedItem[]> {
   if (items.length > 30) throw new Error("Слишком много позиций");
+  if (items.some((item) => Boolean(item.productId)) && !(await isShopVisible())) {
+    throw new Error("Магазин временно недоступен");
+  }
   const resolved: ResolvedItem[] = [];
 
   for (const item of items) {
