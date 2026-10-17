@@ -17,7 +17,7 @@
 ## Required fidelity surfaces
 
 - Typography: действующий Manrope и общий hierarchy; маленькие dense timeline captions не подменяют полную карточку.
-- Spacing/layout: grid/rail, светлые карточки и устойчивые интервалы; mobile density iteration ещё проверяется.
+- Spacing/layout: grid/rail, светлые карточки и устойчивые интервалы; mobile density повторно проверена по post-fix сравнению, приёмы доступны в первом экране.
 - Colors: semantic mint foundation, AA pairs offline PASS, альтернативная violet без нового бренда.
 - Assets: настоящий логотип, существующие icons, инициалы вместо вымышленных фотографий. Нет растрового UI или CSS-рисунков вместо assets.
 - Content: настоящие источники данных, без growth percentages, fake specialists, fake financial series и несуществующих операций.
