@@ -18,6 +18,10 @@ jobs:
       NEXT_TELEMETRY_DISABLED: '1'
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          # The presentation regression compares handlers to a pinned ancestor.
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 24
