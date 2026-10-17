@@ -23,10 +23,49 @@ export default function AdminSettingsPage() {
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [passwordMessage, setPasswordMessage] = useState("");
   const [passwordError, setPasswordError] = useState(false);
+  const [shopVisible, setShopVisible] = useState(false);
+  const [shopLoading, setShopLoading] = useState(true);
+  const [shopSaving, setShopSaving] = useState(false);
+  const [shopError, setShopError] = useState("");
+  const [shopMessage, setShopMessage] = useState("");
 
   useEffect(() => {
     fetch("/api/theme").then((r) => r.json()).then((data) => setTheme(data.theme || "teal")).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    fetch("/api/admin/site-visibility", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Не удалось загрузить настройку магазина");
+        return response.json();
+      })
+      .then((data) => setShopVisible(data.shopVisible === true))
+      .catch((error) => setShopError(error instanceof Error ? error.message : "Ошибка загрузки"))
+      .finally(() => setShopLoading(false));
+  }, []);
+
+  const toggleShop = async () => {
+    if (shopSaving || shopLoading) return;
+    const next = !shopVisible;
+    setShopSaving(true);
+    setShopError("");
+    setShopMessage("");
+    try {
+      const response = await fetch("/api/admin/site-visibility", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ shopVisible: next }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Ошибка сохранения");
+      setShopVisible(data.shopVisible === true);
+      setShopMessage(next ? "Страница магазина доступна посетителям." : "Магазин скрыт, покупки товаров отключены.");
+    } catch (error) {
+      setShopError(error instanceof Error ? error.message : "Не удалось обновить настройку");
+    } finally {
+      setShopSaving(false);
+    }
+  };
 
   const saveTheme = async (newTheme: string) => {
     if (themeBusy) return;
@@ -61,6 +100,34 @@ export default function AdminSettingsPage() {
 
   return <div className="mx-auto max-w-4xl space-y-6">
     <AdminPageHeader title="Настройки" description="Оформление сайта и безопасность административного доступа." />
+
+    <AdminCard>
+      <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="max-w-xl">
+          <h3 className="text-base font-semibold" style={{ color: "var(--admin-text)" }}>Показывать страницу магазина</h3>
+          <p className="mt-2 text-sm leading-6" style={{ color: "var(--admin-muted)" }}>
+            Когда выключено, магазин и корзина скрыты, а покупка товаров недоступна. Каталог и заказы сохраняются в админке. Оплата процедур работает независимо.
+          </p>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-label="Показывать страницу магазина"
+          aria-checked={shopVisible}
+          disabled={shopLoading || shopSaving}
+          onClick={toggleShop}
+          className="inline-flex shrink-0 items-center gap-3 rounded-xl border px-4 py-3 text-sm font-medium transition focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+          style={{ borderColor: "var(--admin-border)", color: "var(--admin-text)" }}
+        >
+          <span className={"relative h-6 w-11 rounded-full transition-colors " + (shopVisible ? "bg-emerald-600" : "bg-slate-400")}>
+            <span className={"absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform " + (shopVisible ? "translate-x-[22px]" : "translate-x-0.5")} />
+          </span>
+          {shopLoading ? "Загрузка…" : shopSaving ? "Сохранение…" : shopVisible ? "Включён" : "Выключен"}
+        </button>
+      </div>
+      {shopError && <div className="mt-4"><AdminFeedback tone="destructive">{shopError}</AdminFeedback></div>}
+      {shopMessage && <div className="mt-4"><AdminFeedback tone="success">{shopMessage}</AdminFeedback></div>}
+    </AdminCard>
 
     <AdminCard>
       <div className="mb-5 flex items-center gap-3"><span className="grid h-11 w-11 place-items-center rounded-xl" style={{ background: "var(--admin-accent-soft)", color: "var(--admin-accent-strong)" }}><Palette className="h-5 w-5" /></span><div><h3 className="font-semibold" style={{ color: "var(--admin-text)" }}>Тема основного сайта</h3><p className="text-xs" style={{ color: "var(--admin-muted)" }}>Изменение применяется ко всем посетителям.</p></div></div>

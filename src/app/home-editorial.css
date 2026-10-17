@@ -1,0 +1,226 @@
+/* Body State — editorial home.
+   Direction: restrained wellness / soft serif-sans contrast / deliberate whitespace.
+   No glow, orbit, glass surface, fake metrics, image placeholders, or decorative motion. */
+
+.bs-editorial {
+  --foreground: #272d27;
+  --foreground-secondary: #5d655d;
+  --primary: #3d594b;
+  --primary-muted: #e2e9e2;
+  --border: #d8d8d0;
+  --glass-border: #d8d8d0;
+  --glass-bg: #f9f7f2;
+  --bg: #f7f5ef;
+  --bs-ink: #272d27;
+  --bs-muted: #687067;
+  --bs-paper: #f7f5ef;
+  --bs-line: #d8d8d0;
+  --bs-accent: #3d594b;
+  position: relative;
+  isolation: isolate;
+  overflow: clip;
+  background: var(--bs-paper);
+  color: var(--bs-ink);
+}
+
+.bs-editorial :where(h1, h2, h3, p, blockquote) { margin: 0; }
+.bs-editorial a { text-decoration: none; }
+.bs-editorial a:focus-visible,
+.bs-editorial button:focus-visible { outline: 2px solid #426c57; outline-offset: 5px; }
+.bs-editorial .site-nav { background: var(--bs-paper) !important; border-bottom: 1px solid var(--bs-line) !important; backdrop-filter: none !important; }
+
+.bs-e-container { width: min(100% - 64px, 1280px); margin-inline: auto; }
+.bs-e-wordmark { font-family: var(--font-review-serif), Georgia, serif; font-size: 1.45rem; line-height: 1; letter-spacing: -.04em; font-weight: 600; }
+.bs-e-location, .bs-e-kicker, .bs-e-section-index, .bs-e-hero-foot, .bs-e-aside-bottom > span {
+  font-size: .68rem;
+  font-weight: 600;
+  line-height: 1.5;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+.bs-e-section-index { color: var(--bs-muted); white-space: nowrap; }
+.bs-e-hero { min-height: min(880px, 100svh); }
+.bs-e-hero-inner { padding-top: 120px; }
+.bs-e-overline, .bs-e-hero-foot { display: flex; justify-content: space-between; align-items: center; gap: 20px; }
+.bs-e-overline { padding-bottom: 26px; border-bottom: 1px solid var(--bs-line); }
+.bs-e-location { color: var(--bs-muted); }
+.bs-e-hero-grid { display: grid; grid-template-columns: minmax(0, 1.38fr) minmax(315px, .75fr); gap: 6.8%; align-items: stretch; padding-block: clamp(46px, 6vw, 94px); }
+.bs-e-hero-copy { display: flex; flex-direction: column; align-items: start; justify-content: center; min-width: 0; }
+.bs-e-kicker { color: var(--bs-accent); margin-bottom: clamp(26px, 3.3vw, 46px) !important; }
+.bs-e-title { font-size: clamp(4rem, 8.3vw, 8.5rem); line-height: .95; font-weight: 430; letter-spacing: -.075em; max-width: 850px; }
+.bs-e-title span { display: block; }
+.bs-e-title em { display: block; margin-top: .12em; font-family: var(--font-review-serif), Georgia, serif; font-weight: 500; line-height: .84; letter-spacing: -.06em; font-style: italic; color: var(--bs-accent); }
+.bs-e-lead { margin-top: clamp(30px, 4vw, 58px) !important; max-width: 550px; font-size: clamp(1rem, 1.3vw, 1.19rem); line-height: 1.85; color: #555e56; }
+.bs-e-actions { display: flex; flex-wrap: wrap; gap: 18px 34px; align-items: center; margin-top: 38px; }
+.bs-e-button { display: inline-flex; justify-content: space-between; align-items: center; gap: 24px; min-height: 56px; padding: 16px 22px; font-size: .91rem; font-weight: 600; line-height: 1.4; transition: background 180ms ease, color 180ms ease; }
+.bs-e-button-dark { color: #fff; background: #293a30; }
+.bs-e-button-dark:hover { background: #425d4b; }
+.bs-e-button-light { color: #213329; background: #f3f0e9; }
+.bs-e-button-light:hover { background: #fff; }
+.bs-e-text-link { display: inline-flex; align-items: center; gap: 10px; padding-block: 5px; border-bottom: 1px solid currentColor; font-size: .88rem; font-weight: 600; color: var(--bs-ink); transition: color 180ms ease; }
+.bs-e-text-link:hover { color: var(--bs-accent); }
+
+.bs-e-hero-aside { min-height: 530px; background: #e6e7df; border: 1px solid #d6d9d0; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; padding: clamp(24px, 3.5vw, 50px); }
+.bs-e-aside-top { display: flex; flex-direction: column; font: 500 clamp(3.5rem, 6.6vw, 7.1rem)/.8 var(--font-review-serif), Georgia, serif; letter-spacing: -.085em; color: #495d4e; }
+.bs-e-aside-top span + span { align-self: flex-end; font-style: italic; margin-top: .05em; }
+.bs-e-aside-bottom { margin-top: 60px; border-top: 1px solid #bdc7bd; padding-top: 26px; }
+.bs-e-aside-bottom p { max-width: 300px; margin-bottom: 34px !important; font: 500 clamp(1.4rem, 2.4vw, 2.3rem)/1.15 var(--font-review-serif), Georgia, serif; letter-spacing: -.012em; }
+.bs-e-aside-bottom > span { color: #637065; }
+.bs-e-hero-foot { border-top: 1px solid var(--bs-line); padding: 18px 0 24px; color: var(--bs-muted); }
+
+.bs-e-section { padding-block: clamp(80px, 10vw, 154px); }
+.bs-e-section-head { display: grid; grid-template-columns: 1fr 2fr; gap: 48px; align-items: start; margin-bottom: clamp(48px, 6.5vw, 90px); }
+.bs-e-section-head h2 { max-width: 700px; font: 500 clamp(2.75rem, 4.75vw, 5.4rem)/.98 var(--font-review-serif), Georgia, serif; letter-spacing: -.035em; text-wrap: balance; }
+.bs-e-section-description { margin-top: 24px !important; max-width: 510px; font-size: 1rem; line-height: 1.8; color: var(--bs-muted); }
+
+.bs-e-service-list { border-top: 1px solid var(--bs-line); }
+.bs-e-service-row { display: grid; grid-template-columns: .45fr 2.3fr 1.7fr 38px; gap: 26px; align-items: center; min-height: 178px; padding: 28px 4px; border-bottom: 1px solid var(--bs-line); color: var(--bs-ink); transition: padding-inline 180ms ease, background 180ms ease; }
+.bs-e-service-row:hover { padding-inline: 16px; background: #efeee7; }
+.bs-e-service-number, .bs-e-step-number { font-size: .78rem; letter-spacing: .12em; color: var(--bs-muted); font-weight: 600; }
+.bs-e-service-row h3 { font: 500 clamp(1.7rem, 3vw, 3rem)/1.05 var(--font-review-serif), Georgia, serif; letter-spacing: -.02em; }
+.bs-e-service-row p { font-size: .91rem; line-height: 1.75; color: var(--bs-muted); max-width: 340px; }
+.bs-e-service-arrow { justify-self: end; }
+
+.bs-e-manifesto { background: #e8e9e2; }
+.bs-e-manifesto-grid { display: grid; grid-template-columns: 1fr 2fr; gap: 48px; }
+.bs-e-manifesto blockquote { max-width: 940px; font: 500 clamp(2.6rem, 4.6vw, 5.1rem)/1.05 var(--font-review-serif), Georgia, serif; letter-spacing: -.03em; text-wrap: pretty; }
+.bs-e-manifesto .bs-e-manifesto-grid > div > p { max-width: 590px; margin-top: 38px !important; margin-bottom: 26px !important; font-size: .98rem; line-height: 1.8; color: #57645a; }
+
+.bs-e-steps { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 9%; padding: 0; margin: 0; list-style: none; }
+.bs-e-steps li { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 20px; padding-block: 28px 52px; border-top: 1px solid var(--bs-line); }
+.bs-e-steps h3 { font: 500 clamp(1.6rem, 2.2vw, 2.5rem)/1.1 var(--font-review-serif), Georgia, serif; }
+.bs-e-steps p { margin-top: 16px !important; max-width: 380px; font-size: .94rem; line-height: 1.8; color: var(--bs-muted); }
+
+.bs-e-reviews { border-top: 1px solid var(--bs-line); }
+.bs-e-reviews-content { max-width: 850px; margin-left: auto; }
+.bs-e-reviews-foot { display: flex; justify-content: end; margin-top: 28px; }
+
+.bs-e-appointment { padding-block: clamp(78px, 9vw, 138px); background: #2b3a31; color: #f5f3ec; }
+.bs-e-appointment-inner { display: grid; grid-template-columns: 1fr 2fr; gap: 48px; position: relative; }
+.bs-e-appointment .bs-e-section-index { color: #bdc9bd; }
+.bs-e-appointment h2 { max-width: 920px; font: 500 clamp(3.5rem, 7vw, 8rem)/.94 var(--font-review-serif), Georgia, serif; letter-spacing: -.045em; text-wrap: balance; }
+.bs-e-appointment-inner > div > p { max-width: 530px; margin-top: 24px !important; margin-bottom: 34px !important; color: #d2d9cf; font-size: 1rem; line-height: 1.8; }
+.bs-e-appointment-signature { grid-column: 2; margin-top: 70px; border-top: 1px solid #758678; padding-top: 22px; font: 500 1.2rem/1 var(--font-review-serif), Georgia, serif; letter-spacing: .08em; color: #bdc9bd; }
+
+@media (max-width: 1023px) {
+  .bs-e-container { width: min(100% - 48px, 1280px); }
+  .bs-e-hero-grid { grid-template-columns: minmax(0, 1fr) minmax(235px, .68fr); gap: 4%; }
+  .bs-e-hero-aside { min-height: 460px; }
+  .bs-e-title { font-size: clamp(3.4rem, 8vw, 6.6rem); }
+  .bs-e-service-row { grid-template-columns: 40px 1.4fr 1.3fr 30px; gap: 18px; }
+}
+
+@media (max-width: 767px) {
+  .bs-e-container { width: min(100% - 36px, 1280px); }
+  .bs-e-hero { min-height: 0; }
+  .bs-e-hero-inner { padding-top: 94px; }
+  .bs-e-location { text-align: right; font-size: .59rem; max-width: 135px; }
+  .bs-e-hero-grid { display: flex; flex-direction: column; gap: 54px; padding-top: 66px; padding-bottom: 54px; }
+  .bs-e-kicker { margin-bottom: 26px !important; }
+  .bs-e-title { font-size: clamp(3.25rem, 12vw, 5.75rem); }
+  .bs-e-lead { margin-top: 34px !important; }
+  .bs-e-actions { margin-top: 30px; align-items: start; flex-direction: column; }
+  .bs-e-hero-aside { min-height: 330px; padding: 28px; }
+  .bs-e-aside-top { font-size: clamp(3.8rem, 12vw, 6rem); }
+  .bs-e-aside-bottom { margin-top: 30px; }
+  .bs-e-aside-bottom p { max-width: 330px; }
+  .bs-e-hero-foot { align-items: start; gap: 20px; font-size: .59rem; }
+  .bs-e-section-head, .bs-e-manifesto-grid, .bs-e-appointment-inner { grid-template-columns: 1fr; gap: 30px; }
+  .bs-e-section { padding-block: 84px; }
+  .bs-e-section-head { margin-bottom: 46px; }
+  .bs-e-service-row { grid-template-columns: 30px 1fr 24px; min-height: 0; align-items: start; padding-block: 26px 32px; }
+  .bs-e-service-row h3 { font-size: 2rem; }
+  .bs-e-service-row p { grid-column: 2; grid-row: 2; }
+  .bs-e-service-arrow { grid-column: 3; grid-row: 1; }
+  .bs-e-steps { grid-template-columns: 1fr; }
+  .bs-e-steps li { padding-bottom: 38px; }
+  .bs-e-reviews-content { margin: 0; }
+  .bs-e-appointment h2 { font-size: clamp(3.3rem, 11vw, 5.8rem); }
+  .bs-e-appointment-signature { grid-column: 1; margin-top: 48px; }
+}
+
+@media (max-width: 390px) {
+  .bs-e-title { font-size: 3.25rem; letter-spacing: -.07em; }
+  .bs-e-button { width: 100%; }
+  .bs-e-hero-foot { display: none; }
+  .bs-e-service-row h3 { font-size: 1.7rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bs-editorial *, .bs-editorial *::before, .bs-editorial *::after {
+    animation-duration: .01ms !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Review presentation deliberately has no floating card or autoplay. */
+.bs-e-review { border-top: 1px solid var(--bs-line); padding-top: 42px; }
+.bs-e-review-body blockquote { font: 500 clamp(1.9rem, 3.3vw, 3.35rem)/1.22 var(--font-review-serif), Georgia, serif; letter-spacing: -.022em; max-width: 780px; overflow-wrap: anywhere; }
+.bs-e-review-author { margin-top: 32px !important; font-size: .85rem; font-weight: 600; color: var(--bs-muted); }
+.bs-e-review-placeholder { padding: 30px 0; color: var(--bs-muted); font-size: .93rem; }
+.bs-e-review-controls { margin-top: 42px; display: flex; align-items: center; justify-content: space-between; gap: 20px; color: var(--bs-muted); font-size: .75rem; letter-spacing: .12em; }
+.bs-e-review-controls > div { display: flex; gap: 12px; }
+.bs-e-review-controls button { display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid var(--bs-line); color: var(--bs-ink); transition: background 180ms ease; }
+.bs-e-review-controls button:hover { background: #e7e7df; }
+
+/* Remove inherited frosted-glass/footer treatment on the editorial home only. */
+body:has(.bs-editorial) .site-footer-premium {
+  --foreground: #272d27;
+  --foreground-secondary: #5d655d;
+  --primary: #3d594b;
+  --border: #d8d8d0;
+  --glass-border: #d8d8d0;
+  background: #f7f5ef;
+  color: #5d655d !important;
+}
+body:has(.bs-editorial) .site-footer-premium .footer-panel {
+  background: transparent !important;
+  border-radius: 0 !important;
+  border-left: 0;
+  border-right: 0;
+  border-bottom: 0;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
+
+/* The existing violet theme remains a fully legible dark editorial experience. */
+[data-theme="violet"] .bs-editorial {
+  --foreground: #f3efe9;
+  --foreground-secondary: #bbb5be;
+  --primary: #c9b8e2;
+  --primary-muted: #383143;
+  --border: #48434d;
+  --glass-border: #48434d;
+  --glass-bg: #2d2833;
+  --bg: #18171d;
+  --bs-ink: #f3efe9;
+  --bs-muted: #bbb5be;
+  --bs-paper: #18171d;
+  --bs-line: #48434d;
+  --bs-accent: #c9b8e2;
+}
+[data-theme="violet"] .bs-e-lead { color: #c2bcc5; }
+[data-theme="violet"] .bs-e-button-dark { color: #201a26; background: #cbb9e2; }
+[data-theme="violet"] .bs-e-button-dark:hover { background: #e0d0f0; }
+[data-theme="violet"] .bs-e-hero-aside { background: #292630; border-color: #4b4652; }
+[data-theme="violet"] .bs-e-aside-top { color: #d8c9e5; }
+[data-theme="violet"] .bs-e-aside-bottom { border-color: #696271; }
+[data-theme="violet"] .bs-e-aside-bottom > span { color: #c1bac8; }
+[data-theme="violet"] .bs-e-service-row:hover { background: #25222b; }
+[data-theme="violet"] .bs-e-manifesto { background: #29252f; }
+[data-theme="violet"] .bs-e-manifesto .bs-e-manifesto-grid > div > p { color: #c2bbc9; }
+[data-theme="violet"] .bs-e-appointment { background: #352f3f; }
+[data-theme="violet"] .bs-e-appointment .bs-e-section-index,
+[data-theme="violet"] .bs-e-appointment-signature { color: #cfc4dc; }
+[data-theme="violet"] .bs-e-appointment-inner > div > p { color: #dad3df; }
+[data-theme="violet"] .bs-e-review-controls button:hover { background: #2c2833; }
+[data-theme="violet"] body:has(.bs-editorial) .site-footer-premium {
+  --foreground: #f3efe9;
+  --foreground-secondary: #bbb5be;
+  --primary: #c9b8e2;
+  --border: #48434d;
+  --glass-border: #48434d;
+  background: #18171d;
+  color: #bbb5be !important;
+}

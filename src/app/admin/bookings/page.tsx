@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState, useCallback,useRef } from "react";
 import { formatMoscow as format, isMoscowToday as isToday, isMoscowTomorrow as isTomorrow, moscowInputToISO } from "@/lib/moscow-time";
 import { ru } from "date-fns/locale";
 import {
-  Check, X, RefreshCw, Video, Search, Phone, CalendarDays, Clock3,
+  Check, X, RefreshCw, Video, Search, Phone, CalendarDays, Clock3, ArrowLeft,
   CheckCircle2, AlertCircle, XCircle, Loader2, Plus, Calendar, Clock, Mail, MessageSquareText, UserRound, Copy,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -41,6 +41,8 @@ export default function AdminBookingsPage() {
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Booking | null>(null);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [detailTab, setDetailTab] = useState<'info' | 'history' | 'payments' | 'notes'>('info');
+  useEffect(() => { setDetailTab('info'); }, [selectedBooking?.id]);
   const router = useRouter();
   const openedLink=useRef(false);
   const loadedOnce=useRef(false),loadSequence=useRef(0),loadAbort=useRef<AbortController|null>(null);
@@ -244,11 +246,11 @@ export default function AdminBookingsPage() {
         <div className="mb-4 flex flex-wrap items-center gap-3 text-sm"><label className="flex min-h-11 items-center gap-2"><AdminCheckbox checked={includeArchived} onChange={e=>{setIncludeArchived(e.target.checked);setPageOffset(0);}}/>Включить архив</label><span>Всего по фильтру: {counts.total} · на странице: {bookings.length}</span><AdminButton variant="outline" disabled={pageOffset===0} onClick={()=>setPageOffset(Math.max(0,pageOffset-100))} className="min-h-11">Предыдущие записи</AdminButton><AdminButton variant="outline" disabled={nextOffset===null} onClick={()=>nextOffset!==null&&setPageOffset(nextOffset)} className="min-h-11">Следующие записи</AdminButton></div>
         {/* Add modal */}
         {showAddForm && (
-          <AdminModal title="Новая запись" onCancel={() => setShowAddForm(false)}>
+          <AdminModal title="Новая запись" presentation="panel" dismissDisabled={adding} onCancel={() => setShowAddForm(false)}>
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="w-full max-w-md bg-[var(--bs-surface)] rounded-[var(--bs-radius-overlay)] shadow-[var(--bs-shadow-sm)] overflow-hidden">
               <div className="flex items-center justify-between p-6 border-b border-[var(--bs-border)]">
                 <div><h3 className="text-lg font-semibold text-[var(--bs-foreground)]">Новая запись</h3><p className="text-sm text-[var(--bs-muted)] mt-1">Заполните данные клиента</p></div>
-                <AdminButton variant="ghost" size="icon" type="button" aria-label="Закрыть форму новой записи" onClick={() => setShowAddForm(false)} className="flex items-center justify-center"><X className="w-5 h-5 text-[var(--bs-muted)]" /></AdminButton>
+                <AdminButton variant="ghost" size="icon" type="button" disabled={adding} aria-label="Закрыть форму новой записи" onClick={() => setShowAddForm(false)} className="flex items-center justify-center"><X className="w-5 h-5 text-[var(--bs-muted)]" /></AdminButton>
               </div>
               <form onSubmit={handleAdd} className="p-6 space-y-4">
                 <SchedulingClientPicker onSelect={c=>{setNewAccountId(c?.id??null);setNewIdentity(false);if(c){setNewName(c.display_name??'');setNewPhone(formatRussianPhoneInput(c.phone??''));}}}/>
@@ -256,7 +258,7 @@ export default function AdminBookingsPage() {
                 <div className="space-y-3">
                   <AdminField id="booking-create-name" label="Имя клиента"><AdminInput id="booking-create-name" required placeholder="Анна Петрова" value={newName} onChange={(e) => setNewName(e.target.value)} className="w-full text-sm" /></AdminField>
                   <AdminField id="booking-create-phone" label="Телефон"><AdminInput id="booking-create-phone" required type="tel" placeholder="+7 (999) 123-45-67" value={newPhone} onChange={(e) => setNewPhone(formatRussianPhoneInput(e.target.value))} className="w-full text-sm" /></AdminField>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 gap-3">
                     <AdminField id="booking-create-service" label="Услуга"><AdminSelect id="booking-create-service" value={newService} onChange={(e) => setNewService(e.target.value as ServiceType)} className="w-full text-sm">{SERVICE_TYPES.map((s) => (<option key={s.value} value={s.value}>{s.label}</option>))}</AdminSelect></AdminField>
                     <AdminField id="booking-create-date" label="Дата"><AdminInput id="booking-create-date" required type="date" value={newDate} onChange={(e) => setNewDate(e.target.value)} className="w-full text-sm" /></AdminField>
                     <AdminField id="booking-create-time" label="Время"><AdminInput id="booking-create-time" required type="time" value={newTime} onChange={(e) => setNewTime(e.target.value)} className="w-full text-sm" /></AdminField>
@@ -272,17 +274,30 @@ export default function AdminBookingsPage() {
 
         {/* Client details modal */}
         {selectedBooking && (
-          <AdminModal title="Карточка клиента" onCancel={() => setSelectedBooking(null)}>
+          <AdminModal title="Запись" presentation="booking" dismissDisabled={!!updatingId} onCancel={() => setSelectedBooking(null)}>
             <motion.section aria-labelledby="booking-detail-title" initial={{ opacity: 0, y: 18, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} className="admin-booking-modal max-h-[92dvh] w-full max-w-2xl overflow-y-auto rounded-[var(--bs-radius-overlay)] bg-[var(--bs-surface)] shadow-[var(--bs-shadow-sm)] rounded-[var(--bs-radius-overlay)]">
               <header className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-[var(--bs-border)] bg-[var(--bs-surface)] p-5 backdrop-blur-xl sm:p-6">
-                <div><p className="mb-1 text-xs font-semibold uppercase tracking-[.14em] text-[var(--bs-primary)]">Карточка клиента</p><h2 id="booking-detail-title" className="text-xl font-bold text-[var(--bs-foreground)] sm:text-2xl">{selectedBooking.client_name}</h2><p className="mt-1 text-xs text-[var(--bs-muted)]">Заявка {selectedBooking.id.slice(0, 8)} · {format(selectedBooking.created_at, "dd.MM.yyyy, HH:mm")}</p></div>
-                <AdminButton variant="ghost" size="icon" type="button" onClick={() => setSelectedBooking(null)} className="grid flex-none place-items-center" aria-label="Закрыть карточку"><X className="h-5 w-5" /></AdminButton>
+                <AdminButton variant="outline" size="icon" disabled={!!updatingId} onClick={() => setSelectedBooking(null)} aria-label="Назад к записям"><ArrowLeft className="h-5 w-5" /></AdminButton>
+                <h2 id="booking-detail-title" className="text-xl font-bold text-[var(--bs-foreground)]">Запись</h2>
+                <span className="text-xs text-[var(--bs-muted)]">ID {selectedBooking.id.slice(0, 8)}</span>
               </header>
-              <div className="grid gap-5 p-5 sm:grid-cols-2 sm:p-6">
-                <BookingHistory key={selectedBooking.id} id={selectedBooking.id} revision={`${selectedBooking.slot_time}:${selectedBooking.status}:${historyRevision}`}/>
-                <div className="rounded-[var(--bs-radius-card)] bg-[var(--bs-surface-muted)] p-4"><p className="mb-3 text-xs font-semibold uppercase tracking-wider text-[var(--bs-muted)]">Контакты</p><div className="space-y-3 text-sm"><a href={`tel:${selectedBooking.client_phone}`} className="flex items-center gap-2 font-medium text-[var(--bs-foreground)] hover:text-[var(--bs-primary)]"><Phone className="h-4 w-4" />{selectedBooking.client_phone}</a>{selectedBooking.client_email && <a href={`mailto:${selectedBooking.client_email}`} className="flex items-center gap-2 break-all text-[var(--bs-foreground)] hover:text-[var(--bs-primary)]"><Mail className="h-4 w-4 flex-none" />{selectedBooking.client_email}</a>}{selectedBooking.client_tg && <p className="flex items-center gap-2 text-[var(--bs-foreground)]"><MessageSquareText className="h-4 w-4" />{selectedBooking.client_tg}</p>}</div></div>
-                <div className="rounded-[var(--bs-radius-card)] bg-[var(--bs-surface-muted)] p-4"><p className="mb-3 text-xs font-semibold uppercase tracking-wider text-[var(--bs-muted)]">Услуга и статус</p><div className="space-y-2 text-sm"><p className="font-semibold text-[var(--bs-foreground)]">{TYPE_LABELS[selectedBooking.service_type] || selectedBooking.service_type}</p><p className="text-[var(--bs-muted)]">{STATUS_CONFIG[selectedBooking.status]?.label || selectedBooking.status}</p><p className="text-[var(--bs-muted)]">{selectedBooking.slot_time ? format(selectedBooking.slot_time, "dd.MM.yyyy, HH:mm") : "Время ещё не выбрано"}</p>{selectedBooking.booking_type && <p className="text-[var(--bs-muted)]">Формат: {selectedBooking.booking_type === "online" ? "онлайн" : "очно"}</p>}</div></div>
-                <div className="rounded-[var(--bs-radius-card)] bg-[var(--bs-surface-muted)] p-4 sm:col-span-2"><p className="mb-3 text-xs font-semibold uppercase tracking-wider text-[var(--bs-muted)]">Запрос клиента</p><p className="whitespace-pre-wrap text-sm leading-6 text-[var(--bs-foreground)]">{selectedBooking.notes || "Комментарий не оставлен."}</p></div>
+              <div className="healthcare-booking-scroll">
+                <div className="healthcare-booking-summary">
+                  <AdminBadge tone={selectedBooking.status === 'confirmed' ? 'success' : selectedBooking.status === 'cancelled' ? 'destructive' : 'neutral'}>{STATUS_CONFIG[selectedBooking.status]?.label || selectedBooking.status}</AdminBadge>
+                  <div className="healthcare-detail-row"><CalendarDays size={20} /><div>{selectedBooking.slot_time ? format(selectedBooking.slot_time, 'd MMMM yyyy, EEEE', {locale: ru}) : 'Время ещё не выбрано'}<small>{selectedBooking.slot_time ? `${format(selectedBooking.slot_time, 'HH:mm')} МСК` : 'Выберите свободное время при переносе'}{selectedBooking.duration_minutes ? ` · ${selectedBooking.duration_minutes} мин` : ''}</small></div></div>
+                  <div className="healthcare-detail-row"><Calendar size={20} /><strong>{TYPE_LABELS[selectedBooking.service_type] || selectedBooking.service_type}</strong></div>
+                  <div className="healthcare-client-contact"><span className="healthcare-client-initials" aria-hidden="true">{getInitials(selectedBooking.client_name)}</span><div><strong>{selectedBooking.client_name}</strong><a href={`tel:${selectedBooking.client_phone}`}><Phone size={14} />{selectedBooking.client_phone}</a>{selectedBooking.client_email && <a href={`mailto:${selectedBooking.client_email}`}><Mail size={14} />{selectedBooking.client_email}</a>}{selectedBooking.client_tg && <p><MessageSquareText size={14} />{selectedBooking.client_tg}</p>}</div></div>
+                </div>
+                <div className="healthcare-detail-tabs" role="tablist" aria-label="Разделы записи">
+                  {([{id:'info',label:'Информация'},{id:'history',label:'История'},{id:'payments',label:'Платежи'},{id:'notes',label:'Заметки'}] as const).map((tab, index, tabs) => <button key={tab.id} type="button" id={`booking-tab-${tab.id}`} role="tab" aria-selected={detailTab === tab.id} aria-controls={`booking-panel-${tab.id}`} tabIndex={detailTab === tab.id ? 0 : -1} onClick={() => setDetailTab(tab.id)} onKeyDown={event => { const step = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0; if (!step && event.key !== 'Home' && event.key !== 'End') return; event.preventDefault(); const next = event.key === 'Home' ? tabs[0] : event.key === 'End' ? tabs[tabs.length - 1] : tabs[(index + step + tabs.length) % tabs.length]; setDetailTab(next.id); document.getElementById(`booking-tab-${next.id}`)?.focus(); }}>{tab.label}</button>)}
+                </div>
+              <div role="tabpanel" id={`booking-panel-${detailTab}`} aria-labelledby={`booking-tab-${detailTab}`} tabIndex={0} className="healthcare-booking-tab-panel">
+                {detailTab === 'history' && <BookingHistory key={selectedBooking.id} id={selectedBooking.id} revision={`${selectedBooking.slot_time}:${selectedBooking.status}:${historyRevision}`}/>}
+                {detailTab === 'payments' && <AdminCard><h3>Оплата записи</h3><p className="mt-3">{selectedBooking.payment_status === 'paid' ? 'Оплачено' : selectedBooking.payment_status === 'due' ? 'Оплата на приёме' : selectedBooking.payment_status === 'pending' ? 'Ожидает оплаты' : 'Сведения об оплате не указаны'}</p><p className="mt-3 text-sm text-[var(--bs-muted)]">В карточке доступен статус оплаты. Сумма, банковские операции и чек в этих данных отсутствуют.</p></AdminCard>}
+                {detailTab === 'notes' && <AdminCard><h3>Запрос клиента</h3><p className="mt-3 whitespace-pre-wrap text-sm leading-6">{selectedBooking.notes || 'Комментарий не оставлен.'}</p><p className="mt-3 text-xs text-[var(--bs-muted)]">Отображается исходный комментарий к записи. Редактирование заметок пока не поддерживается.</p></AdminCard>}
+                {detailTab === 'info' && <div className="healthcare-booking-info">
+                <dl className="healthcare-detail-fields"><div><dt>Формат</dt><dd>{selectedBooking.booking_type ? selectedBooking.booking_type === 'online' ? 'Онлайн' : 'Очно' : 'Не указан'}</dd></div><div><dt>Создана</dt><dd>{format(selectedBooking.created_at, 'dd.MM.yyyy, HH:mm')} МСК</dd></div><div><dt>Посещение</dt><dd>{selectedBooking.attendance === 'present' ? 'Состоялось' : selectedBooking.attendance === 'absent' ? 'Неявка' : 'Ещё не отмечено'}</dd></div></dl>
+                <details className="healthcare-account-details"><summary>Личный кабинет и проверка личности</summary>
                 <div className="rounded-[var(--bs-radius-card)] border border-[var(--bs-border)] p-4"><p className="mb-2 flex items-center gap-2 text-sm font-semibold text-[var(--bs-foreground)]"><UserRound className="h-4 w-4" />Личный кабинет</p><p className="text-xs leading-5 text-[var(--bs-muted)]">{selectedBooking.account_user_id ? "Заявка связана с аккаунтом клиента" : "Заявка отправлена без авторизации"}</p>
                   {!selectedBooking.account_user_id && <div className="mt-3 space-y-3">
                     <label className="block text-xs text-[var(--bs-foreground)]">Email аккаунта<AdminInput type="email" value={linkEmail} onChange={e => setLinkEmail(e.target.value)} className="mt-1 w-full text-sm" /></label>
@@ -290,16 +305,18 @@ export default function AdminBookingsPage() {
                     <label className="flex items-start gap-2 text-xs text-[var(--bs-muted)]"><AdminCheckbox checked={identityConfirmed} onChange={e => setIdentityConfirmed(e.target.checked)} />Личность проверена, клиент подтвердил принадлежность аккаунта</label>
                     <AdminButton variant="primary" type="button" disabled={!identityConfirmed || !linkEmail || linkReason.trim().length < 5 || !!updatingId} onClick={() => bookingAction('link_account')} className="min-h-11 w-full text-sm font-semibold">Привязать запись</AdminButton>
                   </div>}
-                </div>
+                </div></details>
                 <div className="rounded-[var(--bs-radius-card)] border border-[var(--bs-border)] p-4"><p className="mb-2 text-sm font-semibold text-[var(--bs-foreground)]">Согласие на обработку</p><p className="text-xs leading-5 text-[var(--bs-muted)]">{selectedBooking.consent_at ? `Зафиксировано ${format(selectedBooking.consent_at, "dd.MM.yyyy, HH:mm")}${selectedBooking.consent_version ? ` · ${selectedBooking.consent_version}` : ""}` : "Сведения о согласии отсутствуют"}</p></div>
                 {selectedBooking.room_id && <AdminButton variant="outline" type="button" onClick={() => { navigator.clipboard.writeText(selectedBooking.room_id!); toast.success("ID комнаты скопирован"); }} className="flex items-center justify-center gap-2 text-sm font-medium sm:col-span-2"><Copy className="h-4 w-4" />Скопировать ID комнаты</AdminButton>}
                 {["bfm", "brt", "psychology"].includes(selectedBooking.service_type) && !["cancelled", "completed"].includes(selectedBooking.status) && (
-                  <div className="rounded-[var(--bs-radius-card)] border border-[var(--bs-border)] p-4 sm:col-span-2">
+                  <div id="booking-reschedule" className="rounded-[var(--bs-radius-card)] border border-[var(--bs-border)] p-4 sm:col-span-2">
                     {!rescheduling ? <AdminButton variant="ghost" type="button" onClick={openReschedule} className="flex w-full items-center justify-center gap-2 text-sm font-semibold"><Calendar className="h-4 w-4" />Перенести запись</AdminButton> : <div className="space-y-3"><p className="text-xs">Старое время: {selectedBooking.slot_time?format(selectedBooking.slot_time,'dd.MM.yyyy HH:mm'):'—'} МСК · {selectedBooking.duration_minutes} мин</p><label className="block text-xs font-semibold text-[var(--bs-muted)]">Новое свободное время<AdminSelect value={rescheduleSlotId} onChange={(event) => setRescheduleSlotId(event.target.value)} className="mt-1 w-full text-sm"><option value="">Выберите дату и время</option>{rescheduleSlots.map((slot) => <option key={slot.id} value={slot.id}>{format(slot.slot_time, "dd.MM.yyyy, HH:mm")}</option>)}</AdminSelect></label><p className="text-xs text-[var(--bs-muted)]">Длительность и условия оплаты сохраняются. Старые напоминания отменяются, новые формируются для выбранного времени. Сообщение, уже отправляемое провайдером, не всегда можно отозвать.</p><label className="block text-xs">Причина переноса<AdminInput value={rescheduleReason} maxLength={500} onChange={e=>setRescheduleReason(e.target.value)} className="mt-1 min-h-11 w-full"/></label><div className="flex gap-2"><AdminButton variant="outline" type="button" onClick={() => setRescheduling(false)} className="flex-1 text-sm">Назад</AdminButton><AdminButton variant="primary" type="button" disabled={!rescheduleSlotId || updatingId === selectedBooking.id} onClick={submitReschedule} className="flex-1 text-sm font-semibold">Сохранить</AdminButton></div></div>}
                   </div>
                 )}
-              </div>
+                </div>}
+              </div></div>
               <footer className="sticky bottom-0 flex flex-wrap gap-2 border-t border-[var(--bs-border)] bg-[var(--bs-surface)] p-5 backdrop-blur-xl sm:p-6">
+                {["bfm", "brt", "psychology"].includes(selectedBooking.service_type) && !['cancelled','completed'].includes(selectedBooking.status) && <AdminButton variant="primary" disabled={!!updatingId} onClick={() => { setDetailTab('info'); void openReschedule(); requestAnimationFrame(() => document.getElementById('booking-reschedule')?.scrollIntoView({block:'center',behavior:'smooth'})); }} className="healthcare-edit-booking">Изменить запись</AdminButton>}
                 {selectedBooking.attendance === 'absent' && <p className="text-sm text-[var(--bs-destructive)]">Клиент не пришёл — посещение не засчитано.</p>}
                 {!['cancelled','completed'].includes(selectedBooking.status) && <AdminButton variant="destructive" type="button" disabled={!!updatingId} onClick={() => setActionConfirm({id:selectedBooking.id,status:'cancelled',name:selectedBooking.client_name})} className="w-full text-sm font-semibold">Отменить запись</AdminButton>}
                 {selectedBooking.status === 'confirmed' && <>

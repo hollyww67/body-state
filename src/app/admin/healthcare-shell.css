@@ -1,0 +1,115 @@
+/* Stage 3 composition. Shared primitives and themes remain in design-system.css. */
+/* Page-like details and creation panels share the native modal's focus/scroll lifecycle. */
+.admin-confirm-dialog.admin-presentation-panel { align-items: flex-end; padding: 0; }
+.admin-confirm-dialog.admin-presentation-panel > :is(section,div) { width: min(520px, 100%); height: 100%; max-width: none; border-radius: 16px 0 0 16px; }
+.admin-confirm-dialog.admin-presentation-booking > .admin-booking-modal { display: flex; flex-direction: column; overflow: hidden !important; width: min(620px, 100%); height: min(850px, 100%); }
+.admin-presentation-booking .admin-booking-modal > header { position: static; align-items: center; flex-shrink: 0; padding: 14px 20px; }
+.admin-presentation-booking .admin-booking-modal > header > span { margin-left: auto; }
+.healthcare-booking-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.healthcare-booking-summary { display: grid; gap: 12px; padding: 18px 20px 8px; }
+.healthcare-booking-summary > .bs-badge { justify-self: start; }
+.healthcare-detail-row { display: flex; align-items: center; gap: 14px; padding: 14px; border: 1px solid var(--bs-border); border-radius: var(--bs-radius-card); font-size: 14px; }
+.healthcare-detail-row > svg { color: var(--bs-muted); flex-shrink: 0; }
+.healthcare-detail-row small { display: block; margin-top: 4px; color: var(--bs-muted); }
+.healthcare-client-contact { display: flex; gap: 14px; padding: 16px 12px; align-items: center; border: 1px solid var(--bs-border); border-radius: var(--bs-radius-card); }
+.healthcare-client-contact > div { min-width: 0; }
+.healthcare-client-contact strong { display: block; font-size: 14px; }
+.healthcare-client-contact :is(a,p) { display: flex; gap: 6px; align-items: center; overflow-wrap: anywhere; font-size: 12px; color: var(--bs-muted); min-height: 32px; }
+.healthcare-client-initials { display: grid; place-items: center; width: 48px; height: 48px; flex-shrink: 0; border-radius: 50%; background: var(--bs-primary-soft); color: var(--bs-primary); font-weight: 600; }
+.healthcare-detail-tabs { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); margin: 4px 20px 0; border-bottom: 1px solid var(--bs-border); }
+.healthcare-detail-tabs button { min-width: 0; min-height: 48px; border-bottom: 2px solid transparent; font-size: 12px; color: var(--bs-muted); }
+.healthcare-detail-tabs [aria-selected="true"] { color: var(--bs-primary-hover); border-bottom-color: var(--bs-primary); font-weight: 600; }
+.healthcare-booking-tab-panel { padding: 12px 20px 20px; }
+.healthcare-booking-info { display: grid; gap: 14px; }
+.healthcare-detail-fields > div { display: grid; grid-template-columns: 100px minmax(0,1fr); gap: 12px; padding: 12px 0; font-size: 13px; }
+.healthcare-detail-fields dt { color: var(--bs-muted); }
+.healthcare-detail-fields dd { overflow-wrap: anywhere; }
+.healthcare-account-details summary { min-height: 44px; padding: 12px 0; cursor: pointer; font-size: 13px; color: var(--bs-primary-hover); }
+.admin-presentation-booking .admin-booking-modal > footer { position: static; flex-shrink: 0; display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); padding: 12px 20px max(12px,env(safe-area-inset-bottom)); gap: 8px; }
+.admin-presentation-booking .admin-booking-modal > footer .bs-button { width: 100%; min-width: 0; padding: 8px; font-size: 12px; line-height: 16px; }
+.admin-presentation-booking .healthcare-edit-booking { grid-column: 1 / -1; }
+@media (max-width: 640px) {
+  .admin-confirm-dialog.admin-presentation-booking, .admin-confirm-dialog.admin-presentation-panel { padding: 0; gap: 0 !important; }
+  .admin-confirm-dialog.admin-presentation-booking > .admin-booking-modal, .admin-confirm-dialog.admin-presentation-panel > :is(section,div) { width: 100%; height: 100%; max-width: none; border: 0; border-radius: 0; }
+  .admin-presentation-booking .admin-booking-modal > header { padding: max(8px,env(safe-area-inset-top)) 14px 8px; }
+  .healthcare-booking-summary { padding: 14px 16px 8px; gap: 10px; }
+  .healthcare-detail-tabs { margin-inline: 16px; }
+  .healthcare-booking-tab-panel { padding: 8px 16px 16px; }
+}
+.admin-sidebar { width: 232px; }
+.admin-sidebar-brand { min-height: 76px; padding: 12px; gap: 8px; }
+.admin-brand-copy strong { font-size: 14px; letter-spacing: .13em; white-space: nowrap; }
+.admin-brand-copy span { font-size: 10px; }
+.admin-nav { padding: 12px 10px; }
+.admin-nav-link { padding: 10px; font-size: 13px; gap: 12px; }
+.admin-nav-heading { font-weight: 600; }
+.admin-sidebar-footer { padding: 12px; }
+.healthcare-admin-profile { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px; border-radius: var(--bs-radius-control); }
+.healthcare-admin-profile > svg { flex-shrink: 0; color: var(--bs-primary); }
+.healthcare-admin-profile strong, .healthcare-admin-profile small { display: block; font-size: 12px; }
+.healthcare-admin-profile small { margin-top: 4px; color: var(--bs-muted); font-size: 11px; }
+.healthcare-admin-profile:hover { background: var(--bs-surface-muted); }
+.admin-topbar { min-height: 76px; padding: 12px 24px; gap: 16px; border-bottom: 1px solid var(--bs-border); background: var(--bs-surface); }
+.admin-topbar-actions { gap: 8px; flex-shrink: 0; }
+.healthcare-section-search { display: flex; align-items: center; gap: 12px; min-height: 44px; width: min(100%, 480px); padding: 10px 14px; border: 1px solid var(--bs-border); border-radius: var(--bs-radius-control); background: var(--bs-background); color: var(--bs-muted); text-align: left; font: var(--bs-small); }
+.healthcare-section-search svg { flex-shrink: 0; }
+.healthcare-today { display: flex; align-items: center; gap: 10px; padding-inline: 12px; border-inline: 1px solid var(--bs-border); }
+.healthcare-today span { font: var(--bs-caption); color: var(--bs-muted); }
+.healthcare-today time { display: block; margin-top: 2px; color: var(--bs-foreground); font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.admin-theme-toggle { min-height: 44px; padding: 10px; }
+.healthcare-user-menu { position: relative; }
+.healthcare-user-menu > summary { display: grid; place-items: center; list-style: none; width: 44px; height: 44px; border: 1px solid var(--bs-border); border-radius: var(--bs-radius-control); cursor: pointer; }
+.healthcare-user-menu > summary::-webkit-details-marker { display: none; }
+.healthcare-user-popover { position: absolute; z-index: 60; right: 0; top: 52px; display: grid; gap: 8px; padding: 12px; width: min(288px, 88vw); border: 1px solid var(--bs-border); border-radius: var(--bs-radius-card); background: var(--bs-surface); box-shadow: var(--bs-shadow-md); }
+.healthcare-user-popover { max-height: calc(100dvh - 88px); overflow-y: auto; }
+.healthcare-user-popover .admin-icon-action, .healthcare-tools-search { width: 100%; display: flex; justify-content: flex-start; align-items: center; gap: 12px; padding: 10px; min-height: 44px; font: var(--bs-small); }
+.healthcare-user-popover .admin-theme-toggle { width: 100%; height: auto; justify-content: flex-start; border-radius: var(--bs-radius-control); }
+.healthcare-user-popover .admin-theme-toggle-copy { display: flex; }
+.healthcare-user-popover .admin-theme-toggle-copy :is(strong,small) { font-size: 12px; }
+.healthcare-route-heading { padding: 24px 24px 0; }
+.healthcare-route-heading h1 { font: var(--bs-h1); letter-spacing: -.035em; }
+.healthcare-route-heading > p:last-child { margin-top: 6px; color: var(--bs-muted); font: var(--bs-small); }
+.healthcare-route-heading .admin-kicker { display: none; }
+.admin-workspace { padding: 24px 24px 48px; }
+.healthcare-help { position: relative; margin: 0; padding: 0; border: 0; background: transparent; }
+.healthcare-help summary { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 10px; border-radius: var(--bs-radius-control); list-style: none; }
+.healthcare-help summary::-webkit-details-marker { display: none; }
+.healthcare-help > div { padding: 12px; border-top: 1px solid var(--bs-border); background: var(--bs-surface); }
+.healthcare-help p { margin: 0 0 12px; }
+.healthcare-help a { min-height: 44px; }
+.bs-table { font-variant-numeric: tabular-nums; }
+.bs-badge { font-size: 12px; }
+.bs-button--sm { font-size: 13px; }
+.admin-confirm-dialog.admin-modal-general > * { border: 1px solid var(--bs-border); }
+.admin-booking-modal > header { backdrop-filter: none; }
+.healthcare-booking-details > :last-child { grid-column: 1 / -1; }
+.healthcare-booking-details > div { background: var(--bs-surface); border: 1px solid var(--bs-border); }
+.healthcare-booking-details > div:nth-child(2) { background: var(--bs-primary-soft); border-color: var(--bs-primary-soft); }
+.healthcare-booking-details a { min-height: 44px; overflow-wrap: anywhere; }
+.healthcare-booking-details > div:nth-child(2) .space-y-2 { display: grid; gap: 8px; }
+.healthcare-booking-details > div:nth-child(2) .space-y-2 > p { margin: 0; }
+.admin-booking-modal > footer { backdrop-filter: none; padding-bottom: max(20px, env(safe-area-inset-bottom)); }
+@media (max-width: 1279px) and (min-width: 1024px) {
+  .healthcare-today { display: none; }
+  .healthcare-section-search { font-size: 13px; }
+}
+@media (max-width: 1023px) {
+  .admin-main { z-index: auto; }
+  .admin-sidebar { width: min(320px, 88vw); }
+  .admin-topbar { position: fixed; z-index: 51; right: 12px; top: env(safe-area-inset-top); min-height: 60px; padding: 8px 0; width: auto; background: transparent; border: 0; gap: 8px; }
+  .healthcare-section-search { display: none; }
+  .healthcare-today { display: none; }
+  .healthcare-route-heading { padding: 20px 16px 0; }
+  .admin-workspace { padding: 20px 16px calc(100px + env(safe-area-inset-bottom)); }
+  .admin-mobile-brand { flex: 1; }
+}
+@media (max-width: 640px) {
+  .admin-booking-modal > footer { position: static; }
+  .admin-topbar { justify-content: space-between; }
+  .healthcare-section-search { width: 44px; padding: 12px; }
+  .healthcare-section-search span { display: none; }
+  .admin-topbar-actions { gap: 4px; }
+  .healthcare-user-popover .admin-icon-action { width: 100%; }
+  .healthcare-route-heading h1 { font: var(--bs-h2); }
+  .admin-mobile-bottom-link { font-size: 11px; }
+}

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import AdminToday from '@/components/admin/AdminToday';
+import HealthcareMiniCalendar from '@/components/admin/HealthcareMiniCalendar';
 import {
   AlertCircle, ArrowRight, CalendarDays, Clock3, Package, RefreshCw,
   Plus, ShoppingBag, Star, TrendingUp, UserRound,
@@ -98,19 +99,20 @@ export default function AdminDashboard() {
   const upcomingBookings = bookings.filter(item => item.status === "confirmed" && item.slot_time && new Date(item.slot_time).getTime() >= Date.now()).sort((a, b) => new Date(a.slot_time!).getTime() - new Date(b.slot_time!).getTime()).slice(0, 3);
 
   const cards = [
-    { label: "Ожидающие записи и обращения", value: stats.pendingBookings, detail: `${bookings.length} записей всего`, href: "/admin/bookings", icon: CalendarDays, tone: "teal" },
+    { label: "Записи к обработке", value: stats.pendingBookings, detail: `${bookings.length} записей всего`, href: "/admin/bookings", icon: CalendarDays, tone: "teal" },
     { label: "Активные заказы", value: stats.activeOrders, detail: `${orders.length} всего`, href: "/admin/orders", icon: ShoppingBag, tone: "blue" },
-    { label: "Мало на складе", value: stats.lowStock, detail: `${products.length} товаров`, href: "/admin/products", icon: Package, tone: "amber" },
+    { label: "Мало на складе", value: stats.lowStock, detail: "Остаток ≤ 5 шт.", href: "/admin/products", icon: Package, tone: "amber" },
     { label: "Отзывы", value: stats.reviews, detail: "Опубликовано", href: "/admin/reviews", icon: Star, tone: "violet" },
   ];
 
   return (
-    <div className="admin-dashboard admin-dashboard-v2">
+    <div className="admin-dashboard admin-dashboard-v2 healthcare-dashboard">
+      <div className="healthcare-workgrid">
+      <div className="healthcare-main">
       <header className="admin-dashboard-intro admin-dashboard-welcome">
         <div>
-          <p className="admin-section-eyebrow">Body State · Панель управления</p>
           <h2>Здравствуйте!</h2>
-          <p>Приёмы и задачи рабочего дня — рядом. Ниже — общая сводка за всё время.</p>
+          <p>Body State · записи, заказы и задачи</p>
         </div>
         <button type="button" aria-label="Обновить общую сводку" onClick={() => loadData(true)} className="admin-dashboard-refresh" disabled={refreshing}>
           <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
@@ -124,7 +126,7 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      <section className="admin-stat-grid" aria-label="Основные показатели">
+      <section className="admin-stat-grid" aria-label="Сводка записей, заказов, склада и отзывов" aria-busy={loading || refreshing}>
         {cards.map((card) => {
           const Icon = card.icon;
           return (
@@ -137,55 +139,47 @@ export default function AdminDashboard() {
         })}
       </section>
 
-      <div className="admin-dashboard-workspace">
-        <div className="admin-dashboard-main">
           <div className="admin-dashboard-day">
             <AdminToday />
           </div>
 
       <section className="admin-dashboard-grid admin-dashboard-recent" aria-label="Последние записи и заказы">
-        <DashboardList title="Последние записи и обращения" href="/admin/bookings" empty={loading ? "Загружаем записи…" : error ? "Данные недоступны. Повторите обновление." : "Записей пока нет"}>
-          {bookings.slice(0, 5).map((booking) => (
-            <Link href={`/admin/bookings?booking=${booking.id}`} className="admin-activity-row" key={`${booking.service_type}-${booking.id}`}>
-              <span className="admin-activity-avatar">{booking.client_name?.slice(0, 1).toUpperCase() || "—"}</span>
-              <span className="admin-activity-copy">
-                <strong>{booking.client_name || "Без имени"}</strong>
-                <small>{serviceLabels[booking.service_type] || booking.service_type} · {formatDate(booking.slot_time || booking.created_at)}</small>
-              </span>
-              <StatusBadge status={booking.status} />
-            </Link>
-          ))}
-        </DashboardList>
-
         <DashboardList title="Последние заказы" href="/admin/orders" empty={loading ? "Загружаем заказы…" : error ? "Данные недоступны. Повторите обновление." : "Заказов пока нет"}>
           {orders.slice(0, 5).map((order) => (
             <Link href={`/admin/orders?order=${order.id}`} className="admin-activity-row" key={order.id}>
               <span className="admin-activity-avatar is-order"><ShoppingBag className="h-4 w-4" /></span>
               <span className="admin-activity-copy">
                 <strong>{order.client_name || `Заказ #${order.id.slice(0, 6)}`}</strong>
-                <small>{formatDate(order.created_at)}</small>
+                <small>#{order.id.slice(0, 6)} · {formatDate(order.created_at)}</small>
               </span>
               <span className="admin-order-meta"><strong>{Number(order.total || 0).toLocaleString("ru-RU")} ₽</strong><StatusBadge status={order.status} /></span>
             </Link>
           ))}
         </DashboardList>
+      <section className="admin-revenue-card healthcare-revenue">
+        <span className="admin-revenue-icon"><TrendingUp className="h-5 w-5" /></span>
+        <div><p>Выручка · оплаченные заказы</p><strong>{loading || error ? "—" : `${stats.revenue.toLocaleString("ru-RU")} ₽`}</strong></div>
+        <div className="admin-revenue-note"><Clock3 className="h-4 w-4" /> За всё время</div>
+        <p className="healthcare-revenue-caption">Сумма заказов в статусах «Оплачен», «Отправлен» и «Доставлен».</p>
+      </section>
       </section>
 
         </div>
 
         <aside className="admin-dashboard-sidebar" aria-label="Действия и ближайшие приёмы">
+      <HealthcareMiniCalendar />
       <section className="admin-quick-actions admin-dashboard-actions" aria-label="Быстрые действия">
         <div><p className="admin-section-eyebrow">Каждый день</p><h3>Быстрые действия</h3></div>
         <div className="admin-quick-action-list">
-          <Link href="/admin/bookings?create=1" className="admin-quick-action is-primary"><Plus className="h-4 w-4" /><span>Записать клиента</span></Link>
+          <Link href="/admin/bookings?create=1" className="admin-quick-action is-primary"><Plus className="h-4 w-4" /><span>Новая запись</span></Link>
           <Link href="/admin/bookings" className="admin-quick-action"><UserRound className="h-4 w-4" /><span>Найти клиента</span></Link>
-          <Link href="/admin/slots" className="admin-quick-action"><CalendarDays className="h-4 w-4" /><span>Настроить расписание</span></Link>
-          <Link href="/admin/payment-links" className="admin-quick-action"><ShoppingBag className="h-4 w-4" /><span>Создать ссылку на оплату</span></Link>
+          <Link href="/admin/slots" className="admin-quick-action"><CalendarDays className="h-4 w-4" /><span>Расписание</span></Link>
+          <Link href="/admin/payment-links" className="admin-quick-action"><ShoppingBag className="h-4 w-4" /><span>Ссылка на оплату</span></Link>
         </div>
       </section>
 
       <section className="admin-next-card">
-        <div className="admin-next-heading"><span className="admin-section-eyebrow">Ближайшие подтверждённые приёмы</span><Link href="/admin/calendar">Весь календарь <ArrowRight className="h-3.5 w-3.5" /></Link></div>
+        <div className="admin-next-heading"><div><h3>Ближайшие приёмы</h3><p>Подтверждённые · время по Москве</p></div><Link href="/admin/calendar">Календарь <ArrowRight className="h-3.5 w-3.5" /></Link></div>
         {upcomingBookings.map((booking) => (
           <Link href={`/admin/bookings?booking=${booking.id}`} className="admin-next-row" key={`next-${booking.id}`}>
             <span className="admin-next-time">{formatTime(booking.slot_time)}</span>
@@ -197,11 +191,6 @@ export default function AdminDashboard() {
         {loading ? <p className="admin-list-empty">Загружаем приёмы…</p> : error ? <p className="admin-list-empty">Не удалось обновить приёмы</p> : upcomingBookings.length === 0 && <p className="admin-list-empty">Будущих подтверждённых приёмов нет</p>}
       </section>
 
-      <section className="admin-revenue-card">
-        <span className="admin-revenue-icon"><TrendingUp className="h-5 w-5" /></span>
-        <div><p>Оплаченные заказы</p><strong>{loading || error ? "—" : `${stats.revenue.toLocaleString("ru-RU")} ₽`}</strong></div>
-        <div className="admin-revenue-note"><Clock3 className="h-4 w-4" /> За всё время</div>
-      </section>
         </aside>
       </div>
     </div>

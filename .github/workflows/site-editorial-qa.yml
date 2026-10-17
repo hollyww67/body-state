@@ -1,0 +1,50 @@
+name: Public site editorial and shop guard QA (no deployment)
+
+on:
+  push:
+    branches: [release/body-state-premium-v3]
+  pull_request:
+    branches: [feat/admin-premium-healthcare-v3]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  site-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          # The presentation regression compares handlers to a pinned ancestor.
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install exactly locked packages
+        run: npm ci --no-audit --no-fund
+      - name: Offline store visibility integration contracts
+        run: |
+          node tests/site-visibility.cjs
+          node tests/shop-visibility-refresh.cjs
+      - name: Existing payment, PWA and modal regressions
+        run: |
+          node tests/payment-init.cjs
+          node tests/admin-pwa.cjs
+          node tests/admin-modal.cjs
+          node tests/dependency-regressions.cjs
+          node tests/admin-logout.cjs
+          node tests/admin-booking-floating.cjs
+          node --test tests/max-notifications.cjs
+          node tests/notification-email-design.cjs
+      - name: TypeScript
+        run: npx tsc --noEmit
+      - name: ESLint
+        run: npx eslint src
+      - name: Production build (never deploy)
+        run: npm run build

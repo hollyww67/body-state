@@ -41,14 +41,15 @@ export default function AdminCalendarPage() {
   const [scheduleBreaks, setScheduleBreaks] = useState<ScheduleBreak[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError,setLoadError]=useState('');
-  const [view,setView]=useState<'month'|'week'|'day'>('month');
+  const [view,setView]=useState<'month'|'week'|'day'>('week');
   const [slots,setSlots]=useState<CalendarSlot[]>([]);
   const [dayRules,setDayRules]=useState<CalendarDay[]>([]);
   const sequence=useRef(0),loadedRange=useRef(''),controller=useRef<AbortController|null>(null);
   const [currentMonth, setCurrentMonth] = useState<Date>(() => moscowDate());
   const [selectedDay, setSelectedDay] = useState<Date>(() => moscowDate());
-  useEffect(()=>{const date=new URLSearchParams(window.location.search).get('date');if(date&&/^\d{4}-\d{2}-\d{2}$/.test(date)){const day=moscowDate(`${date}T12:00:00+03:00`);if(Number.isFinite(day.getTime())){setSelectedDay(day);setCurrentMonth(day);setView('day');}}},[]);
+  useEffect(()=>{const date=new URLSearchParams(window.location.search).get('date');if(date&&/^\d{4}-\d{2}-\d{2}$/.test(date)){const day=moscowDate(`${date}T12:00:00+03:00`);if(Number.isFinite(day.getTime())){setSelectedDay(day);setCurrentMonth(day);setView('day');}}else if(window.matchMedia('(max-width: 640px)').matches){setView('day');}},[]);
   const [search, setSearch] = useState("");
+  const [mobileToolsOpen, setMobileToolsOpen] = useState(false);
   const [selectedType, setSelectedType] = useState<ServiceType | "all">("all");
   const [showAddModal, setShowAddModal] = useState(false);
   const [showBreakModal, setShowBreakModal] = useState(false);
@@ -187,6 +188,8 @@ export default function AdminCalendarPage() {
 
   const selectedBookings = getDayBookings(selectedDay);
   const selectedBreaks = getDayBreaks(selectedDay);
+  const selectedRule = dayRules.find(rule=>rule.day===format(selectedDay,'yyyy-MM-dd'));
+  const selectedWindows = slots.filter(slot=>!slot.is_booked&&isSameDay(slot.slot_time,selectedDay)&&(selectedType==='all'||slot.service_type===selectedType));
   const stats = {
     today: getDayBookings(moscowDate()).length,
     total: filteredBookings.length,
@@ -197,20 +200,18 @@ export default function AdminCalendarPage() {
   const weekDays = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
 
   return (
-    <div className="admin-calendar-page min-h-screen bg-[var(--bs-background)]">
-      <div className="sticky top-0 z-50 backdrop-blur-xl bg-[var(--bs-surface)] border-b border-[var(--bs-border)]">
+    <div className="admin-calendar-page min-h-screen bg-[var(--bs-background)]" data-mobile-tools={mobileToolsOpen}>
+      <header className="healthcare-calendar-title"><div><h2>Календарь записей</h2><p>Расписание приёмов · Московское время</p></div><AdminButton className="healthcare-calendar-mobile-tools" variant="outline" size="icon" aria-label="Поиск, фильтры и режим календаря" aria-expanded={mobileToolsOpen} aria-controls="calendar-tools" onClick={()=>setMobileToolsOpen(open=>!open)}><Search aria-hidden="true" size={18}/></AdminButton><AdminButton aria-label="Новая запись" onClick={()=>openNewBooking()}><Plus aria-hidden="true" size={18}/>Новая запись</AdminButton></header>
+      <div id="calendar-tools" className="healthcare-calendar-toolbar bg-[var(--bs-surface)] border-b border-[var(--bs-border)]">
         <div className="max-w-[1600px] mx-auto px-4 py-4">
           <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
             <div className="admin-mobile-toolbar flex flex-wrap items-center gap-3">
               <div className="relative w-full sm:w-[280px]"><Search aria-hidden="true" className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--admin-muted)]" /><AdminInput aria-label="Поиск клиента в календаре" type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Поиск клиента…" className="pl-10" /></div>
-              <div className="admin-mobile-scroll flex items-center gap-2 bg-[var(--bs-surface)] border border-[var(--bs-border)] rounded-[var(--bs-radius-control)] p-1" role="group" aria-label="Направление записи">
-                <AdminButton variant={selectedType === 'all' ? 'primary' : 'ghost'} aria-pressed={selectedType === 'all'} onClick={()=>setSelectedType('all')} size="sm">Все</AdminButton>
-                {SERVICE_TYPES.map(s=><AdminButton key={s.value} size="sm" variant={selectedType === s.value ? 'primary' : 'ghost'} aria-pressed={selectedType === s.value} onClick={()=>setSelectedType(s.value)}>{s.label}</AdminButton>)}
-              </div>
+              <AdminSelect aria-label="Направление записи" value={selectedType} onChange={e=>setSelectedType(e.target.value as ServiceType|'all')}><option value="all">Все направления</option>{SERVICE_TYPES.map(s=><option key={s.value} value={s.value}>{s.label}</option>)}</AdminSelect>
               <AdminButton onClick={fetchCalendar} variant="outline" loading={loading}><RefreshCw className="w-4 h-4" aria-hidden="true" />Обновить</AdminButton>
             </div>
           </div>
-          <div className="admin-mobile-stats grid grid-cols-2 xl:grid-cols-4 gap-3 mt-5">
+          <div className="healthcare-calendar-stats admin-mobile-stats grid grid-cols-2 xl:grid-cols-4 gap-3 mt-5">
             <AdminStatCard title="Сегодня" value={stats.today} /><AdminStatCard title="На неделе" value={stats.week} /><AdminStatCard title="Всего записей" value={stats.total} /><AdminStatCard title="Завершено" value={stats.completed} />
           </div>
         </div>
@@ -220,6 +221,7 @@ export default function AdminCalendarPage() {
         {loadError&&<p role="alert" className="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{loadError} · Ранее загруженные данные могут быть устаревшими.</p>}
         <div className="admin-calendar-modes" role="group" aria-label="Режим календаря">{(['month','week','day'] as const).map(mode=><AdminButton variant="ghost" key={mode} aria-pressed={view===mode} onClick={()=>setView(mode)}>{mode==='month'?'Месяц':mode==='week'?'Неделя':'День'}</AdminButton>)}</div>
         <div className="admin-calendar-layout grid grid-cols-1 xl:grid-cols-[1.2fr_420px] gap-6 items-start" data-view={view}>
+          <aside className="healthcare-calendar-directions" aria-label="Направления"><h3>Направления</h3><p>Услуги в расписании</p><button type="button" aria-pressed={selectedType==='all'} onClick={()=>setSelectedType('all')}><span>Все направления</span><span>{bookings.length}</span></button>{SERVICE_TYPES.map(service=><button type="button" key={service.value} data-service={service.value} aria-pressed={selectedType===service.value} onClick={()=>setSelectedType(service.value)}><span>{service.label}</span><span>{bookings.filter(b=>b.service_type===service.value).length}</span></button>)}<p>Количество записей за выбранный период</p></aside>
           <div className="admin-calendar-grid-card bg-[var(--bs-surface)] rounded-[var(--bs-radius-card)] border border-[var(--bs-border)] shadow-sm overflow-hidden">
             <div className="admin-calendar-header flex items-center justify-between p-6 border-b border-[var(--bs-border)]">
               <div className="flex items-center gap-3">
@@ -229,6 +231,9 @@ export default function AdminCalendarPage() {
               <div className="text-center"><h2 className="text-xl font-semibold text-[var(--bs-foreground)] capitalize">{view==='month'?format(currentMonth, "LLLL yyyy", { locale: ru }):view==='week'?`${format(rangeStart,'dd.MM')} — ${format(rangeEnd,'dd.MM.yyyy')}`:format(selectedDay,'dd MMMM yyyy',{locale:ru})}</h2><p className="text-sm text-[var(--bs-muted)] mt-1">{filteredBookings.length} записей</p></div>
               <button onClick={() => { const today = moscowDate(); setCurrentMonth(today); setSelectedDay(today); }} className="h-11 px-4 rounded-[var(--bs-radius-control)] bg-[var(--bs-primary)] text-white text-sm font-medium hover:opacity-90 transition-all">Сегодня</button>
             </div>
+            <div className="healthcare-calendar-date-strip" role="group" aria-label="Выбрать день">{Array.from({length:7},(_,i)=>addDays(startOfWeek(selectedDay,{weekStartsOn:1}),i)).map(date=><button key={format(date,'yyyy-MM-dd')} type="button" aria-label={format(date,'d MMMM, EEEE',{locale:ru})} aria-pressed={isSameDay(date,selectedDay)} onClick={()=>{setSelectedDay(date);setCurrentMonth(date);}}><span>{format(date,'EEE',{locale:ru})}</span><strong>{format(date,'d')}</strong></button>)}</div>
+            {view!=='month'&&<div className="healthcare-mobile-timeline">{loading?<p role="status" className="p-4">Загрузка расписания…</p>:<ScheduleTimeline days={[selectedDay]} slots={slots.filter(s=>selectedType==='all'||s.service_type===selectedType)} bookings={filteredBookings} breaks={scheduleBreaks} rules={dayRules} onSlot={setSlotDetails} onBreak={setBreakDetails}/>}</div>}
+            <div className="healthcare-calendar-desktop-grid">
             {loading?<div role="status" className="p-6 text-sm text-gray-600">Загрузка расписания…</div>:view!=='month'?<ScheduleTimeline days={Array.from({length:view==='week'?7:1},(_,i)=>addDays(rangeStart,i))} slots={slots.filter(s=>selectedType==='all'||s.service_type===selectedType)} bookings={filteredBookings} breaks={scheduleBreaks} rules={dayRules}
               onSlot={setSlotDetails}
               onBreak={setBreakDetails}/>:<>
@@ -265,8 +270,18 @@ export default function AdminCalendarPage() {
                 );
               })}
             </div></>}
+            </div>
           </div>
 
+          <section className="healthcare-calendar-context" aria-label="Рабочий день">
+            <h3>{format(selectedDay,'d MMMM',{locale:ru})}</h3>
+            <p>{loading?'Загрузка расписания…':selectedRule?.mode==='closed'?'День закрыт':selectedRule?.mode==='published'?'Расписание опубликовано':'Время не опубликовано'} · МСК</p>
+            <dl><div><dt>Записи</dt><dd>{loading?'—':selectedBookings.length}</dd></div><div><dt>Свободные начала</dt><dd>{loading?'—':selectedWindows.length}</dd></div><div><dt>Перерывы</dt><dd>{loading?'—':selectedBreaks.length}</dd></div></dl>
+            <p>Свободные начала — альтернативы для выбора времени, а не отдельные кабинеты.</p>
+            <AdminButton disabled={loading} onClick={()=>openNewBooking()}><Plus size={16} aria-hidden="true"/>Создать запись</AdminButton>
+            <AdminButton variant="outline" onClick={()=>setShowBreakModal(true)}><Coffee size={16} aria-hidden="true"/>Добавить перерыв</AdminButton>
+            <Link href="/admin/slots">Управление расписанием<ChevronRight size={16} aria-hidden="true"/></Link>
+          </section>
           <div className="admin-calendar-detail sticky top-28">
             <div className="bg-[var(--bs-surface)] rounded-[var(--bs-radius-card)] border border-[var(--bs-border)] shadow-sm overflow-hidden">
               <div className="p-6 border-b border-[var(--bs-border)]">
@@ -299,7 +314,7 @@ export default function AdminCalendarPage() {
                     {selectedBookings.map((booking) => {
                       const service = SERVICE_TYPES.find((s) => s.value === booking.service_type);
                       return (
-                        <div key={booking.id} className="relative rounded-[var(--bs-radius-card)] border border-[var(--bs-border)] bg-[var(--bs-surface)] p-5 shadow-sm hover:shadow-lg transition-all">
+                        <div key={booking.id} data-service={booking.service_type} className="healthcare-calendar-booking relative rounded-[var(--bs-radius-card)] border border-[var(--bs-border)] bg-[var(--bs-surface)] p-5 shadow-sm hover:shadow-lg transition-all">
                           <div className="absolute left-8 top-0 bottom-0 w-px bg-gray-100" />
                           <div className="admin-calendar-appointment relative flex gap-4">
                             <div className="relative z-10 shrink-0">
@@ -335,24 +350,42 @@ export default function AdminCalendarPage() {
       {breakDetails&&<AdminModal title="Детали ограничения" onCancel={()=>setBreakDetails(null)}><div className="max-w-md rounded-[var(--bs-radius-control)] bg-[var(--bs-surface)] p-5"><h3 className="font-semibold">{breakDetails.reason||'Перерыв'}</h3><p className="mt-2 text-sm">{format(breakDetails.starts_at,'dd.MM.yyyy HH:mm')} — {format(breakDetails.ends_at,'dd.MM.yyyy HH:mm')} МСК</p>{(!breakDetails.source_type||breakDetails.source_type==='manual')?<button disabled={!!deletingBreakId} className="mt-4 min-h-11 rounded-xl border px-4 text-sm" onClick={async()=>{await handleDeleteBreak(breakDetails.id);setBreakDetails(null);}}>Снять перерыв</button>:<p className="mt-3 text-xs">Ограничение управляется шаблоном, исключением или закрытием окна. Измените соответствующее правило в разделе «Время для записи».</p>}</div></AdminModal>}
       {statusConfirmation&&<AdminConfirmDialog title={statusConfirmation.status==='cancelled'?'Отменить запись?':'Подтвердить посещение?'} onCancel={()=>setStatusConfirmation(null)} onConfirm={()=>handleStatusChange(statusConfirmation.id,statusConfirmation.status)}><p>{statusConfirmation.name}</p><p className="mt-2 text-sm">{statusConfirmation.status==='cancelled'?'История сохраняется. Освободится только время, не заблокированное другими приёмами или перерывами. Банковский возврат не выполняется.':'Подтвердите фактически состоявшийся приём. Оплата учитывается отдельно.'}</p></AdminConfirmDialog>}
       {showAddModal && (
-        <AdminModal title="Новая запись" dismissDisabled={adding} onCancel={() => {setShowAddModal(false);setNewSlotId(null);setNewConsent(false);setNewAccountId(null);setNewIdentity(false);}}>
-          <div className="w-full max-w-md rounded-[var(--bs-radius-card)] bg-[var(--bs-surface)] shadow-2xl overflow-hidden">
+        <AdminModal title="Новая запись" presentation="panel" dismissDisabled={adding} onCancel={() => {setShowAddModal(false);setNewSlotId(null);setNewConsent(false);setNewAccountId(null);setNewIdentity(false);}}>
+          <div className="healthcare-calendar-form healthcare-calendar-create w-full rounded-[var(--bs-radius-card)] bg-[var(--bs-surface)] shadow-2xl overflow-hidden">
             <div className="flex items-center justify-between p-6 border-b border-[var(--bs-border)]">
               <div><h3 className="text-lg font-semibold text-[var(--bs-foreground)]">Новая запись</h3><p className="text-sm text-[var(--bs-muted)] mt-1">{format(selectedDay, "d MMMM yyyy", { locale: ru })}</p></div>
               <button type="button" disabled={adding} aria-label="Закрыть" onClick={() => setShowAddModal(false)} className="w-10 h-10 rounded-[var(--bs-radius-control)] hover:bg-gray-100 flex items-center justify-center transition-all"><X className="w-5 h-5 text-[var(--bs-muted)]" /></button>
             </div>
-            <form onSubmit={handleAddBooking} className="p-6 space-y-4">
+            <form onSubmit={handleAddBooking} className="healthcare-calendar-booking-form">
+              <div className="healthcare-calendar-create-fields">
+              <fieldset className="healthcare-calendar-fieldset" disabled={adding}>
+              <legend>Клиент</legend>
               <SchedulingClientPicker onSelect={c=>{setNewAccountId(c?.id??null);setNewIdentity(false);if(c){setNewName(c.display_name??'');setNewPhone(formatRussianPhoneInput(c.phone??''));}}}/>
               {newAccountId&&<label className="flex gap-3 text-xs"><input required type="checkbox" checked={newIdentity} onChange={e=>setNewIdentity(e.target.checked)}/>Личность клиента и принадлежность кабинета подтверждены</label>}
+              <div className="healthcare-calendar-client-row">
               <AdminField id="booking-client-name" label="Имя клиента"><AdminInput id="booking-client-name" autoComplete="name" required value={newName} onChange={e=>setNewName(e.target.value)} /></AdminField>
               <AdminField id="booking-client-phone" label="Телефон клиента"><AdminInput id="booking-client-phone" required type="tel" autoComplete="tel" inputMode="tel" placeholder="+7 (___) ___-__-__" value={newPhone} onChange={e=>setNewPhone(formatRussianPhoneInput(e.target.value))} /></AdminField>
-              <div className="grid grid-cols-2 gap-3">
+              </div>
+              </fieldset>
+              <fieldset className="healthcare-calendar-fieldset" disabled={adding}>
+              <legend>Приём</legend>
                 <AdminField id="booking-service" label="Услуга"><AdminSelect id="booking-service" value={newService} onChange={e=>{setNewService(e.target.value as ServiceType);setNewSlotId(null);}}>{SERVICE_TYPES.map(s=><option key={s.value} value={s.value}>{s.label}</option>)}</AdminSelect></AdminField>
+              <div className="healthcare-calendar-form-row grid grid-cols-2 gap-3">
+              <AdminField id="booking-date" label="Дата приёма"><AdminInput id="booking-date" required type="date" value={format(selectedDay,'yyyy-MM-dd')} onChange={e=>{if(e.target.value&&/^\d{4}-\d{2}-\d{2}$/.test(e.target.value)){const date=moscowDate(`${e.target.value}T12:00:00+03:00`);if(Number.isFinite(date.getTime())){setSelectedDay(date);setCurrentMonth(date);setNewSlotId(null);}}}}/></AdminField>
                 <AdminField id="booking-time" label="Время (МСК)"><AdminInput id="booking-time" type="time" value={newTime} onChange={e=>{setNewTime(e.target.value);setNewSlotId(null);}} /></AdminField>
               </div>
+              <p className="healthcare-calendar-helper">{newSlotId?'Выбрано свободное окно из календаря.':'Время указано по Москве. Доступность проверяется при сохранении записи.'}</p>
+              </fieldset>
+              <fieldset className="healthcare-calendar-fieldset" disabled={adding}>
+              <legend>Подтверждение</legend>
               <label className="flex items-start gap-3 text-xs text-gray-700"><input type="checkbox" required checked={newConsent} onChange={e=>setNewConsent(e.target.checked)}/>Клиент дал согласие на обработку данных и запись на услугу.</label>
+              </fieldset>
               <AdminButton variant="outline" disabled={adding} onClick={addWindowOnly} className="w-full">Добавить только окно, без клиента</AdminButton>
-              <AdminButton type="submit" loading={adding} disabled={!newConsent} className="w-full">{adding ? 'Добавление…' : 'Добавить запись'}</AdminButton>
+              </div>
+              <footer className="healthcare-calendar-create-actions">
+              <AdminButton variant="outline" disabled={adding} onClick={() => {setShowAddModal(false);setNewSlotId(null);setNewConsent(false);setNewAccountId(null);setNewIdentity(false);}}>Отмена</AdminButton>
+              <AdminButton type="submit" loading={adding} disabled={!newConsent} className="w-full">{adding ? 'Добавление…' : 'Создать запись'}</AdminButton>
+              </footer>
             </form>
           </div>
         </AdminModal>
@@ -360,7 +393,7 @@ export default function AdminCalendarPage() {
 
       {showBreakModal && (
         <AdminModal title="Новый перерыв" dismissDisabled={savingBreak} onCancel={() => setShowBreakModal(false)}>
-          <div className="w-full max-w-md rounded-[var(--bs-radius-card)] bg-[var(--bs-surface)] shadow-2xl overflow-hidden">
+          <div className="healthcare-calendar-form w-full max-w-md rounded-[var(--bs-radius-card)] bg-[var(--bs-surface)] shadow-2xl overflow-hidden">
             <div className="flex items-center justify-between p-6 border-b border-[var(--bs-border)]">
               <div><h3 className="text-lg font-semibold text-[var(--bs-foreground)]">Новый перерыв</h3><p className="text-sm text-[var(--bs-muted)] mt-1">{format(selectedDay, "d MMMM yyyy", { locale: ru })}</p></div>
               <button disabled={savingBreak} onClick={() => setShowBreakModal(false)} className="w-10 h-10 rounded-[var(--bs-radius-control)] hover:bg-gray-100 flex items-center justify-center transition-all" aria-label="Закрыть"><X className="w-5 h-5 text-[var(--bs-muted)]" /></button>

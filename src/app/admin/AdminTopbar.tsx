@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { ExternalLink, LogOut } from "lucide-react";
+import { Bell, CalendarDays, CircleHelp, ExternalLink, LogOut, Search, UserRound } from "lucide-react";
 import AdminThemeToggle from "./AdminThemeToggle";
 
 const sections: Array<{ prefix: string; title: string; description: string }> = [
@@ -62,24 +62,27 @@ export default function AdminTopbar() {
 
   return (
     <><header className="admin-topbar">
-      <div className="min-w-0">
+      <button type="button" aria-label="Найти раздел или действие" className="healthcare-section-search" onClick={() => window.dispatchEvent(new Event("admin-navigation-search"))}>
+        <Search size={18} aria-hidden="true" /><span>Найти раздел или действие…</span>
+      </button>
+      <div className="admin-topbar-actions">
+        <Link href="/admin/notifications" className="admin-icon-action" aria-label="Журнал уведомлений"><Bell size={19} aria-hidden="true" /></Link>
+        <div className="healthcare-today"><CalendarDays size={18} aria-hidden="true" /><span>Сегодня<time suppressHydrationWarning>{new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", year: "numeric", timeZone: "Europe/Moscow" }).format(new Date())}</time></span></div>
+        <details key={pathname} className="healthcare-user-menu"><summary aria-label="Меню администратора"><UserRound size={19} aria-hidden="true" /></summary><div className="healthcare-user-popover">
+        <button type="button" className="healthcare-tools-search" onClick={() => window.dispatchEvent(new Event("admin-navigation-search"))}><Search size={18} aria-hidden="true" />Найти раздел</button>
+        {help && <details className="admin-page-help healthcare-help"><summary><CircleHelp size={19} aria-hidden="true" />Помощь по разделу</summary><div><p>{help.text}</p><Link href={help.href}>{help.action} →</Link></div></details>}
+        <AdminThemeToggle />
+        <Link href="/" target="_blank" rel="noopener noreferrer" aria-label="Открыть сайт в новой вкладке" className="admin-icon-action"><ExternalLink size={18} aria-hidden="true" /><span>Открыть сайт</span></Link>
+        <button type="button" disabled={loggingOut} onClick={logout} className="admin-icon-action" aria-label="Выйти из админки" title="Выйти"><LogOut className="h-4 w-4" /><span>Выйти</span></button>
+        </div></details>
+      </div>
+    </header>
+      <div className={`healthcare-route-heading ${["/admin/dashboard", "/admin/calendar"].includes(pathname) ? "sr-only" : ""}`}>
         <p className="admin-kicker"><Link href="/admin/dashboard">Центр управления</Link>{pathname !== section.prefix && <> / <Link href={section.prefix}>{section.title}</Link></>}</p>
         <h1>{section.title}</h1>
         <p>{section.description}</p>
       </div>
-      <div className="admin-topbar-actions">
-        <AdminThemeToggle />
-        <Link href="/" target="_blank" rel="noopener noreferrer" aria-label="Открыть сайт в новой вкладке" className="admin-secondary-action">
-          <ExternalLink className="h-4 w-4" />
-          <span>Открыть сайт</span>
-        </Link>
-        <button type="button" disabled={loggingOut} onClick={logout} className="admin-icon-action" aria-label="Выйти из админки" title="Выйти">
-          <LogOut className="h-4 w-4" />
-        </button>
-      </div>
-    </header>
     {logoutError && <p role="alert" className="admin-route-error">{logoutError}</p>}
-    {help && <details key={section.prefix} className="admin-page-help"><summary>Как работать в этом разделе</summary><p>{help.text}</p><Link href={help.href}>{help.action} →</Link></details>}
     </>
   );
 }

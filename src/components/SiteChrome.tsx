@@ -8,6 +8,8 @@ export default function SiteChrome() {
   const pathname = usePathname();
   if (pathname.startsWith("/admin") || pathname === "/login" || pathname === "/psychology/room" || pathname.startsWith("/psychology-room/")) return null;
 
+  if (pathname === "/") return <Footer />;
+
   return (
     <>
       <AnimatedBackground />

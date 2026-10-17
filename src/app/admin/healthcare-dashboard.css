@@ -1,0 +1,144 @@
+/* Dashboard only. Imported by the shared admin shell during integration. */
+.healthcare-dashboard { display: block; color: var(--bs-foreground); }
+.healthcare-dashboard .healthcare-workgrid { display: grid; grid-template-columns: minmax(0, 1fr) 288px; gap: 16px; align-items: start; }
+.healthcare-dashboard .healthcare-main { display: grid; min-width: 0; gap: 16px; }
+.healthcare-dashboard .admin-dashboard-sidebar { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+.healthcare-dashboard .admin-dashboard-welcome { min-height: 72px; padding: 0 4px; }
+.healthcare-dashboard .admin-dashboard-welcome h2 { margin: 0; font-size: 28px; line-height: 1.25; }
+.healthcare-dashboard .admin-dashboard-welcome p:last-child { margin-top: 6px; }
+.healthcare-dashboard .admin-dashboard-refresh { flex-shrink: 0; }
+.healthcare-dashboard .admin-stat-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.healthcare-dashboard .admin-stat-card { min-width: 0; min-height: 112px; padding: 16px 12px; gap: 10px; align-items: flex-start; }
+.healthcare-dashboard .admin-stat-card p { font-size: 12px; line-height: 18px; }
+.healthcare-dashboard .admin-stat-card strong { font-size: 25px; line-height: 34px; }
+.healthcare-dashboard .admin-stat-card small { font-size: 12px; line-height: 18px; }
+.healthcare-dashboard .admin-stat-icon { width: 38px; height: 38px; flex-shrink: 0; background: var(--bs-primary-soft); color: var(--bs-primary); }
+.healthcare-dashboard .admin-stat-arrow { display: none; }
+.healthcare-dashboard .admin-dashboard-recent { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(200px, 1fr); gap: 14px; align-items: stretch; }
+.healthcare-dashboard .admin-list-card > header { padding: 16px; }
+.healthcare-dashboard .admin-activity-row { min-height: 62px; gap: 10px; padding: 10px 0; }
+.healthcare-dashboard .admin-activity-copy { min-width: 0; }
+.healthcare-dashboard .admin-activity-copy strong, .healthcare-dashboard .admin-activity-copy small { overflow-wrap: anywhere; }
+.healthcare-dashboard .admin-activity-avatar { width: 30px; height: 30px; flex-shrink: 0; font-size: 10px; }
+.healthcare-dashboard .admin-order-meta { flex-shrink: 0; font-size: 12px; }
+.healthcare-dashboard .healthcare-revenue { display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 14px; padding: 18px; }
+.healthcare-dashboard .healthcare-revenue strong { display: block; margin-top: 10px; font-size: 27px; line-height: 1.3; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.healthcare-dashboard .healthcare-revenue p, .healthcare-dashboard .healthcare-revenue .admin-revenue-note { font-size: 12px; color: var(--bs-muted); }
+.healthcare-dashboard .healthcare-revenue .admin-revenue-note { margin: 0; }
+.healthcare-dashboard .healthcare-revenue-caption { margin-top: auto; padding-top: 16px; border-top: 1px solid var(--bs-border); line-height: 1.6; }
+.healthcare-dashboard .admin-dashboard-actions { padding: 16px; }
+.healthcare-dashboard .admin-dashboard-actions .admin-section-eyebrow { display: none; }
+.healthcare-dashboard .admin-dashboard-actions h3 { font-size: 15px; }
+.healthcare-dashboard .admin-dashboard-actions .admin-quick-action-list { gap: 8px; margin-top: 14px; grid-template-columns: minmax(0, 1fr); }
+.healthcare-dashboard .admin-dashboard-actions .admin-quick-action { min-height: 48px; padding: 10px 12px; font-size: 12px; gap: 12px; border: 1px solid var(--bs-border); background: var(--bs-surface); color: var(--bs-foreground); }
+.healthcare-dashboard .admin-dashboard-actions .admin-quick-action.is-primary { background: var(--bs-primary-soft); color: var(--bs-primary-hover); border-color: var(--bs-primary-soft); }
+.healthcare-dashboard .admin-dashboard-actions .admin-quick-action svg { flex-shrink: 0; width: 20px; height: 20px; }
+.healthcare-dashboard .admin-next-card { padding: 16px; }
+.healthcare-dashboard .admin-next-heading { display: grid; gap: 8px; font-size: 13px; }
+.healthcare-dashboard .admin-next-heading h3 { margin: 0; font-size: 15px; font-weight: 600; }
+.healthcare-dashboard .admin-next-heading p { margin: 4px 0 0; font-size: 11px; font-weight: 400; color: var(--bs-muted); }
+.healthcare-dashboard .admin-next-heading a { min-height: 44px; }
+.healthcare-dashboard .admin-next-row { align-items: flex-start; gap: 8px; padding-block: 14px; }
+.healthcare-dashboard .admin-next-time { font-size: 12px; }
+.healthcare-dashboard .admin-next-row > svg { display: none; }
+.healthcare-dashboard .admin-next-row .admin-activity-copy small { font-size: 10px; }
+.healthcare-dashboard .healthcare-mini-calendar { padding: 14px; }
+.healthcare-dashboard .healthcare-mini-calendar header { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
+.healthcare-dashboard .healthcare-mini-calendar h3 { font-size: 13px; text-align: center; text-transform: capitalize; }
+.healthcare-dashboard .healthcare-mini-calendar table { width: 100%; table-layout: fixed; border-collapse: collapse; margin-top: 12px; text-align: center; font-size: 11px; }
+.healthcare-dashboard .healthcare-mini-calendar th { color: var(--bs-muted); font-weight: 400; padding-bottom: 8px; }
+.healthcare-dashboard .healthcare-mini-calendar td { height: 34px; padding: 0; }
+.healthcare-dashboard .healthcare-mini-calendar td span { display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: var(--bs-radius-control); }
+.healthcare-dashboard .healthcare-mini-calendar [aria-current="date"] { background: var(--bs-primary); color: var(--bs-on-primary); font-weight: 600; }
+.healthcare-dashboard .healthcare-day { min-width: 0; }
+.healthcare-dashboard .healthcare-day-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 10px; }
+.healthcare-dashboard .healthcare-day-toolbar h2 { font-size: 13px; margin-right: auto; }
+.healthcare-dashboard .healthcare-day-toolbar label { display: flex; align-items: center; gap: 8px; color: var(--bs-muted); font-size: 11px; }
+.healthcare-dashboard .healthcare-day-toolbar input { width: 148px; font-size: 12px; }
+.healthcare-dashboard .healthcare-day-primary { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 14px; }
+.healthcare-dashboard .healthcare-day-list, .healthcare-dashboard .healthcare-day-calendar { padding: 16px; min-width: 0; }
+.healthcare-dashboard .healthcare-day-list h3, .healthcare-dashboard .healthcare-day-calendar h3 { font-size: 15px; font-weight: 600; }
+.healthcare-dashboard .healthcare-day-rows { max-height: 340px; overflow-y: auto; margin-top: 12px; }
+.healthcare-dashboard .healthcare-visit { display: flex; border-bottom: 1px solid var(--bs-border); }
+.healthcare-dashboard .healthcare-visit:last-child { border-bottom: 0; }
+.healthcare-dashboard .healthcare-visit time { font-size: 12px; font-weight: 600; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.healthcare-dashboard .healthcare-visit .admin-activity-copy { flex: 1; }
+.healthcare-dashboard .healthcare-visit .admin-activity-copy strong { font-size: 13px; }
+.healthcare-dashboard .healthcare-visit .admin-activity-copy small { font-size: 12px; }
+.healthcare-dashboard .healthcare-visit .bs-badge { padding: 4px 8px; font-size: 11px; line-height: 16px; }
+.healthcare-dashboard .healthcare-all-link, .healthcare-dashboard .healthcare-day-calendar header a { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; font-size: 11px; color: var(--bs-primary-hover); }
+.healthcare-dashboard .healthcare-day-calendar header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.healthcare-dashboard .healthcare-calendar-date { color: var(--bs-muted); font-size: 11px; margin-bottom: 14px; }
+.healthcare-dashboard .healthcare-agenda { display: grid; gap: 8px; max-height: 310px; overflow-y: auto; }
+.healthcare-dashboard .healthcare-agenda-event { display: flex; gap: 10px; padding: 12px; border-left: 3px solid var(--bs-primary); border-radius: var(--bs-radius-control); background: var(--bs-primary-soft); }
+.healthcare-dashboard .healthcare-agenda-event.is-pending, .healthcare-dashboard .healthcare-agenda-event.is-new { border-color: var(--bs-warning); background: var(--bs-warning-bg); }
+.healthcare-dashboard .healthcare-agenda-event.is-cancelled { border-color: var(--bs-destructive); background: var(--bs-destructive-bg); }
+.healthcare-dashboard .healthcare-agenda-event time { font-size: 12px; color: var(--bs-foreground); font-variant-numeric: tabular-nums; }
+.healthcare-dashboard .healthcare-agenda-event span { min-width: 0; }
+.healthcare-dashboard .healthcare-agenda-event strong, .healthcare-dashboard .healthcare-agenda-event small { display: block; overflow-wrap: anywhere; font-size: 11px; }
+.healthcare-dashboard .healthcare-agenda-event small { color: var(--bs-muted); margin-top: 3px; font-size: 10px; }
+.healthcare-dashboard .healthcare-day-tasks { margin-top: 12px; border: 1px solid var(--bs-border); border-radius: var(--bs-radius-card); background: var(--bs-surface); }
+.healthcare-dashboard .healthcare-day-tasks summary { padding: 12px 16px; min-height: 44px; cursor: pointer; font-size: 12px; font-weight: 600; }
+.healthcare-dashboard .healthcare-day-tasks summary span { margin-left: 8px; color: var(--bs-primary); }
+.healthcare-dashboard .healthcare-task-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 0 12px 12px; }
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .healthcare-dashboard .healthcare-workgrid { grid-template-columns: minmax(0, 1fr) 250px; }
+  .healthcare-dashboard .admin-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .healthcare-dashboard .healthcare-day-primary, .healthcare-dashboard .admin-dashboard-recent { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 1023px) {
+  .healthcare-dashboard .healthcare-workgrid { grid-template-columns: minmax(0, 1fr); }
+  .healthcare-dashboard .healthcare-main, .healthcare-dashboard .admin-dashboard-sidebar { display: contents; }
+  .healthcare-dashboard .admin-dashboard-welcome { order: 0; }
+  .healthcare-dashboard .admin-dashboard-error { order: 1; }
+  .healthcare-dashboard .admin-stat-grid { order: 2; }
+  .healthcare-dashboard .admin-dashboard-actions { order: 3; }
+  .healthcare-dashboard .admin-next-card { order: 4; }
+  .healthcare-dashboard .admin-dashboard-recent { order: 5; }
+  .healthcare-dashboard .admin-dashboard-day { order: 6; }
+  .healthcare-dashboard .healthcare-mini-calendar { display: none; }
+  .healthcare-dashboard .admin-dashboard-actions .admin-quick-action-list { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@media (max-width: 639px) {
+  .healthcare-dashboard .healthcare-workgrid { gap: 12px; }
+  .healthcare-dashboard .admin-dashboard-welcome { min-height: 0; }
+  .healthcare-dashboard .admin-dashboard-welcome h2 { font-size: 23px; }
+  .healthcare-dashboard .admin-dashboard-welcome p:last-child { font-size: 12px; }
+  .healthcare-dashboard .admin-dashboard-refresh { width: 44px; padding: 10px; }
+  .healthcare-dashboard .admin-dashboard-refresh span { display: none; }
+  .healthcare-dashboard.admin-dashboard-v2 .admin-stat-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .healthcare-dashboard .admin-stat-card { display: flex; flex-direction: column; gap: 6px; min-height: 126px; padding: 10px 8px; }
+  .healthcare-dashboard .admin-stat-card:last-child { display: none; }
+  .healthcare-dashboard .admin-stat-icon { width: 26px; height: 26px; }
+  .healthcare-dashboard .admin-stat-icon svg { width: 16px; height: 16px; }
+  .healthcare-dashboard .admin-stat-card > div { flex: 1; }
+  .healthcare-dashboard .admin-stat-card strong { font-size: 22px; line-height: 30px; }
+  .healthcare-dashboard .admin-stat-card p { min-height: 32px; font-size: 11px; line-height: 16px; }
+  .healthcare-dashboard .admin-stat-card small { display: block; margin-top: auto; font-size: 10px; line-height: 14px; color: var(--bs-muted); }
+  .healthcare-dashboard .admin-dashboard-actions { border: 0; background: var(--bs-background); padding: 0; box-shadow: none; }
+  .healthcare-dashboard .admin-dashboard-actions .admin-quick-action-list { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin-top: 10px; }
+  .healthcare-dashboard .admin-dashboard-actions .admin-quick-action { grid-column: auto; }
+  .healthcare-dashboard .admin-dashboard-actions .admin-quick-action { flex-direction: column; justify-content: flex-start; text-align: center; padding: 10px 4px; font-size: 11px; line-height: 15px; gap: 6px; min-height: 76px; }
+  .healthcare-dashboard .admin-next-card { padding: 0 12px; }
+  .healthcare-dashboard .admin-next-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 0; }
+  .healthcare-dashboard .admin-next-heading a { flex-shrink: 0; }
+  .healthcare-dashboard .admin-next-row { padding: 12px 0; align-items: center; }
+  .healthcare-dashboard .admin-next-time { width: 42px; flex-shrink: 0; font-size: 14px; font-variant-numeric: tabular-nums; }
+  .healthcare-dashboard .admin-next-line { flex-shrink: 0; }
+  .healthcare-dashboard .admin-next-row .admin-activity-copy small { font-size: 11px; white-space: normal; line-height: 16px; }
+  .healthcare-dashboard .admin-list-card > header { padding: 8px 12px; }
+  .healthcare-dashboard .admin-list-card > header a { display: inline-flex; align-items: center; min-height: 44px; }
+  .healthcare-dashboard .admin-list-card .admin-activity-row { padding: 10px 12px; }
+  .healthcare-dashboard .admin-list-card .admin-activity-avatar { display: none; }
+  .healthcare-dashboard .admin-list-card .admin-activity-copy small { white-space: normal; font-size: 10px; line-height: 15px; }
+  .healthcare-dashboard .admin-order-meta { max-width: 45%; }
+  .healthcare-dashboard .admin-order-meta > strong { font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+  .healthcare-dashboard .healthcare-day-toolbar label { font-size: 0; gap: 0; }
+  .healthcare-dashboard .healthcare-day-toolbar input { width: 132px; }
+  .healthcare-dashboard .healthcare-day-primary, .healthcare-dashboard .admin-dashboard-recent, .healthcare-dashboard .healthcare-task-grid { grid-template-columns: minmax(0, 1fr); }
+  .healthcare-dashboard .healthcare-day-calendar { display: none; }
+  .healthcare-dashboard .healthcare-day-list { padding: 12px; }
+  .healthcare-dashboard .healthcare-visit .bs-badge { max-width: 100px; }
+  .healthcare-dashboard .admin-activity-row { gap: 8px; }
+  .healthcare-dashboard .healthcare-revenue { gap: 10px; }
+}
