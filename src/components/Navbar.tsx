@@ -34,7 +34,19 @@ export default function Navbar() {
   const [isMoreOpen, setIsMoreOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [cartCount, setCartCount] = useState(0);
+  const [shopVisible, setShopVisible] = useState(false);
   const moreMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let active = true;
+    const refresh = () => fetch("/api/site-visibility", { cache: "no-store" })
+      .then((r) => r.ok ? r.json() : { shopVisible: false })
+      .then((data) => { if (active) setShopVisible(data.shopVisible === true); })
+      .catch(() => { if (active) setShopVisible(false); });
+    refresh();
+    window.addEventListener("focus", refresh);
+    return () => { active = false; window.removeEventListener("focus", refresh); };
+  }, [pathname]);
 
   // Обновление количества товаров в корзине
   const updateCartCount = () => {
@@ -105,7 +117,7 @@ export default function Navbar() {
 
           {/* Десктопная навигация */}
           <div className="hidden items-center gap-5 lg:flex xl:gap-7">
-            {primaryLinks.map((link) => {
+            {primaryLinks.filter((link) => shopVisible || link.href !== "/shop").map((link) => {
               const linkPath = link.href.split("#")[0];
               const active = linkPath === "/" ? pathname === "/" : pathname.startsWith(linkPath);
               return (
@@ -146,8 +158,9 @@ export default function Navbar() {
           {/* Кнопка корзины и запись */}
           <div className="flex items-center gap-2">
             <ThemeToggle />
-            {/* Корзина */}
-            <Link
+            {/* Корзина доступна только с магазином */}
+            {shopVisible && (
+              <Link
               href="/shop/cart"
               className="nav-icon relative grid h-10 w-10 place-items-center rounded-2xl border transition-all hover:-translate-y-0.5"
               style={{ color: "var(--foreground)", borderColor: "var(--glass-border)", background: "var(--glass-bg)" }}
@@ -160,6 +173,7 @@ export default function Navbar() {
                 </span>
               )}
             </Link>
+            )}
 
             <Link href="/account" className="nav-icon grid h-10 w-10 place-items-center rounded-2xl border transition-all hover:-translate-y-0.5" style={{ color: "var(--foreground)", borderColor: "var(--glass-border)", background: "var(--glass-bg)" }} aria-label="Личный кабинет">
               <UserRound className="h-5 w-5" />
@@ -189,7 +203,7 @@ export default function Navbar() {
         {isMenuOpen && (
           <div id="mobile-navigation" className="mobile-navigation border-t py-5 lg:hidden" style={{ borderColor: "var(--glass-border)" }}>
             <div className="grid grid-cols-2 gap-2">
-              {navLinks.map((link) => {
+              {navLinks.filter((link) => shopVisible || link.href !== "/shop").map((link) => {
                 const linkPath = link.href.split("#")[0];
                 const active = linkPath === "/" ? pathname === "/" : pathname.startsWith(linkPath);
                 return (
