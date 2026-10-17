@@ -27,6 +27,6 @@ jobs:
       - name: TypeScript
         run: npx tsc --noEmit
       - name: ESLint
-        run: npx eslint src/app/page.tsx src/app/home-editorial.css src/components/Navbar.tsx src/components/Footer.tsx src/components/ShopVisibilityLink.tsx src/components/EditorialReviews.tsx src/components/SiteChrome.tsx src/lib/site-visibility.ts src/app/shop/layout.tsx src/app/api/site-visibility/route.ts src/app/api/admin/site-visibility/route.ts src/app/admin/settings/page.tsx src/app/api/products/route.ts src/app/api/payment/init/route.ts src/app/sitemap.ts || test $? -eq 2
+        run: npx eslint src
       - name: Production build (never deploy)
         run: npm run build
