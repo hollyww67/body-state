@@ -356,20 +356,22 @@ export default function AdminCalendarPage() {
               <div><h3 className="text-lg font-semibold text-[var(--bs-foreground)]">Новая запись</h3><p className="text-sm text-[var(--bs-muted)] mt-1">{format(selectedDay, "d MMMM yyyy", { locale: ru })}</p></div>
               <button type="button" disabled={adding} aria-label="Закрыть" onClick={() => setShowAddModal(false)} className="w-10 h-10 rounded-[var(--bs-radius-control)] hover:bg-gray-100 flex items-center justify-center transition-all"><X className="w-5 h-5 text-[var(--bs-muted)]" /></button>
             </div>
-            <form onSubmit={handleAddBooking} className="healthcare-calendar-booking-form p-6 space-y-4">
+            <form onSubmit={handleAddBooking} className="healthcare-calendar-booking-form">
+              <div className="healthcare-calendar-create-fields">
               <fieldset className="healthcare-calendar-fieldset" disabled={adding}>
               <legend>Клиент</legend>
-              <p className="healthcare-calendar-helper">Найдите кабинет клиента или заполните имя и телефон для новой записи.</p>
               <SchedulingClientPicker onSelect={c=>{setNewAccountId(c?.id??null);setNewIdentity(false);if(c){setNewName(c.display_name??'');setNewPhone(formatRussianPhoneInput(c.phone??''));}}}/>
               {newAccountId&&<label className="flex gap-3 text-xs"><input required type="checkbox" checked={newIdentity} onChange={e=>setNewIdentity(e.target.checked)}/>Личность клиента и принадлежность кабинета подтверждены</label>}
+              <div className="healthcare-calendar-client-row">
               <AdminField id="booking-client-name" label="Имя клиента"><AdminInput id="booking-client-name" autoComplete="name" required value={newName} onChange={e=>setNewName(e.target.value)} /></AdminField>
               <AdminField id="booking-client-phone" label="Телефон клиента"><AdminInput id="booking-client-phone" required type="tel" autoComplete="tel" inputMode="tel" placeholder="+7 (___) ___-__-__" value={newPhone} onChange={e=>setNewPhone(formatRussianPhoneInput(e.target.value))} /></AdminField>
+              </div>
               </fieldset>
               <fieldset className="healthcare-calendar-fieldset" disabled={adding}>
               <legend>Приём</legend>
-              <AdminField id="booking-date" label="Дата приёма"><AdminInput id="booking-date" required type="date" value={format(selectedDay,'yyyy-MM-dd')} onChange={e=>{if(e.target.value&&/^\d{4}-\d{2}-\d{2}$/.test(e.target.value)){const date=moscowDate(`${e.target.value}T12:00:00+03:00`);if(Number.isFinite(date.getTime())){setSelectedDay(date);setCurrentMonth(date);setNewSlotId(null);}}}}/></AdminField>
-              <div className="healthcare-calendar-form-row grid grid-cols-2 gap-3">
                 <AdminField id="booking-service" label="Услуга"><AdminSelect id="booking-service" value={newService} onChange={e=>{setNewService(e.target.value as ServiceType);setNewSlotId(null);}}>{SERVICE_TYPES.map(s=><option key={s.value} value={s.value}>{s.label}</option>)}</AdminSelect></AdminField>
+              <div className="healthcare-calendar-form-row grid grid-cols-2 gap-3">
+              <AdminField id="booking-date" label="Дата приёма"><AdminInput id="booking-date" required type="date" value={format(selectedDay,'yyyy-MM-dd')} onChange={e=>{if(e.target.value&&/^\d{4}-\d{2}-\d{2}$/.test(e.target.value)){const date=moscowDate(`${e.target.value}T12:00:00+03:00`);if(Number.isFinite(date.getTime())){setSelectedDay(date);setCurrentMonth(date);setNewSlotId(null);}}}}/></AdminField>
                 <AdminField id="booking-time" label="Время (МСК)"><AdminInput id="booking-time" type="time" value={newTime} onChange={e=>{setNewTime(e.target.value);setNewSlotId(null);}} /></AdminField>
               </div>
               <p className="healthcare-calendar-helper">{newSlotId?'Выбрано свободное окно из календаря.':'Время указано по Москве. Доступность проверяется при сохранении записи.'}</p>
@@ -378,11 +380,12 @@ export default function AdminCalendarPage() {
               <legend>Подтверждение</legend>
               <label className="flex items-start gap-3 text-xs text-gray-700"><input type="checkbox" required checked={newConsent} onChange={e=>setNewConsent(e.target.checked)}/>Клиент дал согласие на обработку данных и запись на услугу.</label>
               </fieldset>
-              <div className="healthcare-calendar-create-actions">
-              <p className="healthcare-calendar-helper">Чтобы опубликовать свободное время без записи клиента, добавьте только окно.</p>
               <AdminButton variant="outline" disabled={adding} onClick={addWindowOnly} className="w-full">Добавить только окно, без клиента</AdminButton>
-              <AdminButton type="submit" loading={adding} disabled={!newConsent} className="w-full">{adding ? 'Добавление…' : 'Добавить запись'}</AdminButton>
               </div>
+              <footer className="healthcare-calendar-create-actions">
+              <AdminButton variant="outline" disabled={adding} onClick={() => {setShowAddModal(false);setNewSlotId(null);setNewConsent(false);setNewAccountId(null);setNewIdentity(false);}}>Отмена</AdminButton>
+              <AdminButton type="submit" loading={adding} disabled={!newConsent} className="w-full">{adding ? 'Добавление…' : 'Создать запись'}</AdminButton>
+              </footer>
             </form>
           </div>
         </AdminModal>

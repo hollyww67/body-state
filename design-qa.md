@@ -1,4 +1,30 @@
-# Stage 3.1 design QA — current acceptance
+# Booking dialog fidelity correction — current acceptance
+
+17.10.2026, Петрович. Scope: только календарное окно «Новая запись». Новый owner brief supersedes прежнее решение right-side drawer; прежний PASS ниже не является основанием сохранять drawer.
+
+Source: `C:/Users/user/Downloads/Панель календаря записей BODY STATE.png`1536×1024. Built implementation: `http://localhost:3921/admin/calendar`, synthetic DB, providers OFF. Evidence: `docs/design/booking-dialog-refinement/`.
+
+## Findings / iteration
+
+- P1 owner finding: полноразмерный drawer520×900 вплотную к правому краю вместо floating card. `before-1440.png`. Исправлены scoped layout,440px ширина,fluid отступы,16px радиус,shadow/border,content height,scroll body и доступный footer.
+- P2 первой correction iteration: форма440×784.8 оставалась излишне высокой. `iteration1-1440.png`. Уплотнены help/legend/spacing, установлен max-height740 с внутренней прокруткой; новая сборка и финальные `after-1440.png`/`after-1920.png` подтверждают440×740 с отступами со всех сторон. Ни один обязательный control не скрыт.
+- Full-view `reference-before-after.png` и focused `reference-before-after-detail.png` просмотрены как единые изображения Reference/Before/After. Все пять размеров:1920×1080,1440×900,768×1024,390×844,320×740.
+
+## Normalization / fidelity surfaces
+
+Reference1536×1024; before/after desktop1440×900; mobile native390×843 при CSS390×844,320×740. Full-view comparison uses contain960×680 per column, focused crops432×602/520×900/440×740 use contain440×900, no distortion. Данные/состав полей не идентичны reference, поэтому не заявляется pixel parity.
+
+Typography: сохранён Manrope, компактная hierarchy; labels/длинная услуга читаемы. Layout: отдельная карточка справа, не центрированная и не docked, постоянные header/footer, прокрутка body; mobile full-screen и safe-area. Colors: существующие tokens/backdrop, палитра не изменена. Assets: библиотечные иконки/существующий shell, нет новых фальшивых изображений. Copy: убраны только повторные пояснения; consent/identity/availability остаются, fake specialists/status/notification modes не добавлены.
+
+Browser: geometry, initial focus, Shift+Tab wrap, Cancel/Escape+focus restoration, body lock cleanup, footer visibility, consent-disabled submit. Reduced-height390×500 checked; физическая клавиатура/PWA не сертифицирована. Modal and booking AST/VM tests PASS; browser POST не выполнялся.
+
+Нет оставшихся actionable P0/P1/P2 для этого точечного acceptance. Реальная форма выше reference из-за обязательных полей и дополнительного поддерживаемого действия; это не замена окна drawer. Manual PWA/keyboard remains pending.
+
+final result: passed
+
+---
+
+# Archived Stage 3.1 design QA (superseded for creation presentation above)
 
 17.10.2026, Петрович. Ниже перед архивом Stage3 приведён актуальный результат Stage3.1.
 

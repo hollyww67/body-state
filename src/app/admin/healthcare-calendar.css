@@ -90,6 +90,45 @@
 .healthcare-calendar-helper { margin: 0; font: var(--bs-caption); color: var(--bs-muted); line-height: 1.6; }
 .healthcare-calendar-create .healthcare-calendar-form-row { grid-template-columns: minmax(0, 1fr); }
 .healthcare-calendar-create-actions { display: grid; gap: 12px; padding-bottom: env(safe-area-inset-bottom); }
+/* Calendar creation only: floating card, not the generic full-height panel. */
+.admin-confirm-dialog.admin-presentation-panel:has(.healthcare-calendar-create) {
+  padding: clamp(16px, 3vw, 48px);
+  align-items: flex-end;
+  justify-content: center;
+}
+.admin-confirm-dialog.admin-presentation-panel > .healthcare-calendar-create {
+  display: flex;
+  flex-direction: column;
+  flex: 0 1 auto;
+  width: min(440px, 100%);
+  height: auto;
+  max-height: min(740px, calc(var(--modal-height, 100dvh) - clamp(32px, 6vw, 96px))) !important;
+  overflow: hidden !important;
+  border: 1px solid var(--bs-border);
+  border-radius: 16px;
+  box-shadow: var(--bs-shadow-md);
+}
+.healthcare-calendar-create > div:first-child { flex-shrink: 0; padding: 14px 18px; }
+.healthcare-calendar-create > div:first-child h3 { font-size: 16px; line-height: 24px; }
+.healthcare-calendar-create > div:first-child p { font-size: 12px; line-height: 18px; margin-top: 2px; }
+.healthcare-calendar-create .healthcare-calendar-booking-form { display: flex; flex-direction: column; min-height: 0; padding: 0; overflow: hidden; }
+.healthcare-calendar-create-fields { display: grid; gap: 12px; padding: 14px 18px; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.healthcare-calendar-create .healthcare-calendar-fieldset { gap: 8px; padding: 0; border: 0; }
+.healthcare-calendar-create .healthcare-calendar-fieldset legend { padding-bottom: 8px; font-size: 13px; }
+.healthcare-calendar-create .bs-card { padding: 12px; box-shadow: none; }
+.healthcare-calendar-create .bs-card :is(label,p) { font-size: 12px; line-height: 18px; }
+.healthcare-calendar-create .healthcare-calendar-helper { line-height: 1.5; }
+.healthcare-calendar-client-row, .healthcare-calendar-create .healthcare-calendar-form-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.healthcare-calendar-create .healthcare-calendar-create-actions { flex-shrink: 0; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); gap: 10px; padding: 10px 18px; border-top: 1px solid var(--bs-border); background: var(--bs-surface); }
+.healthcare-calendar-create-actions .bs-button { min-width: 0; padding-inline: 10px; }
+@media (max-width: 640px) {
+  .admin-confirm-dialog.admin-presentation-panel:has(.healthcare-calendar-create) { padding: 0; }
+  .admin-confirm-dialog.admin-presentation-panel > .healthcare-calendar-create { height: 100%; max-height: 100% !important; border: 0; border-radius: 0; }
+  .healthcare-calendar-create > div:first-child { padding-top: max(14px, env(safe-area-inset-top)); }
+  .healthcare-calendar-create .healthcare-calendar-booking-form { flex: 1; padding: 0; }
+  .healthcare-calendar-create .healthcare-calendar-create-actions { padding-bottom: max(14px, env(safe-area-inset-bottom)); }
+  .healthcare-calendar-client-row { grid-template-columns: minmax(0, 1fr); }
+}
 .healthcare-calendar-fieldset input[type="checkbox"] { flex: 0 0 18px; width: 18px; height: 18px; margin-top: 2px; }
 .admin-calendar-page :is(button, a):focus-visible { outline: 2px solid var(--bs-primary); outline-offset: 2px; }
 @media (max-width: 1100px) {

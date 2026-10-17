@@ -1,0 +1,50 @@
+// Targeted presentation guard; browser geometry is verified separately.
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const cp = require('node:child_process');
+const ts = require('typescript');
+const postcss = require('postcss');
+const base = '15df0f2c8830a7c52ca1985d680d44a60540ae80';
+const page = fs.readFileSync('src/app/admin/calendar/page.tsx','utf8');
+const parse = text => ts.createSourceFile('view.tsx',text,ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX);
+const current = parse(page);
+assert.equal(current.parseDiagnostics.length,0);
+const baseline = parse(cp.execFileSync('git',['show',`${base}:src/app/admin/calendar/page.tsx`],{encoding:'utf8'}));
+const printer = ts.createPrinter({removeComments:true});
+function visit(node, fn) { fn(node); ts.forEachChild(node,child=>visit(child,fn)); }
+function functions(source) {
+  const result = new Map();
+  visit(source,n=>{ if(ts.isVariableDeclaration(n)&&ts.isIdentifier(n.name)&&n.initializer&&(ts.isArrowFunction(n.initializer)||ts.isFunctionExpression(n.initializer))) result.set(n.name.text,printer.printNode(ts.EmitHint.Unspecified,n.initializer,source)); });
+  return result;
+}
+const oldFns=functions(baseline),newFns=functions(current);
+for(const [name,body] of oldFns) assert.equal(newFns.get(name),body,`Changed handler ${name}`);
+console.log('PASS all named calendar function bodies unchanged from Stage3.1');
+const modal='src/components/admin/AdminConfirmDialog.tsx';
+assert.equal(fs.readFileSync(modal,'utf8').replace(/\r\n/g,'\n'),cp.execFileSync('git',['show',`${base}:${modal}`],{encoding:'utf8'}).replace(/\r\n/g,'\n'));
+console.log('PASS shared native modal/focus/portal/visualViewport implementation byte-equivalent');
+const attr=(node,name)=>node.attributes.properties.find(p=>ts.isJsxAttribute(p)&&p.name.getText(current)===name);
+let footer, fields;
+visit(current,n=>{if(ts.isJsxElement(n)){const cls=attr(n.openingElement,'className')?.initializer?.text;if(cls==='healthcare-calendar-create-actions') footer=n;if(cls==='healthcare-calendar-create-fields') fields=n;}});
+assert(footer&&fields);
+const actions=[];
+visit(footer,n=>{if(ts.isJsxElement(n)&&n.openingElement.tagName.getText(current)==='AdminButton')actions.push(n);});
+assert.equal(actions.length,2);
+const [cancel,submit]=actions.map(n=>n.openingElement);
+assert.equal(attr(cancel,'disabled').initializer.expression.getText(current),'adding');
+assert(attr(cancel,'onClick')); assert.equal(attr(submit,'type').initializer.text,'submit');
+assert.equal(attr(submit,'loading').initializer.expression.getText(current),'adding');
+assert.equal(attr(submit,'disabled').initializer.expression.getText(current),'!newConsent');
+console.log('PASS persistent action footer: busy cancel, consent guard, submit loading');
+let consent=false,identity=false;
+visit(fields,n=>{if(ts.isJsxSelfClosingElement(n)&&n.tagName.getText(current)==='input'){const checked=attr(n,'checked')?.initializer?.expression?.getText(current);if(checked==='newConsent')consent=!!attr(n,'required');if(checked==='newIdentity')identity=!!attr(n,'required');}});
+assert(consent&&identity);
+console.log('PASS required consent and conditional identity controls remain in scroll region');
+const rules=[];postcss.parse(fs.readFileSync('src/app/admin/healthcare-calendar.css','utf8')).walkRules(rule=>rules.push(rule));
+const card=rules.find(r=>r.selector==='.admin-confirm-dialog.admin-presentation-panel > .healthcare-calendar-create');
+const declarations=Object.fromEntries(card.nodes.filter(n=>n.type==='decl').map(n=>[n.prop,n.value]));
+assert.equal(declarations.height,'auto'); assert.equal(declarations.width,'min(440px, 100%)');assert.equal(declarations['border-radius'],'16px');assert(declarations['max-height'].startsWith('min(740px,'));
+assert(rules.some(r=>r.selector.includes(':has(.healthcare-calendar-create)')));
+assert(rules.some(r=>r.parent.type==='atrule'&&r.parent.params==='(max-width: 640px)'&&r.selector.includes('> .healthcare-calendar-create')&&r.nodes.some(n=>n.prop==='height'&&n.value==='100%')));
+console.log('PASS scoped floating desktop geometry and full-screen mobile override');
+console.log('PASS 5 floating booking presentation groups; no DB/provider/browser calls');
