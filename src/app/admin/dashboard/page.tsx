@@ -99,9 +99,9 @@ export default function AdminDashboard() {
   const upcomingBookings = bookings.filter(item => item.status === "confirmed" && item.slot_time && new Date(item.slot_time).getTime() >= Date.now()).sort((a, b) => new Date(a.slot_time!).getTime() - new Date(b.slot_time!).getTime()).slice(0, 3);
 
   const cards = [
-    { label: "Ожидают действий", value: stats.pendingBookings, detail: `${bookings.length} записей всего`, href: "/admin/bookings", icon: CalendarDays, tone: "teal" },
+    { label: "Записи к обработке", value: stats.pendingBookings, detail: `${bookings.length} записей всего`, href: "/admin/bookings", icon: CalendarDays, tone: "teal" },
     { label: "Активные заказы", value: stats.activeOrders, detail: `${orders.length} всего`, href: "/admin/orders", icon: ShoppingBag, tone: "blue" },
-    { label: "Мало на складе", value: stats.lowStock, detail: `${products.length} товаров`, href: "/admin/products", icon: Package, tone: "amber" },
+    { label: "Мало на складе", value: stats.lowStock, detail: "Остаток ≤ 5 шт.", href: "/admin/products", icon: Package, tone: "amber" },
     { label: "Отзывы", value: stats.reviews, detail: "Опубликовано", href: "/admin/reviews", icon: Star, tone: "violet" },
   ];
 
@@ -112,7 +112,7 @@ export default function AdminDashboard() {
       <header className="admin-dashboard-intro admin-dashboard-welcome">
         <div>
           <h2>Здравствуйте!</h2>
-          <p>Вот что происходит в Body State сегодня.</p>
+          <p>Body State · записи, заказы и задачи</p>
         </div>
         <button type="button" aria-label="Обновить общую сводку" onClick={() => loadData(true)} className="admin-dashboard-refresh" disabled={refreshing}>
           <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
@@ -126,7 +126,7 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      <section className="admin-stat-grid" aria-label="Основные показатели">
+      <section className="admin-stat-grid" aria-label="Сводка записей, заказов, склада и отзывов" aria-busy={loading || refreshing}>
         {cards.map((card) => {
           const Icon = card.icon;
           return (
@@ -150,7 +150,7 @@ export default function AdminDashboard() {
               <span className="admin-activity-avatar is-order"><ShoppingBag className="h-4 w-4" /></span>
               <span className="admin-activity-copy">
                 <strong>{order.client_name || `Заказ #${order.id.slice(0, 6)}`}</strong>
-                <small>{formatDate(order.created_at)}</small>
+                <small>#{order.id.slice(0, 6)} · {formatDate(order.created_at)}</small>
               </span>
               <span className="admin-order-meta"><strong>{Number(order.total || 0).toLocaleString("ru-RU")} ₽</strong><StatusBadge status={order.status} /></span>
             </Link>
@@ -179,7 +179,7 @@ export default function AdminDashboard() {
       </section>
 
       <section className="admin-next-card">
-        <div className="admin-next-heading"><span className="admin-section-eyebrow">Ближайшие подтверждённые приёмы</span><Link href="/admin/calendar">Весь календарь <ArrowRight className="h-3.5 w-3.5" /></Link></div>
+        <div className="admin-next-heading"><div><h3>Ближайшие приёмы</h3><p>Подтверждённые · время по Москве</p></div><Link href="/admin/calendar">Календарь <ArrowRight className="h-3.5 w-3.5" /></Link></div>
         {upcomingBookings.map((booking) => (
           <Link href={`/admin/bookings?booking=${booking.id}`} className="admin-next-row" key={`next-${booking.id}`}>
             <span className="admin-next-time">{formatTime(booking.slot_time)}</span>
