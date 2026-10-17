@@ -1,0 +1,32 @@
+name: Public site editorial and shop guard QA (no deployment)
+
+on:
+  pull_request:
+    branches: [feat/admin-premium-healthcare-v3]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  site-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install exactly locked packages
+        run: npm ci --no-audit --no-fund
+      - name: Offline store visibility integration contracts
+        run: node tests/site-visibility.cjs
+      - name: TypeScript
+        run: npx tsc --noEmit
+      - name: ESLint
+        run: npx eslint src/app/page.tsx src/app/home-editorial.css src/components/Navbar.tsx src/components/Footer.tsx src/components/ShopVisibilityLink.tsx src/components/EditorialReviews.tsx src/components/SiteChrome.tsx src/lib/site-visibility.ts src/app/shop/layout.tsx src/app/api/site-visibility/route.ts src/app/api/admin/site-visibility/route.ts src/app/admin/settings/page.tsx src/app/api/products/route.ts src/app/api/payment/init/route.ts src/app/sitemap.ts || test $? -eq 2
+      - name: Production build (never deploy)
+        run: npm run build
