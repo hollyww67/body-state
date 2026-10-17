@@ -24,6 +24,12 @@ jobs:
         run: npm ci --no-audit --no-fund
       - name: Offline store visibility integration contracts
         run: node tests/site-visibility.cjs
+      - name: Existing payment, PWA and modal regressions
+        run: |
+          node tests/payment-init.cjs
+          node tests/admin-pwa.cjs
+          node tests/admin-modal.cjs
+          node tests/dependency-regressions.cjs
       - name: TypeScript
         run: npx tsc --noEmit
       - name: ESLint
