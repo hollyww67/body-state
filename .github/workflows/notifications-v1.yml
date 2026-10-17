@@ -1,5 +1,7 @@
 name: Notifications V1 isolated gate (no deployment)
 on:
+  push:
+    branches: [release/body-state-premium-v3]
   pull_request:
     branches: [feat/scheduling-v2]
   workflow_dispatch:

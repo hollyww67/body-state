@@ -1,6 +1,8 @@
 name: Public site editorial and shop guard QA (no deployment)
 
 on:
+  push:
+    branches: [release/body-state-premium-v3]
   pull_request:
     branches: [feat/admin-premium-healthcare-v3]
   workflow_dispatch:
@@ -30,6 +32,10 @@ jobs:
           node tests/admin-pwa.cjs
           node tests/admin-modal.cjs
           node tests/dependency-regressions.cjs
+          node tests/admin-logout.cjs
+          node tests/admin-booking-floating.cjs
+          node --test tests/max-notifications.cjs
+          node tests/notification-email-design.cjs
       - name: TypeScript
         run: npx tsc --noEmit
       - name: ESLint
