@@ -42,6 +42,7 @@ export default function AppointmentBookingForm({ service, price, programId, prog
   const [calendarLoading, setCalendarLoading] = useState(true);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState<{ summary: BookingJourney; accessToken: string } | null>(null);
+  const previousStage = useRef({ step, saved });
   const lock = useRef(false);
   const attempt = useRef<Attempt | null>(null);
   const promoGeneration = useRef(0);
@@ -64,6 +65,9 @@ export default function AppointmentBookingForm({ service, price, programId, prog
     }
   }, [profile]);
   useEffect(() => {
+    // Initial page/fragment positioning belongs to the browser, not the form.
+    if (previousStage.current.step === step && previousStage.current.saved === saved) return;
+    previousStage.current = { step, saved };
     if (saved) {
       resultElement.current?.focus({ preventScroll: true });
       resultElement.current?.scrollIntoView({ block: "start", behavior: "instant" });

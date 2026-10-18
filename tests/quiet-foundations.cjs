@@ -64,4 +64,12 @@ test('CMS image sources accept uploaded or HTTPS assets, never unsafe schemes or
   assert.equal(source('/uploads/approved.webp'), '/uploads/approved.webp');
   assert.equal(source('https://body-state.ru/uploads/approved.webp'), 'https://body-state.ru/uploads/approved.webp');
 });
+test('promo action separates lilac fill and ink foreground from link colors in both themes', () => {
+  const promo = read('src/components/PromoCodeField.tsx');
+  assert(promo.includes('var(--qp-promo-fill, var(--primary))'));
+  assert(promo.includes('var(--qp-promo-text, #fff)'));
+  const tokens = read('src/app/quiet-precision.css');
+  assert(tokens.includes('--qp-promo-fill: var(--qp-brand); --qp-promo-text: var(--qp-on-brand)'));
+  assert(tokens.includes('.quiet-public .qp-promo button { min-width: 44px; min-height: 44px; }'));
+});
 console.log(`${passed} Quiet Precision foundation groups passed`);

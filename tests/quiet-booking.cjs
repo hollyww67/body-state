@@ -13,8 +13,8 @@ const future = { id: "synthetic-slot-1", slot_time: "2032-02-14T21:30:00Z", dura
 const later = { id: "synthetic-slot-2", slot_time: "2032-03-01T09:00:00Z", duration_minutes: 90 };
 const flush = () => new Promise((resolve) => setImmediate(resolve));
 function deferred() { let resolve, reject; const promise = new Promise((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; }
-function load(file, imports, globals = {}) {
-  const result = ts.transpileModule(fs.readFileSync(path.join(root, file), "utf8"), {
+function load(file, imports, globals = {}, transform = (source) => source) {
+  const result = ts.transpileModule(transform(fs.readFileSync(path.join(root, file), "utf8")), {
     fileName: file, reportDiagnostics: true,
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX },
   });
@@ -26,7 +26,7 @@ function load(file, imports, globals = {}) {
   return mod.exports;
 }
 const phone = load("src/lib/phone.ts", {});
-function mount(file, initialProps = {}, profile = null) {
+function mount(file, initialProps = {}, profile = null, sourceTransform) {
   let props = initialProps, cursor = 0, dirty = false, effects = [], alive = true, tree;
   const hooks = [], requests = [], events = [], domCalls = [];
   const attachedRefs = new Map();
@@ -50,7 +50,7 @@ function mount(file, initialProps = {}, profile = null) {
     },
     useEffect(effect, deps) {
       const index = cursor++, previous = hooks[index];
-      if (!same(previous?.deps, deps)) effects.push(() => { previous?.cleanup?.(); hooks[index] = { deps, cleanup: effect() }; });
+      if (!same(previous?.deps, deps)) effects.push(() => { previous?.cleanup?.(); hooks[index] = { deps, effect, cleanup: effect() }; });
     },
   };
   const jsx = (type, nodeProps) => ({ type, props: nodeProps || {} });
@@ -73,7 +73,7 @@ function mount(file, initialProps = {}, profile = null) {
     const pending = deferred();
     requests.push({ url, options, resolve: (body, status = 200) => pending.resolve({ ok: status >= 200 && status < 300, status, json: async () => body }), reject: pending.reject });
     return pending.promise;
-  } }).default;
+  } }, sourceTransform).default;
   function render() {
     let rounds = 0;
     do {
@@ -122,10 +122,11 @@ function mount(file, initialProps = {}, profile = null) {
     advance() { return find((node) => node.type === "form").props.onSubmit({ preventDefault() {} }); },
     selectSlot(slot = future) { const calendar = this.child("Calendar"); calendar.props.onLoadingChange(false); calendar.props.onSelect(slot.id, slot); render(); },
     update(next) { props = next; render(); },
+    replayEffects() { hooks.forEach((hook) => { if (hook?.effect) { hook.cleanup?.(); hook.cleanup = hook.effect(); } }); render(); },
     unmount() { alive = false; hooks.forEach((hook) => hook?.cleanup?.()); for (const [ref] of attachedRefs) ref.current = null; attachedRefs.clear(); },
   };
 }
-const appointment = (props = {}, profile) => mount("src/components/AppointmentBookingForm.tsx", { service: "bfm", price: 3000, ...props }, profile);
+const appointment = (props = {}, profile, sourceTransform) => mount("src/components/AppointmentBookingForm.tsx", { service: "bfm", price: 3000, ...props }, profile, sourceTransform);
 const saved = (status = "pending") => ({ booking: { id: "synthetic-booking", accessToken: "synthetic-access", summary: { id: "synthetic-booking", status, snapshot: { total: 3000 } } } });
 function contacts(c) { c.field("Ваше имя", "Тестовый клиент"); c.field("Номер телефона", "89151234567"); c.field("Электронная почта", "qa@example.invalid"); c.child("Consent").props.onChange(true); }
 async function review(c) { await c.advance(); c.selectSlot(); await c.advance(); contacts(c); await c.advance(); assert.ok(c.text().includes("Проверьте данные")); }
@@ -149,8 +150,20 @@ function assertViewportEntry(c, title, success = false) {
 async function main() {
   let count = 0;
   async function test(name, run) { await run(); count++; console.log("PASS " + name); }
+  await test("initial mount and repeated effects never steal page/native #booking anchor position", async () => {
+    for (const service of ["bfm", "brt", "psychology"]) {
+      const c = appointment({ service, ...(service === "psychology" ? { programId: 7, programTitle: "Synthetic program" } : {}) },
+        { display_name: "Synthetic profile", email: "profile@example.invalid" });
+      assert.equal(c.domCalls.length, 0, service + ": initial mount must not focus or scroll past the description");
+      c.replayEffects(); assert.equal(c.domCalls.length, 0, "Repeated mount effects must also leave browser positioning alone");
+      c.render(); assert.equal(c.requests.length, 0);
+      await c.advance(); assertViewportEntry(c, "Когда вам удобно?");
+      c.click("Услуга"); assertViewportEntry(c, "Записаться на приём");
+      c.replayEffects(); assert.equal(c.domCalls.length, 0, "Same stage effect replay cannot scroll twice");
+    }
+  });
   await test("step entry focuses current heading and instantly scrolls form including progress; typing does not", async () => {
-    const c = appointment(); assertViewportEntry(c, "Записаться на приём");
+    const c = appointment(); assert.equal(c.domCalls.length, 0);
     await c.advance(); assertViewportEntry(c, "Когда вам удобно?");
     c.selectSlot();
     c.find((node) => node.type === "button" && node.props["aria-current"] === "step").props.onClick();
@@ -181,8 +194,31 @@ async function main() {
     assert.strictEqual(receipt.props.initial, response.booking.summary);
     assert.equal(receipt.props.initial.status, status); assert.equal(receipt.props.accessToken, "synthetic-access");
     assert.equal(c.all((node) => node.type === "form" || node.type === "h2").length, 0);
-    c.render(); assert.equal(c.domCalls.length, 0, "Stable saved result must not repeatedly steal focus");
+    c.replayEffects(); assert.equal(c.domCalls.length, 0, "Stable saved result must not repeatedly steal focus");
     assert.equal(c.requests.length, 1); assert.equal(request.options.body, body);
+  });
+  const stageGuard = "if (previousStage.current.step === step && previousStage.current.saved === saved) return;";
+  for (const [name, before, after, check] of [
+    ["initial automatic jump", stageGuard, "", async (c) => assert.equal(c.domCalls.length, 0)],
+    ["all stage transitions skipped", stageGuard, "return;", async (c) => { await c.advance(); assertViewportEntry(c, "Когда вам удобно?"); }],
+    ["heading-only scroll loses progress", "formElement.current?.scrollIntoView", "heading.current?.scrollIntoView", async (c) => { await c.advance(); assertViewportEntry(c, "Когда вам удобно?"); }],
+    ["missing success focus", "resultElement.current?.focus({ preventScroll: true });", "", async (c) => {
+      await review(c); c.domCalls.length = 0;
+      const pending = c.advance(); c.requests[0].resolve(saved()); await pending; assertViewportEntry(c, null, true);
+    }],
+    ["missing saved effect dependency", "}, [step, saved]);", "}, [step]);", async (c) => {
+      await review(c); c.domCalls.length = 0;
+      const pending = c.advance(); c.requests[0].resolve(saved()); await pending; assertViewportEntry(c, null, true);
+    }],
+  ]) await test("negative control rejects " + name, async () => {
+    let changed = false;
+    const c = appointment({}, null, (source) => {
+      assert.ok(source.includes(before), "Negative control must match actual TSX");
+      changed = true; return source.replace(before, after);
+    });
+    assert.ok(changed);
+    await assert.rejects(() => check(c), (error) => error.code === "ERR_ASSERTION", "Reject the regression via UI assertion, not a mock error");
+    c.unmount();
   });
   await test("thin service wrapper owns one persistent appointment and never adds BRT", async () => {
     const wrapper = mount("src/components/ServiceBookingForm.tsx", { bfmPrice: 3000, psychologyPrice: 4000 });

@@ -215,6 +215,10 @@ body:has(.quiet-public) { background: var(--qp-background); }
 .quiet-public .qp-empty h3 { font-size: 18px; color: var(--qp-text); }
 .quiet-public .qp-empty p { margin-block: 8px 16px; }
 .quiet-public .qp-receipt { border-radius: var(--qp-radius-card); }
+.quiet-public .qp-promo { --qp-promo-fill: var(--qp-brand); --qp-promo-text: var(--qp-on-brand); }
+.quiet-public .qp-promo button { min-width: 44px; min-height: 44px; }
+.quiet-public .qp-promo-apply:hover:not(:disabled) { --qp-promo-fill: var(--qp-brand-hover); }
+.quiet-public .qp-promo-apply:active:not(:disabled) { --qp-promo-fill: var(--qp-brand-pressed); --qp-promo-text: #fff; }
 .quiet-public .qp-receipt-heading { text-align: center; padding-block: 16px; }
 .quiet-public .qp-receipt-heading h2 { font-size: clamp(30px, 5vw, 42px); line-height: 1.12; font-weight: 400; }
 .quiet-public .qp-receipt-heading p { color: var(--qp-muted); line-height: 1.6; }
