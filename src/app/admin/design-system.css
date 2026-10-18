@@ -1,16 +1,20 @@
 /* Body State 2.0: scoped semantic tokens. Public storefront is intentionally untouched. */
 .admin-shell, .admin-confirm-dialog {
-  --bs-background: #f7f9f8;
+  --bs-background: #f8f9f6;
   --bs-surface: #fff;
-  --bs-surface-muted: #eff7f3;
+  --bs-surface-muted: #ecebf3;
   --bs-foreground: #17212f;
-  --bs-muted: #586974;
-  --bs-primary: #147f70;
-  --bs-primary-hover: #106b60;
-  --bs-primary-soft: #e2f3ec;
+  --bs-muted: #6b6474;
+  --bs-primary: #645080;
+  --bs-primary-hover: #53416b;
+  --bs-primary-soft: #ecebf3;
   --bs-on-primary: #fff;
-  --bs-border: #e5ece9;
-  --bs-border-strong: #b8c9c4;
+  /* Brand fills are not text/focus/accent colors: legacy primary/white pairs stay intact. */
+  --bs-brand-fill: #c9c1e4;
+  --bs-brand-hover: #b9afd8;
+  --bs-on-brand: #17212f;
+  --bs-border: #c7cbd2;
+  --bs-border-strong: #81768c;
   --bs-success: #216e43;
   --bs-success-bg: #e4f5ec;
   --bs-warning: #85530b;
@@ -42,6 +46,7 @@ html[data-admin-theme="violet"] :is(.admin-shell, .admin-confirm-dialog) {
   --bs-background: #0b0812; --bs-surface: #161120; --bs-surface-muted: #1d1729;
   --bs-foreground: #f5f1ff; --bs-muted: #b9afcb; --bs-border: #3a304a; --bs-border-strong: #79668f;
   --bs-primary: #b9a0ff; --bs-primary-hover: #cfbfff; --bs-primary-soft: #302341; --bs-on-primary: #161120;
+  --bs-brand-fill: var(--bs-primary); --bs-brand-hover: var(--bs-primary-hover); --bs-on-brand: var(--bs-on-primary);
   --bs-success: #91d8b2; --bs-success-bg: #18372a; --bs-warning: #f4cc81; --bs-warning-bg: #392d17;
   --bs-destructive: #ffadb3; --bs-destructive-bg: #401e2a; --bs-info: #a3d2f4; --bs-info-bg: #1a2e43;
 }
@@ -93,7 +98,7 @@ html[data-admin-theme="violet"] :is(.admin-shell, .admin-confirm-dialog) {
 .admin-activity-copy strong { font-size: 13px; }
 .admin-activity-copy small { font-size: 12px; line-height: 18px; }
 .admin-quick-action, .admin-primary-action, .admin-secondary-action, .admin-icon-action, .admin-dashboard-refresh { min-height: 44px; border-radius: var(--bs-radius-control); box-shadow: none; }
-.admin-primary-action, .admin-quick-action.is-primary { background: var(--bs-primary); color: var(--bs-on-primary); }
+.admin-primary-action, .admin-quick-action.is-primary { background: var(--bs-brand-fill); color: var(--bs-on-brand); }
 .admin-dashboard-refresh, .admin-secondary-action, .admin-icon-action { background: var(--bs-surface); color: var(--bs-foreground); }
 .admin-dashboard-refresh:hover, .admin-secondary-action:hover, .admin-icon-action:hover { background: var(--bs-surface-muted); box-shadow: none; }
 .admin-calendar-page .admin-calendar-grid-card { border-radius: var(--bs-radius-card); }
@@ -108,8 +113,8 @@ html[data-admin-theme="violet"] :is(.admin-shell, .admin-confirm-dialog) {
 .admin-calendar-modes { display: flex; width: fit-content; flex-wrap: wrap; gap: 4px; padding: 4px; border: 1px solid var(--bs-border); background: var(--bs-surface-muted); border-radius: var(--bs-radius-control); margin-bottom: 16px; }
 .admin-calendar-modes .bs-button[aria-pressed="true"] { background: var(--bs-surface); color: var(--bs-primary-hover); box-shadow: var(--bs-shadow-sm); }
 .bs-button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 10px 16px; border: 1px solid transparent; border-radius: var(--bs-radius-control); font: var(--bs-label); cursor: pointer; transition: background-color var(--bs-motion-fast), border-color var(--bs-motion-fast); }
-.bs-button--primary { background: var(--bs-primary); color: var(--bs-on-primary); }
-.bs-button--primary:hover:not(:disabled) { background: var(--bs-primary-hover); }
+.bs-button--primary { background: var(--bs-brand-fill); color: var(--bs-on-brand); }
+.bs-button--primary:hover:not(:disabled) { background: var(--bs-brand-hover); }
 .bs-button--secondary { background: var(--bs-primary-soft); color: var(--bs-primary-hover); }
 .bs-button--outline { border-color: var(--bs-border-strong); background: var(--bs-surface); color: var(--bs-foreground); }
 .bs-button--ghost { background: transparent; color: var(--bs-muted); }

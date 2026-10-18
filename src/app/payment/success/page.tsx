@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Navbar from "@/components/Navbar";
 import BookingReceipt from '@/components/BookingReceipt';
 import type {BookingJourney} from '@/lib/booking-journey';
 import { useEffect, useState } from "react";
@@ -57,21 +58,18 @@ export default function PaymentSuccessPage() {
   const paid = state === "paid";
   const checking = state === "checking";
   const pending = state === "pending";
-  const title = paid ? "Спасибо за покупку!" : checking ? "Проверяем оплату" : pending ? "Платёж обрабатывается" : "Оплата не подтверждена";
+  const title = paid ? "Оплата подтверждена" : checking ? "Проверяем оплату" : pending ? "Платёж обрабатывается" : "Оплата не подтверждена";
   const description = paid
-    ? "Оплата подтверждена. Заказ сохранён, а электронный чек будет направлен на указанный контакт."
+    ? "Информация об оплате сохранена в системе Body State. Данные записи доступны ниже или в личном кабинете."
     : checking
       ? "Ожидаем защищённое подтверждение от банка. Обычно это занимает несколько секунд."
       : pending
         ? "Банк ещё не передал финальный статус. Заказ сохранён — проверьте его в личном кабинете чуть позже."
-        : "Мы не получили подтверждение оплаты. Корзина сохранена, поэтому вы можете безопасно повторить попытку.";
+        : "Мы не получили подтверждение оплаты. Проверьте состояние существующего заказа в личном кабинете перед повторной оплатой.";
 
   return (
     <main className="relative min-h-screen overflow-hidden" style={{ background: "var(--bg)", color: "var(--foreground)" }}>
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute left-1/2 top-20 h-[420px] w-[420px] -translate-x-1/2 rounded-full bg-violet-500/20 blur-[140px]" />
-        <div className="absolute -bottom-24 -left-20 h-80 w-80 rounded-full bg-blue-500/15 blur-[120px]" />
-      </div>
+      <Navbar />
       <div className="relative mx-auto flex min-h-screen max-w-3xl items-center justify-center px-5 py-20">
         <section className="glass-feature w-full rounded-[32px] p-7 text-center shadow-2xl sm:p-10">
           <div className="mx-auto grid h-24 w-24 place-items-center rounded-full" style={{ background: paid ? "#10b981" : state === "failed" ? "#ef4444" : "var(--primary)" }}>
@@ -88,7 +86,7 @@ export default function PaymentSuccessPage() {
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Link href="/" className="liquid-btn inline-flex flex-1 items-center justify-center gap-2 rounded-full px-6 py-3.5 font-semibold text-white"><Home className="h-5 w-5" />На главную</Link>
-            <Link href={state === "failed" ? "/shop/cart" : "/account"} className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border px-6 py-3.5 font-semibold" style={{ borderColor: "var(--border)" }}><CalendarDays className="h-5 w-5" />{state === "failed" ? "Вернуться в корзину" : "Мои заказы"}</Link>
+            <Link href="/account" className="ds-secondary-button inline-flex flex-1 items-center justify-center gap-2 px-6 py-3.5 font-semibold"><CalendarDays className="h-5 w-5" />Открыть кабинет</Link>
           </div>
         </section>
       </div>

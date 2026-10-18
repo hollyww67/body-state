@@ -76,7 +76,7 @@ export default function ReviewReportDialog({ reviewId, reviewAuthor, onClose }: 
   };
 
   return createPortal(
-    <dialog ref={dialog} tabIndex={-1} aria-modal="true" aria-labelledby={titleId}
+    <dialog className="quiet-public qp-portal" ref={dialog} tabIndex={-1} aria-modal="true" aria-labelledby={titleId}
       style={{ position: "fixed", inset: 0, margin: 0, width: "100%", maxWidth: "none", height: "100%", maxHeight: "none", padding: 0, border: 0, background: "transparent", color: "inherit" }}
       onCancel={event => { event.preventDefault(); onCloseRef.current(); }}
       onKeyDown={event => {
@@ -90,12 +90,12 @@ export default function ReviewReportDialog({ reviewId, reviewAuthor, onClose }: 
       }}
     >
     <div
-      className="fixed inset-0 z-[100] grid place-items-center overflow-y-auto bg-slate-950/45 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-[100] grid place-items-center overflow-y-auto bg-slate-950/45 p-4"
       role="presentation"
       onMouseDown={(event) => event.target === event.currentTarget && onClose()}
     >
       <section
-        className="w-full max-w-lg rounded-[28px] border p-6 shadow-2xl md:p-8"
+        className="w-full max-w-lg rounded-2xl border p-6 shadow-xl md:p-8"
         style={{ background: "var(--surface-elevated)", borderColor: "var(--glass-border)", color: "var(--foreground)" }}
       >
         <div className="mb-5 flex items-start justify-between gap-4">

@@ -1,9 +1,11 @@
 import Link from "next/link";
-import { XCircle, RotateCcw, Home } from "lucide-react";
+import { XCircle, CalendarDays, Home } from "lucide-react";
+import Navbar from "@/components/Navbar";
 
 export default function PaymentFailPage() {
   return (
     <main style={{ background: 'var(--bg)', minHeight: '100vh' }}>
+      <Navbar />
       <div className="mx-auto max-w-2xl px-6 pt-32 pb-20 text-center">
         <div className="mb-8 flex justify-center">
           <div className="flex h-24 w-24 items-center justify-center rounded-full" style={{ background: '#FEE2E2' }}>
@@ -12,20 +14,19 @@ export default function PaymentFailPage() {
         </div>
 
         <h1 className="text-4xl font-bold tracking-tight md:text-5xl" style={{ color: 'var(--foreground)' }}>
-          Оплата не прошла
+          Оплата не завершена
         </h1>
         <p className="mt-4 text-lg" style={{ color: 'var(--foreground-secondary)' }}>
-          Попробуйте ещё раз или свяжитесь с нами, если проблема повторится.
+          Проверьте состояние существующей записи в личном кабинете. Если деньги списаны, не оплачивайте повторно — обратитесь к администратору.
         </p>
 
         <div className="mt-12 flex flex-col items-center justify-center gap-4 sm:flex-row">
           <Link
-            href="/shop/cart"
-            className="inline-flex items-center gap-2 rounded-full px-8 py-4 font-medium text-white transition-all hover:shadow-lg"
-            style={{ background: 'var(--primary)' }}
+            href="/account"
+            className="ds-primary-button inline-flex items-center gap-2 px-8 py-4 font-medium"
           >
-            <RotateCcw className="h-5 w-5" />
-            Вернуться в корзину
+            <CalendarDays className="h-5 w-5" />
+            Открыть кабинет
           </Link>
           <Link
             href="/"

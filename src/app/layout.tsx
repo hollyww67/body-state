@@ -1,13 +1,17 @@
 import type { Metadata } from "next";
-import { Cormorant_Garamond, Manrope } from "next/font/google";
+import { Cormorant_Garamond, Inter, Manrope, Playfair_Display } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 import ThemeProvider from "@/components/ThemeProvider";
 import UmamiScript from "@/components/UmamiScript";
 import SiteChrome from "@/components/SiteChrome";
+import PublicSurface from "@/components/PublicSurface";
+import "./quiet-precision.css";
 
 const manrope = Manrope({ subsets: ["latin", "cyrillic"], variable: "--font-manrope" });
 const reviewSerif = Cormorant_Garamond({ subsets: ["latin", "cyrillic"], weight: ["500", "600", "700"], style: ["normal", "italic"], variable: "--font-review-serif" });
+const quietSerif = Playfair_Display({ subsets: ["latin", "cyrillic"], weight: ["400", "500", "600"], display: "swap", variable: "--font-quiet-serif" });
+const quietSans = Inter({ subsets: ["latin", "cyrillic"], display: "swap", variable: "--font-quiet-sans" });
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://body-state.ru"),
@@ -37,13 +41,12 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ru" suppressHydrationWarning data-scroll-behavior="smooth">
-      <body className={`${manrope.variable} ${reviewSerif.variable} font-sans`} style={{ fontFamily: "'Manrope', sans-serif" }}>
+      <body className={`${manrope.variable} ${reviewSerif.variable} ${quietSerif.variable} ${quietSans.variable} font-sans`} style={{ fontFamily: "'Manrope', sans-serif" }}>
         <Script id="theme-bootstrap" strategy="beforeInteractive">
           {`(function(){try{var t=localStorage.getItem('theme');if(t==='violet'||t==='teal'){document.documentElement.dataset.theme=t;document.documentElement.style.colorScheme=t==='violet'?'dark':'light'}var a=localStorage.getItem('admin-theme');document.documentElement.setAttribute('data-admin-theme',a==='violet'?'violet':'light')}catch(e){}})()`}
         </Script>
         <ThemeProvider />
-        {children}
-        <SiteChrome />
+        <PublicSurface>{children}<SiteChrome /></PublicSurface>
         <UmamiScript />
       </body>
     </html>

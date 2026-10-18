@@ -60,6 +60,9 @@ function mount(file) {
     "lucide-react": {},
     "@/components/ui/Container": { default: "container" },
     "@/components/ThemeToggle": { default: "theme-toggle" },
+    // Presentation-only dependencies: keep component effects and fetch logic real.
+    "@/components/BodyStateWordmark": { default: "body-state-wordmark" },
+    "./quiet-nav.css": {},
   };
   const { outputText, diagnostics } = ts.transpileModule(
     fs.readFileSync(path.resolve(__dirname, "..", file), "utf8"),

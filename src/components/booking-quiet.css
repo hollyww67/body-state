@@ -1,0 +1,57 @@
+.qb-booking, .qb-calendar { color: var(--qp-text); font-family: var(--font-quiet-sans), Arial, sans-serif; }
+.qb-booking { max-width: 800px; margin-inline: auto; padding: clamp(0px, 2vw, 24px); }
+.qb-booking *, .qb-calendar * { box-sizing: border-box; }
+.qb-booking fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+.qb-progress { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); padding: 0; margin: 0 0 32px; list-style: none; }
+.qb-progress li { position: relative; }
+.qb-progress li:not(:last-child)::after { content: ""; position: absolute; top: 15px; left: calc(50% + 21px); width: calc(100% - 42px); height: 1px; background: var(--qp-border); }
+.qb-progress button { display: flex; flex-direction: column; align-items: center; gap: 8px; width: 100%; border: 0; background: transparent; padding: 0 2px; color: var(--qp-muted); font-size: 11px; line-height: 1.4; }
+.qb-progress-number { display: grid; place-items: center; width: 30px; height: 30px; border: 1px solid var(--qp-border); border-radius: 50%; font-size: 13px; background: var(--qp-surface); }
+.qb-booking .qb-progress button:disabled { background: transparent; color: var(--qp-muted); opacity: 1; }
+.qb-progress [aria-current="step"] .qb-progress-number, .qb-progress [data-complete="true"] .qb-progress-number { color: var(--qp-on-brand); border-color: var(--qp-brand); background: var(--qp-brand); }
+.qb-heading { margin-bottom: 24px; }
+.qb-heading h2 { margin: 8px 0 12px; font-family: var(--font-quiet-serif), Georgia, serif; font-weight: 400; font-size: clamp(32px, 5vw, 46px); line-height: 1.12; letter-spacing: -.04em; }
+.qb-heading p, .qb-note { color: var(--qp-muted); font-size: 14px; line-height: 1.6; }
+.qb-heading .qb-eyebrow { font-size: 12px; letter-spacing: .08em; }
+.qb-services { display: grid; gap: 16px; }
+.qb-service { display: flex; flex-direction: column; gap: 12px; border: 1px solid var(--qp-border-subtle); border-radius: var(--qp-radius-card); background: var(--qp-surface); padding: 20px; cursor: pointer; }
+.qb-service[data-selected="true"] { border-color: var(--qp-focus); background: var(--qp-surface-selected); }
+.qb-service-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.qb-service-title { font-family: var(--font-quiet-serif), Georgia, serif; font-size: 25px; line-height: 1.15; }
+.qb-service input { flex-shrink: 0; width: 22px; height: 22px; accent-color: var(--qp-focus); }
+.qb-service-description { color: var(--qp-muted); font-size: 14px; line-height: 1.6; }
+.qb-service strong { font-size: 15px; font-weight: 500; }
+.qb-contacts { display: grid; gap: 20px; }
+.qb-pane[hidden] { display: none; }
+.qb-select-label { display: grid; gap: 8px; font-size: 14px; font-weight: 500; }
+.qb-select-label select { min-height: 48px; width: 100%; padding: 12px; border: 1px solid var(--qp-border); border-radius: var(--qp-radius-control); background: var(--qp-surface); color: var(--qp-text); }
+.qb-review { border: 1px solid var(--qp-border-subtle); border-radius: var(--qp-radius-card); padding-inline: 20px; background: var(--qp-surface); }
+.qb-review section { padding-block: 20px; }
+.qb-review section + section { border-top: 1px solid var(--qp-border-subtle); }
+.qb-review-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.qb-review h3 { display: flex; gap: 12px; align-items: center; margin: 0; font: 500 14px/1.4 var(--font-quiet-sans), Arial, sans-serif; }
+.qb-review p { padding-left: 30px; margin: 8px 0; font-size: 14px; line-height: 1.6; }
+.qb-review-title button { min-height: 44px; background: transparent; border: 0; color: var(--qp-link); text-decoration: underline; text-underline-offset: 3px; font-size: 13px; }
+.qb-break { overflow-wrap: anywhere; }
+.qb-error { margin-top: 20px; padding: 16px; border: 1px solid var(--qp-danger); border-radius: var(--qp-radius-control); background: var(--qp-danger-bg); color: var(--qp-danger); font-size: 14px; line-height: 1.6; }
+.qb-actions { position: sticky; bottom: 0; display: flex; align-items: center; gap: 12px; padding: 20px 0 max(12px, env(safe-area-inset-bottom)); margin-top: 12px; background: var(--qp-background); z-index: 2; }
+.qb-actions .qb-next { flex: 1; white-space: normal; height: auto; min-height: 48px; }
+.qb-calendar { display: grid; gap: 24px; }
+.qb-month { border: 1px solid var(--qp-border-subtle); border-radius: var(--qp-radius-card); padding: 16px; background: var(--qp-surface); }
+.qb-month-heading { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; gap: 8px; }
+.qb-month-heading h3 { margin: 0; font-size: 15px; font-weight: 600; text-transform: capitalize; }
+.qb-month-heading button { display: grid; place-items: center; min-width: 44px; min-height: 44px; border: 1px solid var(--qp-border-subtle); border-radius: var(--qp-radius-sm); background: var(--qp-surface); color: var(--qp-text); }
+.qb-weekdays, .qb-days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.qb-weekdays span { text-align: center; color: var(--qp-muted); font-size: 12px; padding-block: 8px; }
+.qb-days button { min-width: 0; min-height: 40px; border: 1px solid transparent; border-radius: 50%; background: transparent; color: var(--qp-text); font-size: 14px; }
+.qb-calendar .qb-days button:disabled { opacity: .45; background: transparent; }
+.qb-days [aria-current="date"] { border-color: var(--qp-focus); }
+.qb-days [aria-pressed="true"], .qb-times [aria-pressed="true"] { background: var(--qp-surface-selected); border-color: var(--qp-focus); color: var(--qp-text); }
+.qb-times h3 { margin: 0 0 12px; font-size: 15px; font-weight: 500; }
+.qb-times > div { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.qb-times button, .qb-calendar-retry { min-height: 44px; border: 1px solid var(--qp-border); border-radius: var(--qp-radius-sm); background: var(--qp-surface); color: var(--qp-text); padding: 8px 12px; }
+.qb-calendar-message { padding-block: 24px; color: var(--qp-muted); line-height: 1.6; }
+.qb-booking :focus-visible, .qb-calendar :focus-visible { outline: 2px solid var(--qp-focus); outline-offset: 3px; }
+.qb-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+@media (min-width: 768px) { .qb-services { grid-template-columns: repeat(2, minmax(0, 1fr)); } .qb-calendar { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); align-items: start; } .qb-actions { position: static; } }
+@media (max-width: 375px) { .qb-progress button { font-size: 10px; } .qb-month { padding: 8px; } .qb-days, .qb-weekdays { gap: 0; } .qb-review { padding-inline: 12px; } .qb-actions { gap: 4px; } }
