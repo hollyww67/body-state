@@ -72,4 +72,11 @@ test('promo action separates lilac fill and ink foreground from link colors in b
   assert(tokens.includes('--qp-promo-fill: var(--qp-brand); --qp-promo-text: var(--qp-on-brand)'));
   assert(tokens.includes('.quiet-public .qp-promo button { min-width: 44px; min-height: 44px; }'));
 });
+test('booking reference uses editorial title and accessible plum CTA without touching admin', () => {
+  const booking = read('src/components/booking-quiet.css');
+  assert(booking.includes('font-size: clamp(40px, 5vw, 46px)'));
+  assert(booking.includes('.qb-heading .qb-heading-service { max-width: 12ch; }'));
+  assert(booking.includes('.quiet-public .qb-actions .qb-next { background: var(--qp-brand-pressed); color: #fff; }'));
+  assert(contrast('#ffffff', palettes[':root']['--qp-brand-pressed']) >= 4.5);
+});
 console.log(`${passed} Quiet Precision foundation groups passed`);
