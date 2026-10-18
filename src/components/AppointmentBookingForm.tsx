@@ -159,7 +159,7 @@ export default function AppointmentBookingForm({ service, price, programId, prog
         <span className="qb-progress-number">{index + 1 < step ? <Check size={15} aria-hidden="true" /> : index + 1}</span><span>{label}</span>
       </button>
     </li>)}</ol>
-    <header className="qb-heading"><p className="qb-eyebrow">Шаг {step} из 4</p><h2 ref={heading} tabIndex={-1}>{titles[step - 1]}</h2><p>{["Выберите подходящую услугу", "Выберите дату и время приёма · время московское", "Укажите контакты для вашей записи", "Пожалуйста, убедитесь, что всё верно"][step - 1]}</p></header>
+    <header className="qb-heading"><p className="qb-eyebrow qb-sr-only">Шаг {step} из 4</p><h2 ref={heading} tabIndex={-1}>{titles[step - 1]}</h2><p>{["Выберите подходящую услугу", "Выберите дату и время приёма · время московское", "Укажите контакты для вашей записи", "Пожалуйста, убедитесь, что всё верно"][step - 1]}</p></header>
 
     {step === 1 && <fieldset className="qb-services" disabled={locked}><legend className="qb-sr-only">Выберите услугу</legend>{choices.map((item) => <label className="qb-service" key={item.id} data-selected={chosenService === item.id}>
       <span className="qb-service-top"><span className="qb-service-title">{item.title}</span><input type="radio" name={id + "-service"} value={item.id} checked={chosenService === item.id} onChange={() => chooseService(item.id)} /></span>
