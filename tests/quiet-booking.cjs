@@ -28,7 +28,8 @@ function load(file, imports, globals = {}) {
 const phone = load("src/lib/phone.ts", {});
 function mount(file, initialProps = {}, profile = null) {
   let props = initialProps, cursor = 0, dirty = false, effects = [], alive = true, tree;
-  const hooks = [], requests = [], events = [];
+  const hooks = [], requests = [], events = [], domCalls = [];
+  const attachedRefs = new Map();
   const same = (a, b) => a && a.length === b.length && a.every((value, index) => Object.is(value, b[index]));
   const react = {
     useState(initial) {
@@ -52,10 +53,7 @@ function mount(file, initialProps = {}, profile = null) {
       if (!same(previous?.deps, deps)) effects.push(() => { previous?.cleanup?.(); hooks[index] = { deps, cleanup: effect() }; });
     },
   };
-  const jsx = (type, nodeProps) => {
-    if (nodeProps?.ref) nodeProps.ref.current = { focus() {}, setCustomValidity() {}, querySelector: () => ({ reportValidity() {} }) };
-    return { type, props: nodeProps || {} };
-  };
+  const jsx = (type, nodeProps) => ({ type, props: nodeProps || {} });
   const imports = {
     react, "react/jsx-runtime": { jsx, jsxs: jsx }, "lucide-react": {}, "./booking-quiet.css": {},
     "@/components/BookingCalendar": { default: "Calendar" },
@@ -81,6 +79,27 @@ function mount(file, initialProps = {}, profile = null) {
     do {
       assert.ok(++rounds < 20, "Effect/render loop"); dirty = false; cursor = 0;
       tree = component(props);
+      // Attach only committed tree refs before effects, detach removed nodes,
+      // and retain DOM identity across renders like React's commit phase.
+      const nextRefs = new Set();
+      for (const node of nodes(tree, (item) => item.props?.ref)) {
+        const ref = node.props.ref;
+        nextRefs.add(ref);
+        if (!attachedRefs.has(ref)) {
+          const element = { node, setCustomValidity() {}, querySelector: () => ({ reportValidity() {} }) };
+          const record = (method, options) => domCalls.push({
+            method, type: element.node.type, text: text(element.node),
+            className: element.node.props.className, tabIndex: element.node.props.tabIndex,
+            options: { ...options },
+          });
+          element.focus = (options) => record("focus", options);
+          element.scrollIntoView = (options) => record("scrollIntoView", options);
+          attachedRefs.set(ref, element);
+        }
+        ref.current = attachedRefs.get(ref);
+        ref.current.node = node;
+      }
+      for (const [ref] of attachedRefs) if (!nextRefs.has(ref)) { ref.current = null; attachedRefs.delete(ref); }
       const commit = effects; effects = []; commit.forEach((effect) => effect());
     } while (dirty);
     return tree;
@@ -95,7 +114,7 @@ function mount(file, initialProps = {}, profile = null) {
   const find = (predicate) => { const result = all(predicate)[0]; assert.ok(result, "Missing UI node"); return result; };
   render();
   return {
-    requests, events, render, text: () => text(render()), all, find,
+    requests, events, domCalls, render, text: () => text(render()), all, find,
     child: (type) => find((node) => node.type === type),
     button(label) { return find((node) => ["Button", "button"].includes(node.type) && text(node) === label); },
     click(label) { const button = this.button(label); assert.ok(!button.props.disabled); button.props.onClick(); render(); },
@@ -103,17 +122,68 @@ function mount(file, initialProps = {}, profile = null) {
     advance() { return find((node) => node.type === "form").props.onSubmit({ preventDefault() {} }); },
     selectSlot(slot = future) { const calendar = this.child("Calendar"); calendar.props.onLoadingChange(false); calendar.props.onSelect(slot.id, slot); render(); },
     update(next) { props = next; render(); },
-    unmount() { alive = false; hooks.forEach((hook) => hook?.cleanup?.()); },
+    unmount() { alive = false; hooks.forEach((hook) => hook?.cleanup?.()); for (const [ref] of attachedRefs) ref.current = null; attachedRefs.clear(); },
   };
 }
 const appointment = (props = {}, profile) => mount("src/components/AppointmentBookingForm.tsx", { service: "bfm", price: 3000, ...props }, profile);
 const saved = (status = "pending") => ({ booking: { id: "synthetic-booking", accessToken: "synthetic-access", summary: { id: "synthetic-booking", status, snapshot: { total: 3000 } } } });
 function contacts(c) { c.field("Ваше имя", "Тестовый клиент"); c.field("Номер телефона", "89151234567"); c.field("Электронная почта", "qa@example.invalid"); c.child("Consent").props.onChange(true); }
 async function review(c) { await c.advance(); c.selectSlot(); await c.advance(); contacts(c); await c.advance(); assert.ok(c.text().includes("Проверьте данные")); }
+function assertViewportEntry(c, title, success = false) {
+  c.render();
+  const calls = c.domCalls.splice(0);
+  assert.deepEqual(calls.map(({ method, type, options }) => ({ method, type, options })), [
+    { method: "focus", type: success ? "div" : "h2", options: { preventScroll: true } },
+    { method: "scrollIntoView", type: success ? "div" : "form", options: { block: "start", behavior: "instant" } },
+  ]);
+  assert.equal(calls[0].tabIndex, -1, "Focus target must be programmatically focusable");
+  if (success) {
+    assert.equal(calls[0].className, "qb-booking qb-success");
+    assert.equal(calls[1].className, "qb-booking qb-success");
+  } else {
+    assert.equal(calls[0].text, title, "Focus the newly committed step heading");
+    assert.equal(calls[1].className, "qb-booking", "Scroll the entire form including progress, not only the heading");
+  }
+}
 
 async function main() {
   let count = 0;
   async function test(name, run) { await run(); count++; console.log("PASS " + name); }
+  await test("step entry focuses current heading and instantly scrolls form including progress; typing does not", async () => {
+    const c = appointment(); assertViewportEntry(c, "Записаться на приём");
+    await c.advance(); assertViewportEntry(c, "Когда вам удобно?");
+    c.selectSlot();
+    c.find((node) => node.type === "button" && node.props["aria-current"] === "step").props.onClick();
+    c.render(); assert.equal(c.domCalls.length, 0, "Same step/slot render must not steal focus");
+    await c.advance(); assertViewportEntry(c, "Как с вами связаться?");
+    contacts(c); c.render(); assert.equal(c.domCalls.length, 0, "Contact edits must not scroll or steal focus");
+    await c.advance(); assertViewportEntry(c, "Проверьте данные");
+    c.click("Назад"); assertViewportEntry(c, "Как с вами связаться?");
+    await c.advance(); assertViewportEntry(c, "Проверьте данные");
+    assert.equal(c.requests.length, 0, "Viewport navigation cannot POST a booking");
+  });
+  for (const status of ["pending", "confirmed"]) await test(status + " immutable server success focuses and scrolls result once without changing body/status", async () => {
+    const c = appointment(); await review(c); c.domCalls.length = 0;
+    const pending = c.advance(), request = c.requests[0], body = request.options.body;
+    c.render(); assert.equal(c.domCalls.length, 0, "Submitting on the same step must not scroll");
+    const { requestKey, accessToken } = JSON.parse(body);
+    assert.match(requestKey, /^[0-9a-f-]{36}$/); assert.equal(accessToken.length, 43);
+    assert.deepEqual(JSON.parse(body), {
+      slot_id: future.id, client_name: "Тестовый клиент", client_phone: "+7 (915) 123-45-67", client_email: "qa@example.invalid",
+      consent: true, payment_option: "online", booking_type: "offline", requestKey, accessToken,
+    });
+    const response = saved(status);
+    Object.freeze(response.booking.summary.snapshot); Object.freeze(response.booking.summary);
+    Object.freeze(response.booking); Object.freeze(response);
+    request.resolve(response, 201); await pending;
+    const receipt = c.child("Receipt");
+    assertViewportEntry(c, null, true);
+    assert.strictEqual(receipt.props.initial, response.booking.summary);
+    assert.equal(receipt.props.initial.status, status); assert.equal(receipt.props.accessToken, "synthetic-access");
+    assert.equal(c.all((node) => node.type === "form" || node.type === "h2").length, 0);
+    c.render(); assert.equal(c.domCalls.length, 0, "Stable saved result must not repeatedly steal focus");
+    assert.equal(c.requests.length, 1); assert.equal(request.options.body, body);
+  });
   await test("thin service wrapper owns one persistent appointment and never adds BRT", async () => {
     const wrapper = mount("src/components/ServiceBookingForm.tsx", { bfmPrice: 3000, psychologyPrice: 4000 });
     const options = wrapper.child("Appointment").props;
@@ -170,13 +240,21 @@ async function main() {
     assert.equal(c.requests.length, 0);
   });
   for (const outcome of ["network", "server", "malformed"]) await test(outcome + " uncertainty retries identical payload/key/token and locks editing", async () => {
-    const c = appointment(); await review(c); const first = c.advance();
+    const c = appointment(); await review(c); c.domCalls.length = 0;
+    const first = c.advance(), originalBody = c.requests[0].options.body;
+    c.render(); assert.equal(c.domCalls.length, 0);
     if (outcome === "network") c.requests[0].reject(new Error("Synthetic network loss"));
     else c.requests[0].resolve(outcome === "server" ? { error: "Synthetic failure" } : {}, outcome === "server" ? 500 : 200);
     await first; assert.equal(c.button("Назад").props.disabled, true);
     assert.equal(c.button("Услуга").props.disabled, true);
-    const retry = c.advance(); assert.equal(c.requests[1].options.body, c.requests[0].options.body);
+    assert.equal(c.domCalls.length, 0, "Uncertain outcome must not scroll or change step");
+    const retry = c.advance(); assert.equal(c.requests[1].options.body, originalBody);
+    assert.equal(c.requests[1].url, c.requests[0].url);
+    assert.equal(c.requests[1].options.method, "POST");
+    c.render(); assert.equal(c.domCalls.length, 0, "Replay must not scroll before a saved result");
     c.requests[1].resolve(saved(), 200); await retry; assert.equal(c.child("Receipt").props.initial.status, "pending");
+    assertViewportEntry(c, null, true);
+    assert.equal(c.requests[0].options.body, originalBody); assert.equal(c.requests[1].options.body, originalBody);
   });
   await test("409 returns to fresh time selection, keeps contacts and creates a new attempt", async () => {
     const c = appointment(); await review(c); const first = c.advance(); c.requests[0].resolve({ error: "Это время уже занято" }, 409); await first;

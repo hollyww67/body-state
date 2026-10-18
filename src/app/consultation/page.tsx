@@ -6,7 +6,7 @@ import { ArrowRight, Brain, CheckCircle2, Clock, HandHelping, ShieldCheck, Spark
 import Navbar from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import TextField from "@/components/ui/TextField";
 import PersonalDataConsent from "@/components/legal/PersonalDataConsent";
 import { formatRussianPhoneInput } from "@/lib/phone";
 import { useAccountPrefill } from "@/lib/hooks/use-account-prefill";
@@ -19,7 +19,7 @@ const directions = [
 ];
 
 const perks = [
-  { icon: Clock, text: "Ответим в течение дня" },
+  { icon: Clock, text: "По предварительной договорённости" },
   { icon: ShieldCheck, text: "Конфиденциально и бережно" },
   { icon: CheckCircle2, text: "Индивидуальный подход" },
 ];
@@ -104,10 +104,8 @@ export default function ContactPage() {
 
                 <Card className="p-6 lg:p-8">
                   <form onSubmit={handleSubmit} className="space-y-4">
-                    <label className="sr-only" htmlFor="contact-name">Имя и фамилия</label>
-                    <Input id="contact-name" required autoComplete="name" type="text" placeholder="Имя и фамилия" value={name} onChange={(event) => setName(event.target.value)} />
-                    <label className="sr-only" htmlFor="contact-phone">Телефон</label>
-                    <Input id="contact-phone" required autoComplete="tel" inputMode="tel" type="tel" placeholder="+7 (___) ___-__-__" value={phone} onChange={(event) => setPhone(formatRussianPhoneInput(event.target.value))} />
+                    <TextField label="Ваше имя" id="contact-name" required autoComplete="name" type="text" placeholder="Имя и фамилия" value={name} onChange={(event) => setName(event.target.value)} />
+                    <TextField label="Номер телефона" id="contact-phone" required autoComplete="tel" inputMode="tel" type="tel" placeholder="+7 (___) ___-__-__" value={phone} onChange={(event) => setPhone(formatRussianPhoneInput(event.target.value))} />
                     <PersonalDataConsent id="consultation-consent" checked={consent} onChange={setConsent} />
                     {error && <p role="alert" className="text-sm text-red-500">{error}</p>}
                     <Button type="submit" disabled={submitting || !consent} size="lg" className="group relative w-full">

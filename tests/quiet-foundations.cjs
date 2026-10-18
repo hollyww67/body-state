@@ -3,6 +3,8 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const postcss = require('postcss');
+const vm = require('node:vm');
+const ts = require('typescript');
 const root = path.resolve(__dirname, '..');
 const read = name => fs.readFileSync(path.join(root, name), 'utf8');
 const css = postcss.parse(read('src/app/quiet-precision.css'));
@@ -53,5 +55,13 @@ test('no backdrop decorations or fake success transport claims in the shared chr
 test('public serif is Cyrillic and admin font contract remains Manrope', () => {
   assert(read('src/app/layout.tsx').includes('Playfair_Display({ subsets: ["latin", "cyrillic"]'));
   assert(read('src/app/admin/design-system.css').includes('--bs-font: var(--font-manrope)'));
+});
+test('CMS image sources accept uploaded or HTTPS assets, never unsafe schemes or credentials', () => {
+  const exports = {};
+  vm.runInNewContext(ts.transpileModule(read('src/lib/public-image.ts'), {compilerOptions: {module: ts.ModuleKind.CommonJS}}).outputText, {exports, URL});
+  const source = exports.publicImageSource;
+  for (const value of ['', null, 'javascript:alert(1)', 'data:image/svg+xml,test', '//evil.example/photo.png', 'http://example.org/photo.png', 'https://name:secret@example.org/photo.png', '/\\evil.example/photo.png', '/upload\n.png']) assert.equal(source(value), null);
+  assert.equal(source('/uploads/approved.webp'), '/uploads/approved.webp');
+  assert.equal(source('https://body-state.ru/uploads/approved.webp'), 'https://body-state.ru/uploads/approved.webp');
 });
 console.log(`${passed} Quiet Precision foundation groups passed`);

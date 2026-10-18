@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Navbar from "@/components/Navbar";
 import ServiceBookingForm from "@/components/ServiceBookingForm";
-import { Brain, HandHelping, AudioLines, Sparkles } from "lucide-react";
+import { Brain, HandHelping, AudioLines } from "lucide-react";
 import { getPageCopy } from "@/lib/page-copy";
 import { getServicePrice } from "@/lib/service-prices";
 
@@ -48,29 +48,19 @@ export default async function RehabilitationPage() {
     getServicePrice("psychology"),
   ]);
   return (
-    <main className="page-shell">
+    <main className="page-shell qp-booking-page">
       <Navbar />
-      <section className="px-4 pt-24 pb-5 md:pt-28">
-        <div className="page-hero-inner max-w-4xl">
-          <div className="page-kicker rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] mb-7" style={{ color: 'var(--primary)' }}>
-            <Sparkles className="w-4 h-4" />
-            {copy.eyebrow}
-          </div>
-          <h1 className="page-title text-3xl md:text-4xl font-semibold leading-tight mb-3" style={{ color: 'var(--foreground)' }}>
-            {copy.bookingTitle}
-          </h1>
-        </div>
+      <section className="qp-booking-intro">
+        <h1 className="sr-only">{copy.bookingTitle}</h1>
       </section>
       <section className="px-4 pb-20 lg:pb-28">
         <div className="max-w-5xl mx-auto">
           {/* Форма записи показывается раньше описания направлений. */}
           <div id="booking" className="scroll-mt-28 mb-16">
-            <div className="mb-6">
-              <p className="max-w-2xl text-sm leading-6 md:text-base" style={{ color: "var(--foreground-secondary)" }}>Выберите направление и свободное время. Для очного приёма можно оплатить онлайн или на месте. Войдите в личный кабинет, чтобы видеть свою запись.</p>
-            </div>
-            <div className="glass-feature rounded-[30px] p-5 sm:p-7 md:p-8">
+            <div className="qp-booking-card">
               <ServiceBookingForm bfmPrice={bfmPrice.price} psychologyPrice={psychologyPrice.price} />
             </div>
+            <p className="mt-4 text-center text-sm" style={{ color: "var(--foreground-secondary)" }}>Для очного приёма можно оплатить онлайн или на месте. Запись доступна для управления в личном кабинете.</p>
             <p className="mt-4 text-center text-sm" style={{ color: "var(--foreground-secondary)" }}>{copy.bookingHint}</p>
           </div>
 

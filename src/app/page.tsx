@@ -39,17 +39,17 @@ export default function HomePage() {
                 <Link className="qh-text-link" href="/about-rehabilitation">{copy.heroSecondary}<ArrowUpRight size={18} aria-hidden="true" /></Link>
               </div>
             </div>
+            <div className="qh-principles" aria-label="Подход к работе">
+              <div><Layers size={22} strokeWidth={1.3} aria-hidden="true" /><span>Тело и состояние<small>Два направления работы</small></span></div>
+              <div><Heart size={22} strokeWidth={1.3} aria-hidden="true" /><span>Внимание к человеку<small>Начинаем с вашего запроса</small></span></div>
+              <div><HandHeart size={22} strokeWidth={1.3} aria-hidden="true" /><span>Индивидуальный подход<small>С учётом вашего состояния</small></span></div>
+            </div>
             <figure className={`qh-hero-figure${heroImage ? " qh-hero-figure--photo" : ""}`}>
-              {heroImage ? <SiteImage src={heroImage} alt={copy.heroImageAlt} width={1200} height={1200} priority sizes="(max-width: 767px) 100vw, 50vw" className="qh-hero-photo" /> : <>
+              {heroImage ? <SiteImage src={heroImage} alt={copy.heroImageAlt} width={1200} height={1200} priority sizes="(max-width: 767px) calc(100vw - 32px), (max-width: 1199px) 45vw, 34vw" className="qh-hero-photo" /> : <>
               <div className="qh-figure-heading"><span>Body State</span><span>Тело · Состояние</span></div>
               <p className="qh-figure-message">Тело.<br />Состояние.<br />Внимание.</p>
               <figcaption>Временная композиция вместо фотографии.<br />Здесь будет согласованный снимок пространства Body State.</figcaption></>}
             </figure>
-          </div>
-          <div className="qh-container qh-principles" aria-label="Подход к работе">
-            <div><Layers size={22} strokeWidth={1.3} aria-hidden="true" /><span>Тело и состояние<small>Два направления работы</small></span></div>
-            <div><Heart size={22} strokeWidth={1.3} aria-hidden="true" /><span>Внимание к человеку<small>Начинаем с вашего запроса</small></span></div>
-            <div><HandHeart size={22} strokeWidth={1.3} aria-hidden="true" /><span>Индивидуальный подход<small>С учётом вашего состояния</small></span></div>
           </div>
         </section>
 
@@ -58,11 +58,13 @@ export default function HomePage() {
             <div className="qh-section-heading"><div><p className="qh-eyebrow">01 / Направления</p><h2 id="qh-services-title">{copy.methodsTitle}</h2></div><p>{copy.methodsDescription}</p></div>
             <div className="qh-service-grid">
               {services.map(({ Icon, ...service }) => (
-                <article className="qh-service" key={service.number}>
-                  {service.image && <SiteImage src={service.image} alt="" width={800} height={560} className="qh-service-photo" />}
-                  <div className="qh-service-top"><span className="qh-eyebrow">{service.number} / Body State</span><Icon size={32} strokeWidth={1.1} aria-hidden="true" /></div>
-                  <h3>{service.title}</h3><p>{service.description}</p>
-                  <Link href={service.href} className="qh-text-link" aria-label={service.label}>Подробнее<ArrowRight size={18} aria-hidden="true" /></Link>
+                <article className={`qh-service${service.image ? " qh-service--photo" : ""}`} key={service.number}>
+                  {service.image && <div className="qh-service-media"><SiteImage src={service.image} alt="" width={800} height={560} sizes="(max-width: 599px) calc(100vw - 32px), (max-width: 767px) 35vw, (max-width: 1199px) 50vw, 17vw" className="qh-service-photo" /></div>}
+                  <div className="qh-service-copy">
+                    <div className="qh-service-top"><span className="qh-eyebrow">{service.number} / Body State</span><Icon size={24} strokeWidth={1.1} aria-hidden="true" /></div>
+                    <h3>{service.title}</h3><p>{service.description}</p>
+                    <Link href={service.href} className="qh-text-link" aria-label={service.label}>Подробнее<ArrowRight size={18} aria-hidden="true" /></Link>
+                  </div>
                 </article>
               ))}
             </div>

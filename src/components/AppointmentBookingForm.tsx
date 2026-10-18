@@ -46,6 +46,8 @@ export default function AppointmentBookingForm({ service, price, programId, prog
   const attempt = useRef<Attempt | null>(null);
   const promoGeneration = useRef(0);
   const heading = useRef<HTMLHeadingElement>(null);
+  const formElement = useRef<HTMLFormElement>(null);
+  const resultElement = useRef<HTMLDivElement>(null);
   const phoneInput = useRef<HTMLInputElement>(null);
   const contactFields = useRef<HTMLFieldSetElement>(null);
   const choices = serviceOptions?.length ? serviceOptions : [{ id: service, title: programTitle || labels[service], description: programTitle ? "Индивидуальная программа" : "Индивидуальный приём", price }];
@@ -61,7 +63,15 @@ export default function AppointmentBookingForm({ service, price, programId, prog
       setEmail((value) => value || profile.email || "");
     }
   }, [profile]);
-  useEffect(() => { heading.current?.focus({ preventScroll: true }); }, [step]);
+  useEffect(() => {
+    if (saved) {
+      resultElement.current?.focus({ preventScroll: true });
+      resultElement.current?.scrollIntoView({ block: "start", behavior: "instant" });
+    } else {
+      heading.current?.focus({ preventScroll: true });
+      formElement.current?.scrollIntoView({ block: "start", behavior: "instant" });
+    }
+  }, [step, saved]);
 
   function navigate(next: Step) {
     if (locked || next === step) return;
@@ -137,9 +147,9 @@ export default function AppointmentBookingForm({ service, price, programId, prog
     } finally { setBusy(false); lock.current = false; }
   }
 
-  if (saved) return <div className="qb-booking qb-success"><BookingReceipt initial={saved.summary} accessToken={saved.accessToken} /></div>;
+  if (saved) return <div ref={resultElement} tabIndex={-1} className="qb-booking qb-success"><BookingReceipt initial={saved.summary} accessToken={saved.accessToken} /></div>;
   const slotLabel = selectedSlot ? new Date(selectedSlot.slot_time).toLocaleString("ru-RU", { timeZone: "Europe/Moscow", dateStyle: "long", timeStyle: "short" }) : "Время не выбрано";
-  return <form className="qb-booking" onSubmit={submit} noValidate aria-label="Запись на приём" aria-busy={busy}>
+  return <form ref={formElement} className="qb-booking" onSubmit={submit} noValidate aria-label="Запись на приём" aria-busy={busy}>
     <ol className="qb-progress" aria-label="Шаги записи">{steps.map((label, index) => <li key={label} data-complete={index + 1 < step}>
       <button type="button" disabled={locked || index + 1 > step} aria-current={index + 1 === step ? "step" : undefined} onClick={() => navigate((index + 1) as Step)}>
         <span className="qb-progress-number">{index + 1 < step ? <Check size={15} aria-hidden="true" /> : index + 1}</span><span>{label}</span>

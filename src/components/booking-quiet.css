@@ -1,5 +1,5 @@
 .qb-booking, .qb-calendar { color: var(--qp-text); font-family: var(--font-quiet-sans), Arial, sans-serif; }
-.qb-booking { max-width: 800px; margin-inline: auto; padding: clamp(0px, 2vw, 24px); }
+.qb-booking { max-width: 800px; margin-inline: auto; padding: clamp(0px, 2vw, 24px); scroll-margin-top: 96px; }
 .qb-booking *, .qb-calendar * { box-sizing: border-box; }
 .qb-booking fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
 .qb-progress { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); padding: 0; margin: 0 0 32px; list-style: none; }

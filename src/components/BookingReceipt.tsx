@@ -4,6 +4,7 @@ import Link from 'next/link';
 import type {BookingJourney} from '@/lib/booking-journey';
 import BookingCalendar from '@/components/BookingCalendar';
 import {trackFunnel} from '@/lib/funnel-analytics';
+import { CheckCircle2, Clock3 } from 'lucide-react';
 
 export default function BookingReceipt({initial,accessToken=''}:{initial:BookingJourney;accessToken?:string}){
   const [booking,setBooking]=useState(initial),[busy,setBusy]=useState(false),[error,setError]=useState(''),[transfer,setTransfer]=useState(false),[cancelConfirm,setCancelConfirm]=useState(false),[now,setNow]=useState(Date.now());
@@ -24,8 +25,8 @@ export default function BookingReceipt({initial,accessToken=''}:{initial:Booking
     trackFunnel('online_payment_started',booking.id);window.location.assign(d.paymentUrl);
   }
   async function calendar(){const r=await fetch(endpoint+'?format=ics',{headers:auth,cache:'no-store'});if(!r.ok)throw new Error('Не удалось получить календарь');const url=URL.createObjectURL(await r.blob());const a=document.createElement('a');a.href=url;a.download='appointment.ics';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
-  return <section className="space-y-5 rounded-3xl border p-5 sm:p-7" style={{background:'var(--primary-muted)',borderColor:'var(--glass-border)'}} aria-label="Результат записи">
-    <div><h2 className="text-2xl font-semibold">{status}</h2><p className="mt-2 text-sm">Запись сохранена. Уведомление не влияет на её доступность здесь.</p></div>
+  return <section className="qp-receipt space-y-5 rounded-3xl border p-5 sm:p-7" style={{background:'var(--surface)',borderColor:'var(--glass-border)'}} aria-label="Результат записи">
+    <div className="qp-receipt-heading">{booking.status==='confirmed'?<CheckCircle2 className="qp-receipt-icon" size={44} aria-hidden="true" />:booking.status==='pending'?<Clock3 className="qp-receipt-icon" size={44} aria-hidden="true" />:null}<h2 className="text-2xl font-semibold">{status}</h2><p className="mt-2 text-sm">Запись сохранена. Уведомление не влияет на её доступность здесь.</p></div>
     <dl className="grid min-w-0 gap-4 sm:grid-cols-2">
       <Detail name="Услуга" value={snapshot?.title||'Название не сохранено в этой записи'}/>
       <Detail name="Дата и время" value={new Date(booking.slotTime).toLocaleString('ru-RU',{timeZone:'Europe/Moscow',dateStyle:'long',timeStyle:'short'})+' · Москва'}/>
