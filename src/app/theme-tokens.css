@@ -3,6 +3,7 @@
   color-scheme: light;
   --background: #F6F8F5;
   --surface: #FFFFFF;
+  --surface-rgb: 255, 255, 255;
   --surface-elevated: #E7EFEB;
   --surface-selected: #D8E9E2;
   --border: #DCE5E0;
@@ -16,7 +17,7 @@
   --focus: #2F6B5B;
   --focus-soft: #86B5A6;
   --disabled: #E1E7E3;
-  --disabled-foreground: #61716B;
+  --disabled-foreground: #526760;
   --success: #226B48;
   --success-bg: #E7F5EC;
   --warning: #885917;
@@ -32,6 +33,7 @@
   color-scheme: dark;
   --background: #1B1514;
   --surface: #29201D;
+  --surface-rgb: 41, 32, 29;
   --surface-elevated: #342825;
   --surface-selected: #3E2F2A;
   --border: #52413B;
