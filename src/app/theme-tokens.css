@@ -137,7 +137,18 @@
   --qp-shadow: 0 2px 8px var(--shadow-color);
 }
 body { background: var(--background); }
-.liquid-btn { color: var(--primary-foreground); }
+.liquid-btn, .ds-primary-button, .btn-primary, .btn-primary-gradient {
+  color: var(--primary-foreground);
+  background: var(--primary);
+}
+.liquid-btn:hover, .ds-primary-button:hover:not(:disabled), .btn-primary:hover, .btn-primary-gradient:hover {
+  color: var(--primary-foreground);
+  background: var(--primary-hover);
+}
+.liquid-btn:active, .ds-primary-button:active, .btn-primary:active, .btn-primary-gradient:active {
+  color: var(--primary-foreground);
+  background: var(--primary-pressed);
+}
 .glass, .glass-feature, .liquid-card { backdrop-filter: none; -webkit-backdrop-filter: none; }
 ::selection { background: var(--surface-selected); color: var(--foreground); }
 :focus-visible { outline-color: var(--focus); }
