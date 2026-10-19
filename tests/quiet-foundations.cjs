@@ -43,7 +43,7 @@ test('public geometry never targets admin, room or operator login', () => {
 test('approved Theme3 colors come from central emerald/chocolate semantic tokens', () => {
   const expected = {
     'emerald-light': { brand: '#2F6B5B', mist: '#E7EFEB', background: '#F6F8F5', 'cool-grey': '#DCE5E0', muted: '#526760', text: '#172A26' },
-    'chocolate-dark': { brand: '#D2B0A1', mist: '#342825', background: '#1B1514', 'cool-grey': '#52413B', muted: '#CFBDB2', text: '#F7EFE7' },
+    'chocolate-dark': { brand: '#D2B0A1', mist: '#3A2E29', background: '#1F1917', 'cool-grey': '#52413B', muted: '#B89F92', text: '#F7EFE7' },
   };
   for (const [theme, values] of Object.entries(expected))
     for (const [name, value] of Object.entries(values)) assert.equal(palettes[theme]['--qp-' + name], value);
