@@ -31,18 +31,20 @@
 }
 [data-theme="chocolate-dark"] {
   color-scheme: dark;
-  --background: #1B1514;
-  --surface: #29201D;
-  --surface-rgb: 41, 32, 29;
-  --surface-elevated: #342825;
-  --surface-selected: #3E2F2A;
+  /* Small tonal lift (<=7 RGB steps) keeps cocoa distinct from near-black. */
+  --background: #1F1917;
+  --surface: #302622;
+  --surface-rgb: 48, 38, 34;
+  --surface-elevated: #3A2E29;
+  --surface-selected: #44352E;
   --border: #52413B;
   --control-border: #9D8275;
   --foreground: #F7EFE7;
   --foreground-secondary: #CFBDB2;
+  --foreground-muted: #B89F92;
   --primary: #D2B0A1;
   --primary-hover: #DFBEAE;
-  --primary-pressed: #E8C2AD;
+  --primary-pressed: #C49C8B;
   --primary-foreground: #221816;
   --focus: #E8C2AD;
   --focus-soft: #72584D;
@@ -135,6 +137,16 @@
   --qp-information: var(--information);
   --qp-information-bg: var(--information-bg);
   --qp-shadow: 0 2px 8px var(--shadow-color);
+}
+/* Dark-only hierarchy: secondary body copy stays separate from muted captions. */
+[data-theme="chocolate-dark"] {
+  --muted: var(--foreground-muted);
+  --qp-muted: var(--foreground-muted);
+}
+/* Retain the public legacy light contract; dark elevated is a real tonal step. */
+[data-theme="chocolate-dark"] .quiet-public {
+  --surface-elevated: var(--qp-surface-elevated);
+  --muted: var(--qp-muted);
 }
 body { background: var(--background); }
 .liquid-btn, .ds-primary-button, .btn-primary, .btn-primary-gradient {
