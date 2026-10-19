@@ -169,7 +169,7 @@ html[data-admin-theme="violet"] .admin-slots-page [class~="bg-violet-50/60"] { b
 .admin-dashboard-intro { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
 .admin-dashboard-intro h2 { color: var(--admin-text); font-size: 18px; font-weight: 730; letter-spacing: -.015em; }
 .admin-dashboard-intro p { margin-top: 3px; color: var(--admin-muted); font-size: 12px; }
-.admin-dashboard-refresh { display: inline-flex; height: 38px; align-items: center; justify-content: center; gap: 8px; padding: 0 13px; border: 1px solid var(--admin-border); border-radius: 12px; color: #50605c; background: #fff; font-size: 12px; font-weight: 680; transition: .18s ease; }
+.admin-dashboard-refresh { display: inline-flex; height: 38px; align-items: center; justify-content: center; gap: 8px; padding: 0 13px; border: 1px solid var(--admin-border); border-radius: 12px; color: var(--admin-muted); background: #fff; font-size: 12px; font-weight: 680; transition: .18s ease; }
 .admin-dashboard-refresh:hover { border-color: #b9d0ca; color: var(--admin-accent-strong); box-shadow: 0 6px 16px rgba(28,57,51,.06); }
 .admin-dashboard-refresh:disabled { opacity: .65; }
 .admin-dashboard-error { display: flex; align-items: center; gap: 9px; padding: 12px 14px; border: 1px solid #f2c9c5; border-radius: 13px; color: #9b4138; background: #fff4f2; font-size: 12px; }
@@ -184,8 +184,8 @@ html[data-admin-theme="violet"] .admin-slots-page [class~="bg-violet-50/60"] { b
 .admin-stat-card > div { min-width: 0; display: flex; flex-direction: column; }
 .admin-stat-card p { color: var(--admin-muted); font-size: 11px; font-weight: 650; }
 .admin-stat-card strong { margin-top: 3px; color: var(--admin-text); font-size: 27px; line-height: 1.1; font-weight: 760; letter-spacing: -.03em; }
-.admin-stat-card small { margin-top: 6px; color: #8b9995; font-size: 10px; }
-.admin-stat-arrow { position: absolute; right: 15px; bottom: 15px; color: #a4b1ae; transition: transform .18s ease, color .18s ease; }
+.admin-stat-card small { margin-top: 6px; color: var(--admin-muted); font-size: 10px; }
+.admin-stat-arrow { position: absolute; right: 15px; bottom: 15px; color: var(--admin-muted); transition: transform .18s ease, color .18s ease; }
 .admin-stat-card:hover .admin-stat-arrow { color: var(--admin-accent); transform: translateX(2px); }
 .admin-dashboard-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .admin-list-card { min-width: 0; overflow: hidden; border: 1px solid var(--admin-border); border-radius: 18px; background: var(--admin-panel); box-shadow: var(--admin-shadow); }
@@ -199,7 +199,7 @@ html[data-admin-theme="violet"] .admin-slots-page [class~="bg-violet-50/60"] { b
 .admin-activity-avatar { display: inline-flex; width: 36px; height: 36px; flex: 0 0 auto; align-items: center; justify-content: center; border-radius: 12px; color: var(--admin-accent-strong); background: var(--admin-accent-soft); font-size: 12px; font-weight: 750; }
 .admin-activity-avatar.is-order { color: #2f68a0; background: #eaf2fa; }
 .admin-activity-copy { display: flex; min-width: 0; flex: 1; flex-direction: column; }
-.admin-activity-copy strong { overflow: hidden; color: #2b3835; font-size: 12px; font-weight: 700; white-space: nowrap; text-overflow: ellipsis; }
+.admin-activity-copy strong { overflow: hidden; color: var(--admin-text); font-size: 12px; font-weight: 700; white-space: nowrap; text-overflow: ellipsis; }
 .admin-activity-copy small { margin-top: 2px; overflow: hidden; color: var(--admin-muted); font-size: 10px; white-space: nowrap; text-overflow: ellipsis; }
 .admin-status-badge { display: inline-flex; min-height: 23px; flex: 0 0 auto; align-items: center; padding: 0 8px; border-radius: 999px; color: #55635f; background: #edf2f0; font-size: 9px; font-weight: 750; white-space: nowrap; }
 .admin-status-badge:is(.is-pending, .is-new) { color: #956019; background: #fff1d7; }
