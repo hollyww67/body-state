@@ -1,19 +1,19 @@
 :root {
-  --admin-bg: #f3f6f5;
-  --admin-panel: #ffffff;
-  --admin-panel-soft: #f8faf9;
-  --admin-border: #dfe8e5;
-  --admin-text: #17211f;
-  --admin-muted: #687773;
-  --admin-accent: #147d72;
-  --admin-accent-strong: #0d655d;
-  --admin-accent-soft: #e2f3ef;
-  --admin-shadow: 0 12px 35px rgba(28, 57, 51, 0.07);
+  --admin-bg: var(--background);
+  --admin-panel: var(--surface);
+  --admin-panel-soft: var(--surface-elevated);
+  --admin-border: var(--border);
+  --admin-text: var(--foreground);
+  --admin-muted: var(--foreground-secondary);
+  --admin-accent: var(--primary);
+  --admin-accent-strong: var(--primary-hover);
+  --admin-accent-soft: var(--surface-selected);
+  --admin-shadow: 0 12px 35px var(--shadow-color);
   --admin-panel-rgb: var(--surface-rgb);
-  --admin-topbar: rgba(243, 246, 245, .88);
-  --admin-sidebar: rgba(255, 255, 255, .94);
-  --admin-field: #ffffff;
-  --admin-hover: #f1f6f4;
+  --admin-topbar: color-mix(in srgb, var(--background) 88%, transparent);
+  --admin-sidebar: rgba(var(--surface-rgb), .94);
+  --admin-field: var(--surface);
+  --admin-hover: var(--surface-elevated);
 }
 
 /* Native top layer + body portal: independent of admin-shell stacking contexts. */
@@ -68,7 +68,7 @@ html.admin-theme-changing .admin-shell * { transition-property: color, backgroun
 
 body:has(.admin-shell) { background: var(--admin-bg) !important; }
 
-.admin-shell { --bg: var(--admin-bg); --bg-secondary: var(--admin-panel); --foreground: var(--admin-text); --foreground-secondary: var(--admin-muted); --primary: var(--admin-accent); --primary-light: var(--admin-accent-strong); --primary-muted: var(--admin-accent-soft); --border: var(--admin-border); --input-bg: var(--admin-field); min-height: 100vh; display: flex; background: var(--admin-bg); color: var(--admin-text); }
+.admin-shell { --input-bg: var(--admin-field); min-height: 100vh; display: flex; background: var(--admin-bg); color: var(--admin-text); }
 .admin-main { min-width: 0; flex: 1; }
 .admin-pwa-notices:empty { display: none; }
 .admin-pwa-notices { margin: 12px 14px; }
@@ -195,7 +195,7 @@ html[data-admin-theme="violet"] .admin-slots-page [class~="bg-violet-50/60"] { b
 .admin-list-card header a:hover { color: var(--admin-accent-strong); }
 .admin-activity-row { display: flex; min-height: 64px; align-items: center; gap: 11px; padding: 10px 16px; border-bottom: 1px solid #edf1f0; transition: background .15s ease; }
 .admin-activity-row:last-child { border-bottom: 0; }
-.admin-activity-row:hover { background: #f8fbfa; }
+.admin-activity-row:hover { background: var(--admin-hover); }
 .admin-activity-avatar { display: inline-flex; width: 36px; height: 36px; flex: 0 0 auto; align-items: center; justify-content: center; border-radius: 12px; color: var(--admin-accent-strong); background: var(--admin-accent-soft); font-size: 12px; font-weight: 750; }
 .admin-activity-avatar.is-order { color: #2f68a0; background: #eaf2fa; }
 .admin-activity-copy { display: flex; min-width: 0; flex: 1; flex-direction: column; }

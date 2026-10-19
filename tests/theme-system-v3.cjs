@@ -127,6 +127,94 @@ test('contrast negative control rejects equal text/background', () => {
   assert.throws(() => aa(css.replace(/--foreground:\s*#[\da-f]+/i, '--foreground: #F6F8F5')), /foreground\/background/);
 });
 
+// Same-element custom-property graph, separate from inherited computed values.
+// Static selector scope here is deliberately limited to root/shell/portal theme contracts.
+function assertAcyclicTokens(tokens, label) {
+  const done = new Set(), stack = [];
+  function visit(name) {
+    assert(!stack.includes(name), label + ' token cycle: ' + [...stack, name].join(' -> '));
+    if (done.has(name) || !Object.hasOwn(tokens, name)) return;
+    stack.push(name);
+    for (const match of tokens[name].matchAll(/var\(\s*(--[\w-]+)/g)) visit(match[1]);
+    stack.pop(); done.add(name);
+  }
+  for (const name of Object.keys(tokens)) visit(name);
+}
+function adminAliasContract(adminText) {
+  const sheets = [postcss.parse(css), postcss.parse(adminText),
+    ...['design-system.css', 'phase2.css', 'healthcare-shell.css', 'healthcare-dashboard.css', 'healthcare-calendar.css']
+      .map(file => postcss.parse(read('src/app/admin/' + file)))];
+  const adminAliases = {
+    '--admin-bg': '--background', '--admin-panel': '--surface', '--admin-panel-soft': '--surface-elevated',
+    '--admin-text': '--foreground', '--admin-muted': '--foreground-secondary', '--admin-border': '--border',
+    '--admin-accent': '--primary', '--admin-accent-strong': '--primary-hover',
+    '--admin-accent-soft': '--surface-selected', '--admin-field': '--surface',
+    '--admin-hover': '--surface-elevated',
+    '--admin-panel-rgb': '--surface-rgb',
+  };
+  const canonical = new Set(Object.keys(Object.fromEntries(postcss.parse(css).nodes
+    .find(n => n.type === 'rule').nodes.filter(n => n.type === 'decl' && n.prop.startsWith('--')).map(n => [n.prop, n.value]))));
+  function declarationsFor(selectorMatches) {
+    const tokens = {};
+    for (const sheet of sheets) sheet.walkRules(rule => {
+      if (rule.parent.type !== 'root' || !rule.selectors.some(selectorMatches)) return;
+      for (const d of rule.nodes.filter(n => n.type === 'decl' && n.prop.startsWith('--'))) {
+        assert(!d.important, 'Theme contract must not introduce important: ' + d.prop);
+        tokens[d.prop] = d.value;
+      }
+    });
+    return tokens;
+  }
+  function computed(tokens) {
+    assertAcyclicTokens(tokens, 'computed');
+    const cache = {};
+    function resolve(name) {
+      if (Object.hasOwn(cache, name)) return cache[name];
+      if (!Object.hasOwn(tokens, name)) return 'var(' + name + ')';
+      return cache[name] = tokens[name].replace(/var\(\s*(--[\w-]+)\s*\)/g, (_, ref) => resolve(ref));
+    }
+    return Object.fromEntries(Object.keys(tokens).map(name => [name, resolve(name)]));
+  }
+  for (const theme of ['emerald-light', 'chocolate-dark']) {
+    const rootTokens = declarationsFor(s => [':root', 'html', '[data-theme="' + theme + '"]',
+      'html[data-theme="' + theme + '"]', 'html[data-admin-theme="' + theme + '"]'].includes(s.trim()));
+    assertAcyclicTokens(rootTokens, theme + ' root');
+    const inherited = computed(rootTokens);
+    // Root chrome deliberately keeps transparency; it must derive from canonical tokens.
+    assert.equal(rootTokens['--admin-sidebar'], 'rgba(var(--surface-rgb), .94)');
+    assert.equal(rootTokens['--admin-topbar'], 'color-mix(in srgb, var(--background) 88%, transparent)');
+    for (const [alias, expected] of Object.entries(adminAliases)) {
+      assert(rootTokens[alias]?.includes('var('), 'Root admin token must be semantic alias: ' + alias);
+      assert.equal(inherited[alias], inherited[expected], theme + ' root alias ' + alias);
+    }
+    for (const scope of ['.admin-shell', '.admin-confirm-dialog']) {
+      const own = declarationsFor(s => s.trim() === scope);
+      for (const [name, value] of Object.entries(own)) {
+        if (canonical.has(name))
+          assert(!/var\(\s*--(?:admin|bs)-/.test(value), 'Reverse admin alias on ' + scope + ': ' + name);
+      }
+      const merged = { ...inherited, ...own };
+      assertAcyclicTokens(merged, theme + ' ' + scope);
+      const values = computed(merged);
+      for (const [alias, expected] of Object.entries(adminAliases))
+        assert.equal(values[alias], inherited[expected], theme + ' ' + scope + ' alias ' + alias);
+      for (const name of canonical) assert.equal(values[name], inherited[name], 'Canonical changed on ' + scope + ': ' + name);
+    }
+  }
+}
+test('root admin semantic aliases and shell/portal canonical graph have no reverse aliases/cycles', () => {
+  adminAliasContract(read('src/app/admin/admin.css'));
+});
+test('admin alias negative controls reject reverse aliases and indirect cycles', () => {
+  assert.throws(() => assertAcyclicTokens({ '--foreground': 'var(--admin-text)', '--admin-text': 'var(--bs-foreground)',
+    '--bs-foreground': 'var(--foreground)' }, 'synthetic'), /token cycle/);
+  assert.throws(() => assertAcyclicTokens({ '--a': 'var(--b, var(--a))', '--b': '#fff' }, 'fallback'), /token cycle/);
+  assert.doesNotThrow(() => assertAcyclicTokens({ '--foreground': '#fff', '--bs-foreground': 'var(--foreground)',
+    '--admin-text': 'var(--bs-foreground)' }, 'forward only'));
+  assert.throws(() => adminAliasContract(read('src/app/admin/admin.css') +
+    '\n.admin-shell { --foreground: var(--admin-text); }'), /Reverse admin alias|token cycle/);
+});
+
 // Geometry AST: keep selectors, media/keyframes, order, typography, dimensions,
 // border widths/styles and shadow offsets. Exclude explicit old-theme rules/colors.
 const colorProp = /^(?:color|background(?:-color|-image)?|border(?:-[a-z-]+)?-color|outline-color|fill|stroke|caret-color|accent-color|text-decoration-color)$/;
