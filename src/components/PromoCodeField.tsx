@@ -52,6 +52,6 @@ export default function PromoCodeField({ serviceCode, programId, onChange }: {
       {applied ? <button type="button" onClick={clear} className="grid h-8 w-8 place-items-center rounded-xl" aria-label="Убрать промокод"><X className="h-4 w-4" /></button> : <button type="button" onClick={() => void apply()} disabled={loading || code.length < 4} className="qp-promo-apply inline-flex h-9 items-center gap-1.5 rounded-xl px-3 text-xs font-semibold text-white disabled:opacity-40" style={{ background: "var(--qp-promo-fill, var(--primary))", color: "var(--qp-promo-text, #fff)" }}>{loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}Применить</button>}
     </div>
     {applied && <p className="mt-2 flex items-center gap-1.5 text-xs font-semibold" style={{ color: "var(--primary)" }}><Check className="h-3.5 w-3.5" />Скидка {applied.discount.toLocaleString("ru-RU")} ₽ применена</p>}
-    {error && <p className="mt-2 text-xs font-medium text-red-500">{error}</p>}
+    {error && <p role="alert" className="mt-2 text-xs font-medium text-[var(--qp-danger)]">{error}</p>}
   </div>;
 }

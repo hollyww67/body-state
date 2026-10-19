@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useId } from "react";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import { MessageSquare, Check, Sparkles } from "lucide-react";
@@ -19,6 +19,7 @@ interface Review {
 
 export default function ReviewsPage() {
   const copy = usePageCopy("reviews");
+  const formId = useId();
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({ author_name: "", text: "", rating: 5 });
@@ -134,8 +135,9 @@ export default function ReviewsPage() {
                 )}
                 <form className="space-y-5" onSubmit={handleSubmit}>
                   <div>
-                    <label className="block text-sm font-medium mb-2" style={{ color: 'var(--foreground)' }}>Ваше имя</label>
+                    <label htmlFor={`${formId}-author-name`} className="block text-sm font-medium mb-2" style={{ color: 'var(--foreground)' }}>Ваше имя</label>
                     <input
+                      id={`${formId}-author-name`}
                       type="text"
                       maxLength={80}
                       value={form.author_name}
@@ -150,8 +152,9 @@ export default function ReviewsPage() {
                     <ReviewRatingPicker value={form.rating} onChange={(rating) => setForm({ ...form, rating })} />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-2" style={{ color: 'var(--foreground)' }}>Ваш отзыв</label>
+                    <label htmlFor={`${formId}-review-text`} className="block text-sm font-medium mb-2" style={{ color: 'var(--foreground)' }}>Ваш отзыв</label>
                     <textarea
+                      id={`${formId}-review-text`}
                       rows={4}
                       maxLength={3000}
                       value={form.text}

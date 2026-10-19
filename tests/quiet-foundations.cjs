@@ -79,4 +79,13 @@ test('booking reference uses editorial title and accessible plum CTA without tou
   assert(booking.includes('.quiet-public .qb-actions .qb-next { background: var(--qp-brand-pressed); color: #fff; }'));
   assert(contrast('#ffffff', palettes[':root']['--qp-brand-pressed']) >= 4.5);
 });
+test('review fields have associated labels and promo errors use semantic announced feedback', () => {
+  const reviews = read('src/app/reviews/page.tsx');
+  for (const field of ['author-name', 'review-text']) {
+    assert(reviews.includes('htmlFor={`${formId}-' + field + '`}'));
+    assert(reviews.includes('id={`${formId}-' + field + '`}'));
+  }
+  const promo = read('src/components/PromoCodeField.tsx');
+  assert(promo.includes('<p role="alert" className="mt-2 text-xs font-medium text-[var(--qp-danger)]">{error}</p>'));
+});
 console.log(`${passed} Quiet Precision foundation groups passed`);
