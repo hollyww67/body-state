@@ -22,7 +22,7 @@
 .quiet-nav .qn-cart-count { position: absolute; top: -1px; right: -2px; display: grid; place-items: center; min-width: 20px; height: 20px; padding-inline: 3px; border-radius: 50%; background: var(--qp-brand, #c9c1e4); color: var(--qp-on-brand, #17212f); font-size: .625rem; font-weight: 700; }
 .quiet-nav .qn-booking, .quiet-footer .qf-booking { display: inline-flex; align-items: center; justify-content: center; gap: 12px; min-height: 44px; max-width: 100%; padding: 12px 20px; border: 1px solid transparent; border-radius: 16px; background: var(--qp-brand, #c9c1e4); color: var(--qp-on-brand, #17212f); font-size: .8125rem; font-weight: 500; line-height: 1.5; transition: background 160ms, color 160ms; }
 .quiet-nav .qn-booking:hover, .quiet-footer .qf-booking:hover { background: var(--qp-brand-hover, #b7abd9); }
-.quiet-nav .qn-booking:active, .quiet-footer .qf-booking:active { background: var(--qp-brand-pressed, #686078); color: #fff; }
+.quiet-nav .qn-booking:active, .quiet-footer .qf-booking:active { background: var(--qp-brand-pressed); color: var(--qp-on-brand); }
 .quiet-nav .qn-menu-button { display: none; }
 .quiet-nav .qn-mobile { display: none; }
 .quiet-footer { background: var(--qp-background, #f8f9f6); color: var(--qp-text-secondary, #4b5563); border-top: 1px solid var(--qp-border, #d0d0db); padding-block: 64px 24px; }

@@ -1,33 +1,5 @@
 /* Quiet Precision: one semantic palette, public geometry only. Admin owns its layout. */
 :root {
-  --qp-background: #F8F9F6;
-  --qp-surface: #FFFFFF;
-  --qp-surface-elevated: #F8F9FA;
-  --qp-surface-selected: #F0ECF8;
-  --qp-mist: #ECEBF3;
-  --qp-cool-grey: #C7CBD2;
-  --qp-text: #17212F;
-  --qp-text-secondary: #4B5563;
-  --qp-muted: #6B6474;
-  --qp-border-subtle: #E6E8EC;
-  --qp-border: #D0D0DB;
-  --qp-control-border: #8B8495;
-  --qp-brand: #C9C1E4;
-  --qp-brand-hover: #B7ABD9;
-  --qp-brand-pressed: #686078;
-  --qp-on-brand: #17212F;
-  --qp-link: #645080;
-  --qp-focus: #7660A6;
-  --qp-disabled: #F1F2F5;
-  --qp-disabled-text: #707581;
-  --qp-success: #216F55;
-  --qp-success-bg: #EAF5EF;
-  --qp-warning: #8D5A16;
-  --qp-warning-bg: #FFF5E6;
-  --qp-danger: #B23444;
-  --qp-danger-bg: #FFF0F1;
-  --qp-information: #245E9A;
-  --qp-information-bg: #EDF4FC;
   --qp-space-1: 4px;
   --qp-space-2: 8px;
   --qp-space-3: 12px;
@@ -42,33 +14,7 @@
   --qp-radius-sm: 8px;
   --qp-radius-control: 16px;
   --qp-radius-card: 16px;
-  --qp-shadow: 0 2px 8px rgb(23 33 47 / 6%);
-}
-
-[data-theme="violet"] {
-  --qp-background: #191720;
-  --qp-surface: #24212D;
-  --qp-surface-elevated: #2C2835;
-  --qp-surface-selected: #393143;
-  --qp-mist: #302B39;
-  --qp-text: #F8F7FB;
-  --qp-text-secondary: #D0CADA;
-  --qp-muted: #BCB5C7;
-  --qp-border-subtle: #403949;
-  --qp-border: #60556C;
-  --qp-control-border: #A298AF;
-  --qp-link: #D2C1EF;
-  --qp-focus: #C9B0F1;
-  --qp-disabled: #33303B;
-  --qp-disabled-text: #AAA3B6;
-  --qp-success: #A1D5BF;
-  --qp-success-bg: #213C32;
-  --qp-warning: #EAC588;
-  --qp-warning-bg: #403222;
-  --qp-danger: #FFABB7;
-  --qp-danger-bg: #482932;
-  --qp-information: #ADCFF1;
-  --qp-information-bg: #25394E;
+  --qp-shadow: 0 2px 8px var(--shadow-color);
 }
 
 body:has(.quiet-public) { background: var(--qp-background); }
@@ -77,7 +23,7 @@ body:has(.quiet-public) { background: var(--qp-background); }
   --bg-secondary: var(--qp-surface);
   --foreground: var(--qp-text);
   --foreground-secondary: var(--qp-text-secondary);
-  /* Legacy inline primary text must retain AA; pale lilac is for filled controls. */
+  /* Legacy inline primary text and filled controls share semantic AA colors. */
   --primary: var(--qp-link);
   --primary-light: var(--qp-brand);
   --primary-muted: var(--qp-surface-selected);
@@ -115,8 +61,8 @@ body:has(.quiet-public) { background: var(--qp-background); }
   --btn-hover-bg: var(--qp-brand-hover);
   --radius-control: var(--qp-radius-control);
   --shadow-sm: var(--qp-shadow);
-  --shadow-md: 0 8px 24px rgb(23 33 47 / 6%);
-  --shadow-lg: 0 12px 32px rgb(23 33 47 / 8%);
+  --shadow-md: 0 8px 24px var(--shadow-color);
+  --shadow-lg: 0 12px 32px var(--shadow-color);
   min-height: 100svh;
   font-family: var(--font-quiet-sans), "Arial", sans-serif;
   color: var(--qp-text);
@@ -128,7 +74,7 @@ body:has(.quiet-public) { background: var(--qp-background); }
   letter-spacing: -.04em;
 }
 .quiet-public :is(input, select, textarea, button) { font: inherit; }
-.quiet-public ::selection { color: #17212F; background: #C9C1E4; }
+.quiet-public ::selection { color: var(--qp-text); background: var(--qp-surface-selected); }
 .quiet-public :focus-visible { outline: 2px solid var(--qp-focus); outline-offset: 3px; }
 .quiet-public :is(.glass, .glass-feature, .liquid-card, .content-panel, .footer-panel, .ds-panel) {
   background: var(--qp-surface);
@@ -154,7 +100,7 @@ body:has(.quiet-public) { background: var(--qp-background); }
   transform: none;
 }
 .quiet-public :is(.liquid-btn, .ds-primary-button, .btn-primary, .btn-primary-gradient):active {
-  color: #FFFFFF;
+  color: var(--qp-on-brand);
   background: var(--qp-brand-pressed);
 }
 .quiet-public .liquid-btn::after, .quiet-public .liquid-glow,
@@ -218,7 +164,7 @@ body:has(.quiet-public) { background: var(--qp-background); }
 .quiet-public .qp-promo { --qp-promo-fill: var(--qp-brand); --qp-promo-text: var(--qp-on-brand); }
 .quiet-public .qp-promo button { min-width: 44px; min-height: 44px; }
 .quiet-public .qp-promo-apply:hover:not(:disabled) { --qp-promo-fill: var(--qp-brand-hover); }
-.quiet-public .qp-promo-apply:active:not(:disabled) { --qp-promo-fill: var(--qp-brand-pressed); --qp-promo-text: #fff; }
+.quiet-public .qp-promo-apply:active:not(:disabled) { --qp-promo-fill: var(--qp-brand-pressed); --qp-promo-text: var(--qp-on-brand); }
 .quiet-public .qp-receipt-heading { text-align: center; padding-block: 16px; }
 .quiet-public .qp-receipt-heading h2 { font-size: clamp(30px, 5vw, 42px); line-height: 1.12; font-weight: 400; }
 .quiet-public .qp-receipt-heading p { color: var(--qp-muted); line-height: 1.6; }

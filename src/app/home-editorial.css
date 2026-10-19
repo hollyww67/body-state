@@ -19,7 +19,7 @@
 .quiet-home .qh-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 20px 28px; margin-top: 32px; }
 .quiet-home .qh-button { display: inline-flex; justify-content: center; align-items: center; gap: 20px; min-height: 52px; max-width: 100%; padding: 14px 24px; background: var(--qp-brand, #c9c1e4); color: var(--qp-on-brand, #17212f); border: 1px solid transparent; border-radius: 16px; font-size: .875rem; font-weight: 500; line-height: 1.5; transition: background 160ms, color 160ms; }
 .quiet-home .qh-button:hover { background: var(--qp-brand-hover, #b7abd9); }
-.quiet-home .qh-button:active { background: var(--qp-brand-pressed, #686078); color: #fff; }
+.quiet-home .qh-button:active { background: var(--qp-brand-pressed); color: var(--qp-on-brand); }
 .quiet-home :where(.qh-button, .qh-text-link) svg { flex-shrink: 0; }
 .quiet-home .qh-text-link { display: inline-flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 44px; max-width: 100%; padding-block: 8px; color: var(--qp-text, #17212f); font-size: .875rem; line-height: 1.5; text-decoration: underline; text-underline-offset: 5px; text-decoration-color: var(--qp-border, #d0d0db); transition: text-decoration-color 160ms; }
 .quiet-home .qh-text-link:hover { color: var(--qp-link, #645080); text-decoration-color: currentColor; }

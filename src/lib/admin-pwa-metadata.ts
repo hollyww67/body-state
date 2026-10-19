@@ -8,5 +8,5 @@ export const adminPwaMetadata: Metadata = {
 };
 export const adminViewport: Viewport = {
   width: 'device-width', initialScale: 1, viewportFit: 'cover',
-  interactiveWidget: 'resizes-content', themeColor: '#147d72',
+  interactiveWidget: 'resizes-content', themeColor: '#F6F8F5',
 };

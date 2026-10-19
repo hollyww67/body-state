@@ -1,46 +1,23 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useTheme } from "@/components/ThemeProvider";
+import { toggleTheme } from "@/lib/theme";
 import { Moon, Sun } from "lucide-react";
 
 export default function ThemeToggle() {
-  const [theme, setTheme] = useState<string>("teal");
-
-  useEffect(() => {
-    const saved = localStorage.getItem("theme");
-    if (saved) {
-      setTheme(saved);
-      document.documentElement.setAttribute("data-theme", saved);
-    } else {
-      fetch("/api/theme")
-        .then((r) => r.json())
-        .then((data) => {
-          const t = data.theme || "teal";
-          setTheme(t);
-          document.documentElement.setAttribute("data-theme", t);
-        })
-        .catch(() => {});
-    }
-  }, []);
-
-  const toggle = () => {
-    const next = theme === "teal" ? "violet" : "teal";
-    setTheme(next);
-    localStorage.setItem("theme", next);
-    document.documentElement.setAttribute("data-theme", next);
-    document.documentElement.style.colorScheme = next === "violet" ? "dark" : "light";
-  };
+  const dark = useTheme() === "chocolate-dark";
 
   return (
     <button
-      onClick={toggle}
+      onClick={toggleTheme}
       type="button"
       className="theme-toggle grid h-10 w-10 place-items-center rounded-2xl border transition-all hover:-translate-y-0.5"
       style={{ background: 'var(--glass-bg)', color: 'var(--foreground)', borderColor: 'var(--glass-border)' }}
-      title={theme === "teal" ? "Тёмная тема" : "Светлая тема"}
-      aria-label={theme === "teal" ? "Включить тёмную violet-тему" : "Включить светлую тему"}
+      title={dark ? "Светлая" : "Тёмная"}
+      aria-label={dark ? "Включить светлую тему" : "Включить тёмную тему"}
+      aria-pressed={dark}
     >
-      {theme === "teal" ? <Moon className="w-[18px] h-[18px]" /> : <Sun className="w-[18px] h-[18px]" />}
+      {dark ? <Sun className="w-[18px] h-[18px]" /> : <Moon className="w-[18px] h-[18px]" />}
     </button>
   );
 }
