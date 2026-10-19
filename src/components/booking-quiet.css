@@ -37,8 +37,8 @@
 .qb-error { margin-top: 20px; padding: 16px; border: 1px solid var(--qp-danger); border-radius: var(--qp-radius-control); background: var(--qp-danger-bg); color: var(--qp-danger); font-size: 14px; line-height: 1.6; }
 .qb-actions { position: sticky; bottom: 0; display: flex; align-items: center; gap: 12px; padding: 20px 0 max(12px, env(safe-area-inset-bottom)); margin-top: 12px; background: var(--qp-background); z-index: 2; }
 .qb-actions .qb-next { flex: 1; white-space: normal; height: auto; min-height: 48px; }
-.quiet-public .qb-actions .qb-next { background: var(--qp-brand-pressed); color: #fff; }
-.quiet-public .qb-actions .qb-next:hover:not(:disabled) { background: #53416b; color: #fff; }
+.quiet-public .qb-actions .qb-next { background: var(--qp-brand); color: var(--qp-on-brand); }
+.quiet-public .qb-actions .qb-next:hover:not(:disabled) { background: var(--qp-brand-hover); color: var(--qp-on-brand); }
 .qb-calendar { display: grid; gap: 24px; }
 .qb-month { border: 1px solid var(--qp-border-subtle); border-radius: var(--qp-radius-card); padding: 16px; background: var(--qp-surface); }
 .qb-month-heading { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; gap: 8px; }

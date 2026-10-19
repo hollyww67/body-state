@@ -3,18 +3,17 @@
 import { useEffect, useState } from "react";
 import { Eye, EyeOff, KeyRound, Palette, ShieldCheck } from "lucide-react";
 import {AdminButton,AdminCard,AdminFeedback,AdminInput,AdminPageHeader} from '@/components/admin/ui';
+import { useTheme } from "@/components/ThemeProvider";
+import { setTheme, type Theme } from "@/lib/theme";
 
 const themes = [
-  { value: "teal", label: "Teal", desc: "Светлая тема", gradient: "from-teal-500 to-emerald-600" },
-  { value: "violet", label: "Violet", desc: "Тёмная тема", gradient: "from-violet-500 to-purple-600" },
-  { value: "ironman", label: "Iron Man", desc: "Светлая Stark-tech", gradient: "from-red-600 to-amber-500" },
-  { value: "newyear", label: "Новый год", desc: "Снежная тема", gradient: "from-blue-600 to-indigo-400" },
-];
+  { value: "emerald-light", label: "Светлая", desc: "Светлая тема", swatch: "var(--theme-swatch-emerald)" },
+  { value: "chocolate-dark", label: "Тёмная", desc: "Тёмная тема", swatch: "var(--theme-swatch-chocolate)" },
+] satisfies { value: Theme; label: string; desc: string; swatch: string }[];
 
 export default function AdminSettingsPage() {
-  const [theme, setTheme] = useState("teal");
+  const theme = useTheme();
   const [saved, setSaved] = useState(false);
-  const [themeBusy, setThemeBusy] = useState(false);
   const [themeError, setThemeError] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -28,10 +27,6 @@ export default function AdminSettingsPage() {
   const [shopSaving, setShopSaving] = useState(false);
   const [shopError, setShopError] = useState("");
   const [shopMessage, setShopMessage] = useState("");
-
-  useEffect(() => {
-    fetch("/api/theme").then((r) => r.json()).then((data) => setTheme(data.theme || "teal")).catch(() => {});
-  }, []);
 
   useEffect(() => {
     fetch("/api/admin/site-visibility", { cache: "no-store" })
@@ -67,17 +62,10 @@ export default function AdminSettingsPage() {
     }
   };
 
-  const saveTheme = async (newTheme: string) => {
-    if (themeBusy) return;
-    setThemeBusy(true); setThemeError(""); setSaved(false);
-    try {
-    const response = await fetch("/api/admin/theme", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ theme: newTheme }) });
-    if (!response.ok) throw new Error();
-    setTheme(newTheme); setSaved(true);
-    document.documentElement.setAttribute("data-theme", newTheme);
-    setTimeout(() => setSaved(false), 2000);
-    } catch { setThemeError("Не удалось сохранить тему. Проверьте соединение и повторите выбор."); }
-    finally { setThemeBusy(false); }
+  const saveTheme = (newTheme: Theme) => {
+    const persisted = setTheme(newTheme);
+    setSaved(persisted);
+    setThemeError(persisted ? "" : "Тема применена. Браузер запретил сохранение: после закрытия страницы выбор может сброситься.");
   };
 
   const changePassword = async (event: React.FormEvent) => {
@@ -130,9 +118,8 @@ export default function AdminSettingsPage() {
     </AdminCard>
 
     <AdminCard>
-      <div className="mb-5 flex items-center gap-3"><span className="grid h-11 w-11 place-items-center rounded-xl" style={{ background: "var(--admin-accent-soft)", color: "var(--admin-accent-strong)" }}><Palette className="h-5 w-5" /></span><div><h3 className="font-semibold" style={{ color: "var(--admin-text)" }}>Тема основного сайта</h3><p className="text-xs" style={{ color: "var(--admin-muted)" }}>Изменение применяется ко всем посетителям.</p></div></div>
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">{themes.map(item=><AdminButton key={item.value} variant="outline" className="bs-theme-choice" aria-pressed={theme===item.value} onClick={()=>saveTheme(item.value)}><div className={`h-8 w-8 rounded-full bg-gradient-to-br ${item.gradient}`} aria-hidden="true"/><span>{item.label}</span><p>{item.desc}</p></AdminButton>)}</div>
-      {themeBusy && <p role="status" className="mt-4 text-sm">Сохраняем тему…</p>}
+      <div className="mb-5 flex items-center gap-3"><span className="grid h-11 w-11 place-items-center rounded-xl" style={{ background: "var(--admin-accent-soft)", color: "var(--admin-accent-strong)" }}><Palette className="h-5 w-5" /></span><div><h3 className="font-semibold" style={{ color: "var(--admin-text)" }}>Тема оформления</h3><p className="text-xs" style={{ color: "var(--admin-muted)" }}>Выбор применяется к сайту и админке только в этом браузере.</p></div></div>
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">{themes.map(item=><AdminButton key={item.value} variant="outline" className="bs-theme-choice" aria-pressed={theme===item.value} onClick={()=>saveTheme(item.value)}><div className="h-8 w-8 rounded-full" data-theme-swatch={item.value} style={{ background: item.swatch }} aria-hidden="true"/><span>{item.label}</span><p>{item.desc}</p></AdminButton>)}</div>
       {themeError && <AdminFeedback tone="destructive">{themeError}</AdminFeedback>}
       {saved && <AdminFeedback tone="success">Тема сохранена.</AdminFeedback>}
     </AdminCard>

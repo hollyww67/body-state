@@ -1,33 +1,32 @@
-/* Body State 2.0: scoped semantic tokens. Public storefront is intentionally untouched. */
+/* Admin compatibility aliases inherit the canonical Theme System 3.0 tokens. */
 .admin-shell, .admin-confirm-dialog {
-  --bs-background: #f8f9f6;
-  --bs-surface: #fff;
-  --bs-surface-muted: #ecebf3;
-  --bs-foreground: #17212f;
-  --bs-muted: #6b6474;
-  --bs-primary: #645080;
-  --bs-primary-hover: #53416b;
-  --bs-primary-soft: #ecebf3;
-  --bs-on-primary: #fff;
-  /* Brand fills are not text/focus/accent colors: legacy primary/white pairs stay intact. */
-  --bs-brand-fill: #c9c1e4;
-  --bs-brand-hover: #b9afd8;
-  --bs-on-brand: #17212f;
-  --bs-border: #c7cbd2;
-  --bs-border-strong: #81768c;
-  --bs-success: #216e43;
-  --bs-success-bg: #e4f5ec;
-  --bs-warning: #85530b;
-  --bs-warning-bg: #fff5dc;
-  --bs-destructive: #b33137;
-  --bs-destructive-bg: #fdecef;
-  --bs-info: #28628a;
-  --bs-info-bg: #e8f1fd;
+  --bs-background: var(--background);
+  --bs-surface: var(--surface);
+  --bs-surface-muted: var(--surface-elevated);
+  --bs-foreground: var(--foreground);
+  --bs-muted: var(--foreground-secondary);
+  --bs-primary: var(--primary);
+  --bs-primary-hover: var(--primary-hover);
+  --bs-primary-soft: var(--surface-selected);
+  --bs-on-primary: var(--primary-foreground);
+  --bs-brand-fill: var(--primary);
+  --bs-brand-hover: var(--primary-hover);
+  --bs-on-brand: var(--primary-foreground);
+  --bs-border: var(--border);
+  --bs-border-strong: var(--control-border);
+  --bs-success: var(--success);
+  --bs-success-bg: var(--success-bg);
+  --bs-warning: var(--warning);
+  --bs-warning-bg: var(--warning-bg);
+  --bs-destructive: var(--danger);
+  --bs-destructive-bg: var(--danger-bg);
+  --bs-info: var(--information);
+  --bs-info-bg: var(--information-bg);
   --bs-space-1: 4px; --bs-space-2: 8px; --bs-space-3: 12px; --bs-space-4: 16px;
   --bs-space-5: 20px; --bs-space-6: 24px; --bs-space-8: 32px; --bs-space-10: 40px; --bs-space-12: 48px; --bs-space-16: 64px;
   --bs-radius-sm: 6px; --bs-radius-control: 8px; --bs-radius-card: 12px; --bs-radius-overlay: 16px; --bs-radius-pill: 999px;
-  --bs-shadow-sm: 0 1px 3px rgb(32 44 43 / 4%);
-  --bs-shadow-md: 0 8px 24px rgb(32 44 43 / 8%);
+  --bs-shadow-sm: 0 1px 3px color-mix(in srgb, var(--foreground) 4%, transparent);
+  --bs-shadow-md: 0 8px 24px color-mix(in srgb, var(--foreground) 8%, transparent);
   --bs-motion-fast: 140ms; --bs-motion-normal: 220ms;
   --bs-font: var(--font-manrope), 'Manrope', system-ui, sans-serif;
   --bs-display: 600 40px/48px var(--bs-font); --bs-h1: 600 32px/40px var(--bs-font);
@@ -40,15 +39,6 @@
   --admin-shadow: var(--bs-shadow-sm); --admin-field: var(--bs-surface);
   --admin-hover: var(--bs-surface-muted); --admin-sidebar: var(--bs-surface); --admin-topbar: var(--bs-background);
   font-family: var(--bs-font);
-}
-/* Preserve the existing optional violet theme; no new dark visual concept. */
-html[data-admin-theme="violet"] :is(.admin-shell, .admin-confirm-dialog) {
-  --bs-background: #0b0812; --bs-surface: #161120; --bs-surface-muted: #1d1729;
-  --bs-foreground: #f5f1ff; --bs-muted: #b9afcb; --bs-border: #3a304a; --bs-border-strong: #79668f;
-  --bs-primary: #b9a0ff; --bs-primary-hover: #cfbfff; --bs-primary-soft: #302341; --bs-on-primary: #161120;
-  --bs-brand-fill: var(--bs-primary); --bs-brand-hover: var(--bs-primary-hover); --bs-on-brand: var(--bs-on-primary);
-  --bs-success: #91d8b2; --bs-success-bg: #18372a; --bs-warning: #f4cc81; --bs-warning-bg: #392d17;
-  --bs-destructive: #ffadb3; --bs-destructive-bg: #401e2a; --bs-info: #a3d2f4; --bs-info-bg: #1a2e43;
 }
 .admin-shell { font: var(--bs-body); }
 .admin-workspace { padding: var(--bs-space-6) var(--bs-space-8) var(--bs-space-12); }
@@ -157,7 +147,7 @@ html[data-admin-theme="violet"] :is(.admin-shell, .admin-confirm-dialog) {
 .bs-spinner { animation: bs-spin 1s linear infinite; }
 @keyframes bs-spin { to { transform: rotate(360deg); } }
 @keyframes bs-pulse { 50% { opacity: .5; } }
-:is(.admin-shell,.admin-confirm-dialog) :is(button, a, input, select, textarea, summary):focus-visible { outline: 2px solid var(--bs-primary); outline-offset: 3px; }
+:is(.admin-shell,.admin-confirm-dialog) :is(button, a, input, select, textarea, summary):focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
 .admin-confirm-panel, .admin-confirm-dialog.admin-modal-general > * { border-radius: var(--bs-radius-overlay); box-shadow: var(--bs-shadow-md); }
 .admin-confirm-panel footer button { min-height: 44px; border-radius: var(--bs-radius-control); }
 .admin-confirm-danger { background: var(--bs-destructive) !important; color: var(--bs-surface) !important; }

@@ -1,0 +1,142 @@
+/* Theme System 3.0: the sole semantic color source. Geometry belongs to existing UI. */
+:root, [data-theme="emerald-light"] {
+  color-scheme: light;
+  --background: #F6F8F5;
+  --surface: #FFFFFF;
+  --surface-elevated: #E7EFEB;
+  --surface-selected: #D8E9E2;
+  --border: #DCE5E0;
+  --control-border: #68857B;
+  --foreground: #172A26;
+  --foreground-secondary: #526760;
+  --primary: #2F6B5B;
+  --primary-hover: #275548;
+  --primary-pressed: #1E443A;
+  --primary-foreground: #FFFFFF;
+  --focus: #2F6B5B;
+  --focus-soft: #86B5A6;
+  --disabled: #E1E7E3;
+  --disabled-foreground: #61716B;
+  --success: #226B48;
+  --success-bg: #E7F5EC;
+  --warning: #885917;
+  --warning-bg: #FFF4DF;
+  --danger: #B43F46;
+  --danger-bg: #FFF0F0;
+  --information: #275F9D;
+  --information-bg: #EBF3FF;
+  --overlay: rgb(23 42 38 / 48%);
+  --shadow-color: rgb(23 42 38 / 8%);
+}
+[data-theme="chocolate-dark"] {
+  color-scheme: dark;
+  --background: #1B1514;
+  --surface: #29201D;
+  --surface-elevated: #342825;
+  --surface-selected: #3E2F2A;
+  --border: #52413B;
+  --control-border: #9D8275;
+  --foreground: #F7EFE7;
+  --foreground-secondary: #CFBDB2;
+  --primary: #D2B0A1;
+  --primary-hover: #DFBEAE;
+  --primary-pressed: #E8C2AD;
+  --primary-foreground: #221816;
+  --focus: #E8C2AD;
+  --focus-soft: #72584D;
+  --disabled: #423631;
+  --disabled-foreground: #B9A79B;
+  --success: #A1D7B7;
+  --success-bg: #20392D;
+  --warning: #F0C184;
+  --warning-bg: #40311E;
+  --danger: #FFB0A6;
+  --danger-bg: #442925;
+  --information: #ADCCF1;
+  --information-bg: #263545;
+  --overlay: rgb(12 8 7 / 72%);
+  --shadow-color: rgb(0 0 0 / 24%);
+}
+/* Existing contracts consume the same palette, including operator login and portals. */
+:root, [data-theme="emerald-light"], [data-theme="chocolate-dark"] {
+  --theme-swatch-emerald: #2F6B5B;
+  --theme-swatch-chocolate: #D2B0A1;
+  --bg: var(--background);
+  --bg-secondary: var(--surface);
+  --primary-light: var(--primary-hover);
+  --primary-muted: var(--surface-selected);
+  --muted: var(--foreground-secondary);
+  --border-light: var(--border);
+  --card: var(--surface);
+  --card-bg: var(--surface);
+  --card-hover: var(--surface-elevated);
+  --surface-strong: var(--surface);
+  --surface-soft: var(--surface-elevated);
+  --glass-bg: var(--surface);
+  --glass-border: var(--border);
+  --glass-feature-bg: var(--surface);
+  --glass-feature-border: var(--border);
+  --glass-feature-shadow: var(--shadow-color);
+  --liquid-card-bg: var(--surface);
+  --liquid-card-border: var(--border);
+  --liquid-card-hover-bg: var(--surface-elevated);
+  --liquid-card-hover-border: var(--control-border);
+  --liquid-glow: transparent;
+  --orb-teal: transparent;
+  --orb-rose: transparent;
+  --orb-amber: transparent;
+  --btn-bg: var(--primary);
+  --btn-hover-bg: var(--primary-hover);
+  --btn-shadow: var(--shadow-color);
+  --btn-hover-shadow: var(--shadow-color);
+  --tag-bg: var(--surface-selected);
+  --tag-text: var(--primary);
+  --badge-bg: var(--surface-selected);
+  --badge-text: var(--primary);
+  --input-bg: var(--surface);
+  --input-border: var(--control-border);
+  --field-bg: var(--surface);
+  --field-border: var(--control-border);
+  --danger-soft: var(--danger-bg);
+  --warning-soft: var(--warning-bg);
+  --ring: var(--focus-soft);
+  --focus-ring: var(--focus-soft);
+  --shadow-sm: 0 2px 8px var(--shadow-color);
+  --shadow-md: 0 8px 24px var(--shadow-color);
+  --shadow-lg: 0 12px 32px var(--shadow-color);
+  --qp-background: var(--background);
+  --qp-surface: var(--surface);
+  --qp-surface-elevated: var(--surface-elevated);
+  --qp-surface-selected: var(--surface-selected);
+  --qp-mist: var(--surface-elevated);
+  --qp-cool-grey: var(--border);
+  --qp-text: var(--foreground);
+  --qp-text-secondary: var(--foreground-secondary);
+  --qp-muted: var(--foreground-secondary);
+  --qp-border-subtle: var(--border);
+  --qp-border: var(--border);
+  --qp-control-border: var(--control-border);
+  --qp-brand: var(--primary);
+  --qp-brand-hover: var(--primary-hover);
+  --qp-brand-pressed: var(--primary-pressed);
+  --qp-on-brand: var(--primary-foreground);
+  --qp-link: var(--primary);
+  --qp-focus: var(--focus);
+  --qp-disabled: var(--disabled);
+  --qp-disabled-text: var(--disabled-foreground);
+  --qp-success: var(--success);
+  --qp-success-bg: var(--success-bg);
+  --qp-warning: var(--warning);
+  --qp-warning-bg: var(--warning-bg);
+  --qp-danger: var(--danger);
+  --qp-danger-bg: var(--danger-bg);
+  --qp-information: var(--information);
+  --qp-information-bg: var(--information-bg);
+  --qp-shadow: 0 2px 8px var(--shadow-color);
+}
+body { background: var(--background); }
+.liquid-btn { color: var(--primary-foreground); }
+.glass, .glass-feature, .liquid-card { backdrop-filter: none; -webkit-backdrop-filter: none; }
+::selection { background: var(--surface-selected); color: var(--foreground); }
+:focus-visible { outline-color: var(--focus); }
+.admin-confirm-dialog::backdrop { background: var(--overlay); }

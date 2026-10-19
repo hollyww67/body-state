@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import { Cormorant_Garamond, Inter, Manrope, Playfair_Display } from "next/font/google";
-import Script from "next/script";
+import { DEFAULT_THEME, THEME_BOOTSTRAP } from "@/lib/theme";
 import "./globals.css";
 import ThemeProvider from "@/components/ThemeProvider";
 import UmamiScript from "@/components/UmamiScript";
 import SiteChrome from "@/components/SiteChrome";
 import PublicSurface from "@/components/PublicSurface";
 import "./quiet-precision.css";
+import "./theme-tokens.css";
 
 const manrope = Manrope({ subsets: ["latin", "cyrillic"], variable: "--font-manrope" });
 const reviewSerif = Cormorant_Garamond({ subsets: ["latin", "cyrillic"], weight: ["500", "600", "700"], style: ["normal", "italic"], variable: "--font-review-serif" });
@@ -40,11 +41,11 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ru" suppressHydrationWarning data-scroll-behavior="smooth">
+    <html lang="ru" suppressHydrationWarning data-scroll-behavior="smooth" data-theme={DEFAULT_THEME} data-admin-theme={DEFAULT_THEME} style={{ colorScheme: "light" }}>
+      <head>
+        <script id="theme-bootstrap" dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP }} />
+      </head>
       <body className={`${manrope.variable} ${reviewSerif.variable} ${quietSerif.variable} ${quietSans.variable} font-sans`} style={{ fontFamily: "'Manrope', sans-serif" }}>
-        <Script id="theme-bootstrap" strategy="beforeInteractive">
-          {`(function(){try{var t=localStorage.getItem('theme');if(t==='violet'||t==='teal'){document.documentElement.dataset.theme=t;document.documentElement.style.colorScheme=t==='violet'?'dark':'light'}var a=localStorage.getItem('admin-theme');document.documentElement.setAttribute('data-admin-theme',a==='violet'?'violet':'light')}catch(e){}})()`}
-        </Script>
         <ThemeProvider />
         <PublicSurface>{children}<SiteChrome /></PublicSurface>
         <UmamiScript />
