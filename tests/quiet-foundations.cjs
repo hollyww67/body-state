@@ -8,11 +8,23 @@ const ts = require('typescript');
 const root = path.resolve(__dirname, '..');
 const read = name => fs.readFileSync(path.join(root, name), 'utf8');
 const css = postcss.parse(read('src/app/quiet-precision.css'));
+const themeCss = postcss.parse(read('src/app/theme-tokens.css'));
 const palettes = {};
-css.nodes.filter(n => n.type === 'rule' && [':root', '[data-theme="violet"]'].includes(n.selector)).forEach(rule => {
-  palettes[rule.selector] = Object.fromEntries(rule.nodes.filter(n => n.type === 'decl').map(n => [n.prop, n.value]));
-});
+for (const theme of ['emerald-light', 'chocolate-dark']) {
+  const tokens = {};
+  themeCss.walkRules(rule => {
+    if (rule.selectors.some(s => s === ':root' || s === '[data-theme="' + theme + '"]'))
+      rule.walkDecls(d => { if (d.prop.startsWith('--')) tokens[d.prop] = d.value; });
+  });
+  function resolve(name, seen = new Set()) {
+    assert(tokens[name] && !seen.has(name), 'Missing/circular token: ' + name);
+    const ref = tokens[name].match(/^var\((--[\w-]+)\)$/);
+    return ref ? resolve(ref[1], new Set([...seen, name])) : tokens[name];
+  }
+  palettes[theme] = Object.fromEntries(Object.keys(tokens).map(name => [name, resolve(name)]));
+}
 function luminance(hex) {
+  assert(/^#[\da-f]{6}$/i.test(hex), 'Unsupported contrast color: ' + hex);
   const rgb = hex.replace('#', '').match(/../g).map(x => parseInt(x, 16) / 255).map(x => x <= .04045 ? x / 12.92 : ((x + .055) / 1.055) ** 2.4);
   return rgb[0] * .2126 + rgb[1] * .7152 + rgb[2] * .0722;
 }
@@ -23,19 +35,22 @@ test('public geometry never targets admin, room or operator login', () => {
   const surface = read('src/components/PublicSurface.tsx');
   for (const marker of ['"/admin"', '"/login"', '"/psychology/room"', '"/psychology-room/"']) assert(surface.includes(marker));
   css.walkRules(rule => {
-    if ([":root", '[data-theme="violet"]'].includes(rule.selector)) {
+    if (rule.selector === ':root') {
       rule.walkDecls(d => assert(d.prop.startsWith('--qp-'), 'Only namespaced palette at root'));
     } else assert(rule.selector.includes('.quiet-public'), `Public rule leaks: ${rule.selector}`);
   });
 });
-test('six approved brand colors are represented without semantic text misuse', () => {
-  const text = read('src/app/quiet-precision.css');
-  for (const color of ['#C9C1E4', '#ECEBF3', '#F8F9F6', '#C7CBD2', '#6B6474', '#17212F']) assert(text.includes(color));
-  assert.equal(palettes[':root']['--qp-brand'], '#C9C1E4');
+test('approved Theme3 colors come from central emerald/chocolate semantic tokens', () => {
+  const expected = {
+    'emerald-light': { brand: '#2F6B5B', mist: '#E7EFEB', background: '#F6F8F5', 'cool-grey': '#DCE5E0', muted: '#526760', text: '#172A26' },
+    'chocolate-dark': { brand: '#D2B0A1', mist: '#342825', background: '#1B1514', 'cool-grey': '#52413B', muted: '#CFBDB2', text: '#F7EFE7' },
+  };
+  for (const [theme, values] of Object.entries(expected))
+    for (const [name, value] of Object.entries(values)) assert.equal(palettes[theme]['--qp-' + name], value);
+  assert(!read('src/app/quiet-precision.css').match(/--qp-(?:brand|text|background):\s*#/));
 });
-test('light and violet normal text, links, CTA and semantic feedback meet AA', () => {
-  for (const [theme, own] of Object.entries(palettes)) {
-    const tokens = {...palettes[':root'], ...own};
+test('emerald/chocolate normal text, links, CTA and semantic feedback meet AA', () => {
+  for (const [theme, tokens] of Object.entries(palettes)) {
     const pairs = [['text','background'], ['text','surface'], ['text-secondary','surface'], ['muted','background'], ['muted','surface'], ['link','surface'], ['on-brand','brand'], ['on-brand','brand-hover'], ['success','success-bg'], ['warning','warning-bg'], ['danger','danger-bg'], ['information','information-bg']];
     for (const [a, b] of pairs) {
       const ratio = contrast(tokens[`--qp-${a}`], tokens[`--qp-${b}`]);
@@ -64,7 +79,7 @@ test('CMS image sources accept uploaded or HTTPS assets, never unsafe schemes or
   assert.equal(source('/uploads/approved.webp'), '/uploads/approved.webp');
   assert.equal(source('https://body-state.ru/uploads/approved.webp'), 'https://body-state.ru/uploads/approved.webp');
 });
-test('promo action separates lilac fill and ink foreground from link colors in both themes', () => {
+test('promo action uses semantic fill/foreground independently of links in both themes', () => {
   const promo = read('src/components/PromoCodeField.tsx');
   assert(promo.includes('var(--qp-promo-fill, var(--primary))'));
   assert(promo.includes('var(--qp-promo-text, #fff)'));
@@ -72,12 +87,15 @@ test('promo action separates lilac fill and ink foreground from link colors in b
   assert(tokens.includes('--qp-promo-fill: var(--qp-brand); --qp-promo-text: var(--qp-on-brand)'));
   assert(tokens.includes('.quiet-public .qp-promo button { min-width: 44px; min-height: 44px; }'));
 });
-test('booking reference uses editorial title and accessible plum CTA without touching admin', () => {
+test('booking reference retains editorial geometry and semantic AA CTA without touching admin', () => {
   const booking = read('src/components/booking-quiet.css');
   assert(booking.includes('font-size: clamp(40px, 5vw, 46px)'));
   assert(booking.includes('.qb-heading .qb-heading-service { max-width: 12ch; }'));
-  assert(booking.includes('.quiet-public .qb-actions .qb-next { background: var(--qp-brand-pressed); color: #fff; }'));
-  assert(contrast('#ffffff', palettes[':root']['--qp-brand-pressed']) >= 4.5);
+  assert(booking.includes('.quiet-public .qb-actions .qb-next { background: var(--qp-brand); color: var(--qp-on-brand); }'));
+  assert(booking.includes('.quiet-public .qb-actions .qb-next:hover:not(:disabled) { background: var(--qp-brand-hover); color: var(--qp-on-brand); }'));
+  for (const tokens of Object.values(palettes))
+    for (const bg of ['brand', 'brand-hover', 'brand-pressed'])
+      assert(contrast(tokens['--qp-on-brand'], tokens['--qp-' + bg]) >= 4.5);
 });
 test('review fields have associated labels and promo errors use semantic announced feedback', () => {
   const reviews = read('src/app/reviews/page.tsx');
