@@ -9,7 +9,7 @@
   --admin-accent-strong: #0d655d;
   --admin-accent-soft: #e2f3ef;
   --admin-shadow: 0 12px 35px rgba(28, 57, 51, 0.07);
-  --admin-panel-rgb: 255, 255, 255;
+  --admin-panel-rgb: var(--surface-rgb);
   --admin-topbar: rgba(243, 246, 245, .88);
   --admin-sidebar: rgba(255, 255, 255, .94);
   --admin-field: #ffffff;
