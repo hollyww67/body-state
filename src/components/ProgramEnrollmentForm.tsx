@@ -1,14 +1,17 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle2, AlertCircle, Sparkles } from 'lucide-react';
+import { useEffect, useId, useState } from 'react';
+import { CheckCircle2, AlertCircle } from 'lucide-react';
 import PersonalDataConsent from '@/components/legal/PersonalDataConsent';
+import TextField from '@/components/ui/TextField';
+import { TextareaField } from '@/components/ui/ChoiceField';
+import { Button } from '@/components/ui/button';
 import { formatRussianPhoneInput } from '@/lib/phone';
 import { useAccountPrefill } from '@/lib/hooks/use-account-prefill';
 
 export default function ProgramEnrollmentForm() {
     const profile = useAccountPrefill();
+    const fieldId = useId();
     const [name, setName] = useState('');
     const [phone, setPhone] = useState('');
     const [message, setMessage] = useState('');
@@ -62,95 +65,60 @@ export default function ProgramEnrollmentForm() {
 
     return (
         <form onSubmit={handleSubmit} className="space-y-5">
-            <AnimatePresence>
                 {error && (
-                    <motion.div
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        className="flex items-center gap-3 p-4 rounded-2xl bg-red-50 text-red-600 border border-red-100"
+                    <div
+                        role="alert"
+                        className="flex items-center gap-3 rounded-2xl border border-[var(--qp-danger)] bg-[var(--qp-danger-bg)] p-4 text-[var(--qp-danger)]"
                     >
-                        <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                        <AlertCircle className="w-5 h-5 flex-shrink-0" aria-hidden="true" />
                         <span className="text-sm font-medium">{error}</span>
-                    </motion.div>
+                    </div>
                 )}
                 {success && (
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.95 }}
-                        className="flex items-center gap-3 p-4 rounded-2xl bg-emerald-50 text-emerald-700 border border-emerald-100"
+                    <div
+                        role="status"
+                        className="flex items-center gap-3 rounded-2xl border border-[var(--qp-success)] bg-[var(--qp-success-bg)] p-4 text-[var(--qp-success)]"
                     >
-                        <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
+                        <CheckCircle2 className="w-5 h-5 flex-shrink-0" aria-hidden="true" />
                         <span className="text-sm font-medium">Заявка отправлена! Мы свяжемся с вами.</span>
-                    </motion.div>
+                    </div>
                 )}
-            </AnimatePresence>
-
-            <div>
-                <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--foreground-secondary)' }}>
-                    Имя <span className="text-red-400">*</span>
-                </label>
-                <input
+                <TextField
+                    id={`${fieldId}-name`}
+                    label="Имя"
                     type="text"
+                    autoComplete="name"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="w-full px-4 py-3 rounded-2xl border transition-all focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
-                    style={{
-                        background: 'var(--bg)',
-                        borderColor: 'var(--border)',
-                        color: 'var(--foreground)',
-                    }}
                     placeholder="Ваше имя"
                     disabled={loading || success}
                     required
                 />
-            </div>
-
-            <div>
-                <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--foreground-secondary)' }}>
-                    Телефон <span className="text-red-400">*</span>
-                </label>
-                <input
+                <TextField
+                    id={`${fieldId}-phone`}
+                    label="Телефон"
                     type="tel"
+                    autoComplete="tel"
                     value={phone}
                     onChange={(e) => setPhone(formatRussianPhoneInput(e.target.value))}
-                    className="w-full px-4 py-3 rounded-2xl border transition-all focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
-                    style={{
-                        background: 'var(--bg)',
-                        borderColor: 'var(--border)',
-                        color: 'var(--foreground)',
-                    }}
                     placeholder="+7 (___)-___-__-__"
                     disabled={loading || success}
                     required
                 />
-            </div>
-
-            <div>
-                <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--foreground-secondary)' }}>
-                    Сообщение
-                </label>
-                <textarea
+                <TextareaField
+                    id={`${fieldId}-message`}
+                    label="Сообщение (необязательно)"
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
                     rows={3}
-                    className="w-full px-4 py-3 rounded-2xl border transition-all focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
-                    style={{
-                        background: 'var(--bg)',
-                        borderColor: 'var(--border)',
-                        color: 'var(--foreground)',
-                    }}
                     placeholder="Дополнительная информация..."
                     disabled={loading || success}
                 />
-            </div>
-
-            <button
+            <Button
                 type="submit"
                 disabled={loading || success || !consent}
-                className="w-full py-4 px-6 rounded-2xl font-semibold text-white transition-all hover:shadow-lg disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                style={{ background: 'linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 82%, white))' }}
+                className="w-full whitespace-normal hover:translate-y-0"
+                aria-busy={loading}
             >
                 {loading ? (
                     <>Отправка...</>
@@ -158,11 +126,10 @@ export default function ProgramEnrollmentForm() {
                     <>Отправлено!</>
                 ) : (
                     <>
-                        <Sparkles className="w-5 h-5" />
                         Отправить заявку
                     </>
                 )}
-            </button>
+            </Button>
 
             <PersonalDataConsent id="program-consent" checked={consent} onChange={setConsent} />
         </form>
