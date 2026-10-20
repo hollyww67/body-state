@@ -5,18 +5,27 @@ import { deliverSMS } from '@/lib/sms';
 import type { ProviderResult } from '@/lib/notification-result';
 import { emailV1Enabled, enqueueBookingNotification, scheduleV1Reminders, retryV1Notification } from '@/lib/notification-core';
 import { JOURNEY_SERVICES, loadJourney, type JourneyService } from '@/lib/booking-journey';
+import { EmailLayout, EmailHero, AppointmentDetails, EmailButton, type EmailDetailCard } from '@/lib/email-components';
 
 type EventType='created'|'confirmed'|'rescheduled'|'cancelled'|'reminder';
 type NotificationRow={id:string;booking_id:string;service_type:JourneyService;event_type:EventType;revision:number;channel:'sms'|'email';attempts:number};
 const safeErrors=new Set(['channel_not_configured','contact_missing','provider_outcome_unknown','provider_rate_limited','provider_unavailable','provider_rejected','attempts_exhausted','worker_interrupted']);
-const esc=(s:string)=>s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
 export function appointmentMessage(kind:EventType, b:Record<string,unknown>) {
   const confirmed=b.status==='confirmed',paid=b.payment_status==='paid';
   const titles={created:'Заявка на запись получена',confirmed:'Запись подтверждена',rescheduled:'Запись перенесена',cancelled:'Запись отменена',reminder:'Напоминание о записи'};
   const date=new Date(String(b.slot_time)).toLocaleString('ru-RU',{timeZone:'Europe/Moscow',dateStyle:'long',timeStyle:'short'});
   const payment=paid?'Оплата получена.':b.payment_option==='at_appointment'?'Оплата — на приёме.':confirmed?'Онлайн-оплата ещё не подтверждена.':'Для подтверждения записи завершите онлайн-оплату.';
   const text=kind==='cancelled'?'Запись отменена.':`${titles[kind]}. ${date} (Москва). ${confirmed?'Время закреплено за вами. ':''}${payment} Управление записью — в личном кабинете.`;
-  return {subject:titles[kind],text,html:`<div style="font-family:Arial,sans-serif;padding:24px"><h2>${titles[kind]}</h2><p>${esc(text)}</p></div>`};
+  // Legacy transport/SMS text are unchanged; only HTML presentation is shared.
+  const snapshot=b.journey_snapshot as {title?:unknown;duration?:unknown;address?:unknown;format?:unknown}|null;
+  const duration=typeof snapshot?.duration==='number'?snapshot.duration:b.duration_minutes;
+  const rows:[string,string][]=[['Дата и время',date+' (Москва)']];
+  if(typeof snapshot?.title==='string')rows.unshift(['Услуга',snapshot.title]);
+  if(typeof duration==='number'&&Number.isInteger(duration)&&duration>0&&duration<=1440)rows.push(['Продолжительность',`${duration} минут`]);
+  if(snapshot?.format!=='online'&&typeof snapshot?.address==='string')rows.push(['Адрес',snapshot.address]);
+  const card:EmailDetailCard={title:'Детали вашей записи',rows};
+  const html=EmailLayout(titles[kind],EmailHero(titles[kind],[text])+AppointmentDetails(card)+EmailButton('Открыть кабинет','https://body-state.ru/account'));
+  return {subject:titles[kind],text,html};
 }
 export async function enqueueAppointment(client:PoolClient,service:JourneyService,id:string,kind:EventType, scheduledAt?:Date) {
   const b=await loadJourney(service,id,client); if(!b)return;
@@ -90,7 +99,7 @@ export async function processNotificationQueue(limit=20,providers:NotificationPr
     let timer:ReturnType<typeof setTimeout>|undefined;
     try {
       const send=row.channel==='sms'?(payload.phone?providers.sms(payload.phone,payload.message.text):Promise.resolve<ProviderResult>({status:'failed',error:'contact_missing'})):
-        (payload.email?providers.email(payload.email,payload.message.subject,payload.message.html):Promise.resolve<ProviderResult>({status:'failed',error:'contact_missing'}));
+        (payload.email?providers.email(payload.email,payload.message.subject,payload.message.html,payload.message.text):Promise.resolve<ProviderResult>({status:'failed',error:'contact_missing'}));
       result=await Promise.race([send,new Promise<ProviderResult>(resolve=>{timer=setTimeout(()=>resolve({status:'uncertain',error:'provider_outcome_unknown'}),providerTimeoutMs);})]);
     } catch {result={status:'uncertain',error:'provider_outcome_unknown'};}
     finally {if(timer) clearTimeout(timer);}

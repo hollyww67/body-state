@@ -46,7 +46,7 @@ function getSmtpTransport() {
   return smtpTransport;
 }
 
-export async function deliverEmail(to: string, subject: string, html: string): Promise<SmtpBudgetResult> {
+export async function deliverEmail(to: string, subject: string, html: string, text?: string): Promise<SmtpBudgetResult> {
   if (!isEmailConfigured()) return {status:'not_configured',error:'channel_not_configured'};
 
   try {
@@ -65,6 +65,7 @@ export async function deliverEmail(to: string, subject: string, html: string): P
         to,
         subject,
         html,
+        ...(text ? { text } : {}),
       });
       return {status:'accepted',id:info.messageId};
     }
@@ -81,6 +82,7 @@ export async function deliverEmail(to: string, subject: string, html: string): P
         to,
         subject,
         html,
+        ...(text ? { text } : {}),
       }),
       signal: AbortSignal.timeout(10_000),
     });
@@ -91,8 +93,8 @@ export async function deliverEmail(to: string, subject: string, html: string): P
     return {status:'uncertain',error:'provider_outcome_unknown'};
   }
 }
-export async function sendEmail(to:string, subject:string, html:string):Promise<boolean> {
-  const r=await deliverEmail(to,subject,html); return r.status==='accepted'||r.status==='delivered';
+export async function sendEmail(to:string, subject:string, html:string, text?:string):Promise<boolean> {
+  const r=await deliverEmail(to,subject,html,text); return r.status==='accepted'||r.status==='delivered';
 }
 
 export type TransactionalEmail = { to: string; subject: string; html: string; text: string };

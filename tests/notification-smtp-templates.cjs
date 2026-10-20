@@ -84,9 +84,11 @@ async function main() {
   assert.equal((await legacy.api.deliverEmail('client@example.invalid', 'Legacy', '<p>Legacy</p>')).status, 'accepted');
   assert.equal(legacy.calls[0].message.from.address, 'legacy@example.invalid');
   assert.equal(await legacy.api.sendEmail('client@example.invalid', 'Legacy', '<p>Legacy</p>'), true);
+  await legacy.api.sendEmail('client@example.invalid','Legacy multipart','<p>Legacy</p>','Legacy plain');
+  assert.equal(legacy.calls.at(-1).message.text,'Legacy plain');
   console.log('PASS SMTP mock: default OFF, runtime flag, validation, strict TLS, safe failures, legacy');
 
-  const { notificationTemplate } = load('src/lib/notification-templates.ts');
+  const { notificationTemplate } = require('./fixtures/load-email-templates.cjs')();
   const data = { name: '<script>alert(1)</script>', serviceTitle: 'Приём & консультация',
     slotTime: '2026-10-15T21:30:00Z', oldTime: '2026-10-14T21:30:00Z',
     resetUrl: 'https://body-state.ru/account/reset-password?token=fixture&x=1',
@@ -96,7 +98,7 @@ async function main() {
     'reminder_24h', 'reminder_2h', 'reset_requested', 'password_changed', 'delivery_alert']) {
     const template = notificationTemplate(kind, data);
     assert(template.subject.startsWith('Body State')); assert(template.text); assert(template.html);
-    assert(template.html.includes('https://body-state.ru/admin-icons/192.png'));
+    assert(template.html.includes('https://body-state.ru/email-assets/brand-illustration.png'));
     assert(template.html.includes('name="viewport"')); assert(!template.html.includes('<script>'));
     assert(!template.html.includes('<img onerror')); assert(!JSON.stringify(template).includes('MUST_NOT_APPEAR'));
   }

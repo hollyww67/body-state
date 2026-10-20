@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { CONSENT_VERSION } from "@/lib/legal";
 import { cleanText, enforceRateLimit, normalizeEmail, readJsonObject } from "@/lib/request";
 import { sendEmail } from "@/lib/notifications";
+import { accountCreatedEmailTemplate } from "@/lib/notification-templates";
 import { syncLoyaltyRewards } from "@/lib/loyalty";
 
 export async function POST(request: NextRequest) {
@@ -45,10 +46,12 @@ export async function POST(request: NextRequest) {
     const token = await createAccountSession(account.id, account.session_version);
     await syncLoyaltyRewards({ accountUserId: account.id, email });
     (await cookies()).set(accountCookie(token));
+    const welcomeEmail = accountCreatedEmailTemplate(displayName);
     void sendEmail(
       email,
       "Личный кабинет создан",
-      `<p>Здравствуйте, ${displayName.replace(/[&<>"']/g, "")}!</p><p>Для входа используйте e-mail <strong>${email}</strong>.</p><p>Если понадобится новый пароль, воспользуйтесь ссылкой «Забыли пароль?» на странице входа.</p>`,
+      welcomeEmail.html,
+      welcomeEmail.text,
     );
     return NextResponse.json({ ok: true }, { status: 201 });
   } catch (error) {

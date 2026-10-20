@@ -54,6 +54,7 @@ async function main() {
   const response = { json: (body, options = {}) => ({ body, status: options.status || 200 }) };
   let limited = false, targetAllowed = true, smtpCalls = 0, cookieCleared = 0;
   const mocks = {
+    '@/lib/notification-templates': require('./fixtures/load-email-templates.cjs')(),
     '@/lib/notification-core': core, '@/lib/notification-reset': helper,
     '@/lib/db': { db, pool: { query: async () => { throw Error('Unexpected legacy SQL'); } } },
     'next/server': { NextResponse: response },

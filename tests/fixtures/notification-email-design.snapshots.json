@@ -1,22 +1,50 @@
 {
   "password-reset": {
-    "html": "0c24d910d7c0f2c8265d927bdac61b91781a18a925df52465e4c64ddb4bbeddc",
-    "text": "373276a68460923eea9ed781fa160130fb4a2e9029af9a6f3b28b537e9b94629"
+    "html": "16bbb87343623bf00ba4ef25e6d45364aa6567aa7d904b22288bdd80a1c08e32",
+    "text": "66627e23d844d9d70766b6ff37c2018065e1fdc67f6d12d3197762ffff466182"
   },
   "booking-confirmed": {
-    "html": "eb029c752d3c655dd8a43ba14e9bc9e896efc7f5293b32a0387cb730d6b8aeae",
-    "text": "582dd434211892068f610aa11b92ad155982dcec67afd8f46dc857c7f0c5f4b3"
+    "html": "70a90f8ea992223baf328f359ff4175db89145ee75743764c13b87102e6cf0c3",
+    "text": "07492677fd0bf0f95a649e46fb15f273b9aeacdcd6bc55169c19966f286825a4"
   },
   "booking-rescheduled": {
-    "html": "75711dad6fb76b2cc9c4c109cf6a4e8efa9cc9345cc0b56e29037c9237447d47",
-    "text": "727357aaa2e82d133d67180b82f013bbfa2778efeb5d295bede3e74455e38f52"
+    "html": "6c8dcb113e59e96233b94d599e09ea80e8ebe3f9597611066deb4cbc2ced478b",
+    "text": "126a7c6fcfe3f3c822ee431a25bbf47d5a5bc0bc987f4e66a0a4ca1d7f783fe7"
   },
   "booking-cancelled": {
-    "html": "cc917284b6f9bf1f4036f54db949aa2ae4b3f7939a791e3cbe0537b5884f1634",
-    "text": "8509f5bbc18da9a1f3e85d9203db4d5ec0df4f281edc3496fe14e147090bea83"
+    "html": "1d357272b58a67fc803b0289d7eba6932c3e5c0d5bda051559f360d21576a9aa",
+    "text": "786ca2f2606cdb2b50049a972edae8679fde15ac6371b4c4d2d76fffa6d9c611"
   },
   "payment-confirmed": {
-    "html": "d3c8c9017cce270048bc5f6b2c676d2d7ca80166199d5dd28e0096e83f9058a2",
-    "text": "81e9055fdfbcaca496b163962ecbc8c0783e97562d303e6ea8cedef70cac8865"
+    "html": "ceb6b6ca3a4f62bac25f5607193c59c2fa4133b68f49dc07b80c86ae14636bf6",
+    "text": "37b4e3d333f7ccc602482cc97e7dcdf8038cea95b200c27e085ae6a5d0e6f4c3"
+  },
+  "booking-created": {
+    "html": "8a4d029f8f208698fb653e217ebfffd3df0c56444d71eb358bddbb879d9f7de6",
+    "text": "0fe83da3bd8a19bd089fdd5adca3cb741ae40d757c43b3d0020eb709ac20e960"
+  },
+  "reminder-24h": {
+    "html": "fa89e86a6cd28ed2c451e0927fd0da4827294a9c11f6ca51b545c93b06a55f25",
+    "text": "0076cec1ad56580fcc67880042044bd76513d3456d96861ba11ce051ec65a266"
+  },
+  "reminder-2h": {
+    "html": "482533368f02896eab8ba82f13a856f3d74b72f02eda35419e1a318b0901de68",
+    "text": "8e08af25ecb09830bfff60c6c762e1a804643fcd11299e8cf6cb176c1ef96c81"
+  },
+  "password-changed": {
+    "html": "d38f203a16fbeeaca46fc3bbcb980b1b9c2d83ea74e10c5fb87867ebfb7871a5",
+    "text": "0cdcbb58e957d79929efa3eec72e1bea385cef2bd88e7e9a561b45be6800c77c"
+  },
+  "delivery-alert": {
+    "html": "636b2f3d95910426f6367aecfa5dcb3f8bc05577d120436f30a0af525dd4a5ad",
+    "text": "106ba8d695c8d1e1b7e664afda3329903c6adf0a358c15a2771e0eb4e586634e"
+  },
+  "booking-long": {
+    "html": "061221643d44c18b2a8d8d272452ec5d8add64b47e1d96433585a6e3bd1ee938",
+    "text": "047b8529a2b701456b786857a4dcd91ff258d278832b7d1336256bea54414f87"
+  },
+  "account-created": {
+    "html": "3255e35050a4e67abbd10fcdd9c8d94ed327d9bb70081be4878a3c4d6519c7e9",
+    "text": "4d44646cd435717aaddee34067c95e09cb390dfdcbf815777d309eef461bbe85"
   }
 }

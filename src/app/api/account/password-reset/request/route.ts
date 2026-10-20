@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db, pool } from "@/lib/db";
 import { assertResetKeyConfigured, enqueuePasswordReset, resetNotificationsEnabled } from "@/lib/notification-reset";
 import { isEmailConfigured, sendEmail } from "@/lib/notifications";
+import { passwordResetEmailTemplate } from "@/lib/notification-templates";
 import { cleanText, enforceRateLimit, readJsonObject } from "@/lib/request";
 import { checkRateLimit } from "@/lib/rate-limit";
 
@@ -11,10 +12,6 @@ const GENERIC_MESSAGE = "Если аккаунт найден, вы получи
 
 function digest(value: string) {
   return crypto.createHash("sha256").update(value).digest("hex");
-}
-
-function escapeHtml(value: string) {
-  return value.replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" })[character]!);
 }
 
 export async function POST(request: NextRequest) {
@@ -73,10 +70,12 @@ export async function POST(request: NextRequest) {
     );
     const resetUrl = new URL("/account/reset-password", SITE_URL);
     resetUrl.searchParams.set("token", token);
+    const resetEmail = passwordResetEmailTemplate(resetUrl.toString());
     const sent = await sendEmail(
       account.email,
       "Восстановление пароля",
-      `<p>Здравствуйте${account.display_name ? `, ${escapeHtml(account.display_name)}` : ""}!</p><p>Для аккаунта <strong>${escapeHtml(account.username)}</strong> запрошена смена пароля.</p><p><a href="${resetUrl.toString()}">Установить новый пароль</a></p><p>Ссылка действует 30 минут и может быть использована один раз. Если это были не вы, проигнорируйте письмо.</p>`,
+      resetEmail.html,
+      resetEmail.text,
     );
     if (!sent) {
       await pool.query("UPDATE account_password_reset_tokens SET used_at=now() WHERE token_hash=$1", [tokenHash]);

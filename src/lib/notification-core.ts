@@ -123,6 +123,14 @@ async function resolvePayload(client:PoolClient,row:Row){
   const data:Record<string,unknown>={name:user?.display_name||booking?.client_name,slotTime:booking?.slot_time?new Date(String(booking.slot_time)).toISOString():undefined,
     serviceTitle:({bfm:'Физическая реабилитация',brt:'БРТ',psychology:'Психологическая реабилитация'} as Record<string,string>)[row.service_type||''],
     status:booking?.status,oldTime:row.payload.oldTime,accountUrl:'https://body-state.ru/account'};
+  // Presentation enrichment only: reuse already loaded facts, never query or enqueue.
+  // MAX payloads and subjects remain unchanged.
+  if(row.channel==='email'&&booking){
+    const snapshot=booking.journey_snapshot as {title?:unknown;duration?:unknown;address?:unknown;format?:unknown}|null;
+    if(typeof snapshot?.title==='string'&&snapshot.title.trim())data.serviceTitle=snapshot.title;
+    data.durationMinutes=typeof snapshot?.duration==='number'?snapshot.duration:booking.duration_minutes;
+    if(snapshot?.format!=='online'&&typeof snapshot?.address==='string')data.address=snapshot.address;
+  }
   if(row.event_type==='reset_requested'){
     const reset=await client.query('SELECT id,token_hash FROM account_password_reset_tokens WHERE id=$1 AND account_user_id=$2 AND used_at IS NULL AND expires_at>now()',[row.payload.resetId,row.account_user_id]);
     if(!reset.rows[0])return null;

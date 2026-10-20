@@ -27,7 +27,7 @@ let providerFetch=forbidden;
 const mocks = {
   '@/lib/notifications': { deliverTransactionalEmail: forbidden },
   '@/lib/max-notifications': { deliverMax: forbidden },
-  '@/lib/legal': { legalDetails: {} }, '@/lib/service-prices': { getServicePrice: forbidden },
+  '@/lib/legal': { legalDetails: {phone:'+79990000000',email:'support@example.invalid',operator:'Synthetic QA',inn:'000000000000'} }, '@/lib/service-prices': { getServicePrice: forbidden },
   '@/lib/promo-codes': { validatePromoCode: forbidden },
 };
 function load(name) {
@@ -118,6 +118,18 @@ async function main() {
     await Promise.all(Array.from({ length: 20 }, () => core.processV1Notifications(1, providers(async () => { calls++; await new Promise(r => setTimeout(r, 10)); return { status: 'accepted' }; }))));
     assert.equal(calls, 20);
     assert.equal((await pool.query("SELECT count(*)::int n FROM appointment_notifications WHERE engine='v1' AND status='accepted' AND attempts=1")).rows[0].n, 20);
+  });
+  await test('email uses real stored service/duration/address without new facts or MAX changes',async()=>{
+    const id=await booking();
+    await pool.query('UPDATE bfm_bookings SET journey_snapshot=$1 WHERE id=$2',[JSON.stringify({title:'Synthetic actual program',duration:75,address:'Synthetic appointment address',format:'offline'}),id]);
+    await enqueue(id);let calls=0;
+    await core.processV1Notifications(1,providers(async(to,subject,html,text)=>{
+      calls++;assert.equal(subject,'Body State — Запись подтверждена');
+      for(const fact of ['Synthetic actual program','75 минут','Synthetic appointment address'])assert(html.includes(fact)&&text.includes(fact));
+      assert(!html.includes('90 минут'));return {status:'accepted'};
+    }));assert.equal(calls,1);
+    const online=await booking();await pool.query('UPDATE bfm_bookings SET journey_snapshot=$1 WHERE id=$2',[JSON.stringify({title:'Synthetic online',duration:60,address:'DO NOT DISPLAY OFFLINE ADDRESS',format:'online'}),online]);
+    await enqueue(online);await core.processV1Notifications(1,providers(async(to,subject,html)=>{assert(!html.includes('DO NOT DISPLAY'));return {status:'accepted'};}));
   });
   await test('logical paid dedupe survives booking revision changes', async () => {
     const id = await booking();
